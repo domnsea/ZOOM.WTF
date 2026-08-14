@@ -33,7 +33,8 @@ SLOT_NAMES=("wtf1132a" "wtf1132b" "wtf1132c")
 ZOOM_BUNDLE_ID="us.zoom.xos"
 
 mkdir -p "$SUPPORT_DIR" "$LOG_DIR" "$BACKUP_DIR"
-LOG_FILE="$LOG_DIR/engine_$(date +%Y-%m-%d_%H%M%S).log"
+# The PID keeps two runs started inside the same second from sharing a log.
+LOG_FILE="$LOG_DIR/engine_$(date +%Y-%m-%d_%H%M%S)_$$.log"
 
 # --------------------------------------------------------------------- output
 
@@ -158,6 +159,22 @@ http_storage|$HOME/Library/HTTPStorages/$ZOOM_BUNDLE_ID
 TARGETS
 }
 
+# Claim a backup directory that does not exist yet. Plain mkdir, not mkdir -p,
+# so a name already in use is reported rather than silently shared: two runs in
+# the same second must never write into one backup.
+new_backup_dir() {
+  local stamp attempt candidate
+  stamp="$(date +%Y-%m-%d_%H%M%S)"
+  for attempt in "" _2 _3 _4 _5 _6 _7 _8 _9; do
+    candidate="$BACKUP_DIR/${stamp}${attempt}"
+    if mkdir "$candidate" 2>/dev/null; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
 do_fix() {
   local zoom
   zoom="$(find_zoom_app || true)"
@@ -168,10 +185,9 @@ do_fix() {
 
   stop_zoom
 
-  local stamp backup moved manifest
-  stamp="$(date +%Y-%m-%d_%H%M%S)"
-  backup="$BACKUP_DIR/$stamp"
-  mkdir -p "$backup"
+  local backup moved manifest
+  backup="$(new_backup_dir)" ||
+    die "Could not create a backup directory under $BACKUP_DIR"
   manifest="$backup/manifest.txt"
   : >"$manifest"
   moved=0
@@ -207,6 +223,7 @@ do_fix() {
   done
 
   if [ "$moved" -eq 0 ]; then
+    rm -f "$manifest"
     rmdir "$backup" 2>/dev/null || true
     log INFO "Zoom identity was already clean, nothing to back up."
   else

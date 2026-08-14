@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+#
+# 1132.WTF graphical front end for Linux.
+#
+# Uses whichever dialog tool the desktop already has: zenity (GNOME and most
+# others), kdialog (KDE), or yad. With none of them it falls back to a terminal
+# menu, and if there is no terminal either it just runs a level 1 fix.
+
+set -u
+set -o pipefail
+
+APP_NAME="1132.WTF"
+APP_ID="1132wtf"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+
+# Prefer the engine installed beside this script, then one on PATH.
+if [ -x "$HERE/$APP_ID" ]; then
+  ENGINE="$HERE/$APP_ID"
+elif command -v "$APP_ID" >/dev/null 2>&1; then
+  ENGINE="$(command -v "$APP_ID")"
+else
+  printf '%s\n' "Cannot find the $APP_ID engine." >&2
+  exit 1
+fi
+
+L1="Fix now  -  reset this machine's Zoom identity, then restart Zoom"
+L2="Deep fix  -  run Zoom as a throwaway user (needs root)"
+L3="Join in browser  -  fresh private session, skip the client"
+L4="Status  -  what does 1132.WTF see here?"
+L5="Undo last fix  -  put the previous Zoom identity back"
+L6="Autostart on  -  reset at every login"
+L7="Autostart off"
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# ---------------------------------------------------------------- dialog tools
+
+show_text() {
+  # show_text <title> <body>
+  local title="$1" body="$2"
+  if have zenity; then
+    printf '%s\n' "$body" | zenity --text-info --title="$title" \
+      --width=720 --height=460 2>/dev/null || true
+  elif have kdialog; then
+    local tmp
+    tmp="$(mktemp)"
+    printf '%s\n' "$body" >"$tmp"
+    kdialog --title "$title" --textbox "$tmp" 720 460 2>/dev/null || true
+    rm -f "$tmp"
+  elif have yad; then
+    printf '%s\n' "$body" | yad --text-info --title="$title" \
+      --width=720 --height=460 2>/dev/null || true
+  else
+    printf '%s\n' "$body"
+  fi
+}
+
+ask_text() {
+  # ask_text <prompt> ; prints the answer, empty if cancelled
+  local prompt="$1"
+  if have zenity; then
+    zenity --entry --title="$APP_NAME" --text="$prompt" 2>/dev/null || printf ''
+  elif have kdialog; then
+    kdialog --title "$APP_NAME" --inputbox "$prompt" 2>/dev/null || printf ''
+  elif have yad; then
+    yad --entry --title="$APP_NAME" --text="$prompt" 2>/dev/null || printf ''
+  else
+    local answer
+    read -r -p "$prompt " answer || answer=""
+    printf '%s' "$answer"
+  fi
+}
+
+confirm_box() {
+  # confirm_box <body> ; returns 0 for yes
+  local body="$1"
+  if have zenity; then
+    zenity --question --title="$APP_NAME" --text="$body" \
+      --ok-label="Continue" --cancel-label="Cancel" --width=460 2>/dev/null
+  elif have kdialog; then
+    kdialog --title "$APP_NAME" --yesno "$body" 2>/dev/null
+  elif have yad; then
+    yad --question --title="$APP_NAME" --text="$body" 2>/dev/null
+  else
+    local answer
+    read -r -p "$body [y/N] " answer || answer=""
+    case "$answer" in y | Y | yes | YES) return 0 ;; *) return 1 ;; esac
+  fi
+}
+
+pick_action() {
+  # Prints the chosen verb, or nothing when cancelled.
+  if have zenity; then
+    zenity --list --title="$APP_NAME" \
+      --text="Zoom error 1132, fixed.\n\nWork down the list. Stop as soon as you are back in the meeting." \
+      --column="Action" --hide-header --width=620 --height=380 \
+      "$L1" "$L2" "$L3" "$L4" "$L5" "$L6" "$L7" 2>/dev/null
+  elif have kdialog; then
+    kdialog --title "$APP_NAME" --menu "Zoom error 1132, fixed." \
+      fix "$L1" deep-fix "$L2" browser "$L3" status "$L4" \
+      restore "$L5" autostart-on "$L6" autostart-off "$L7" 2>/dev/null
+  elif have yad; then
+    yad --list --title="$APP_NAME" --text="Zoom error 1132, fixed." \
+      --column="Action" --no-headers --width=620 --height=380 \
+      "$L1" "$L2" "$L3" "$L4" "$L5" "$L6" "$L7" 2>/dev/null
+  else
+    printf '\n%s - Zoom error 1132, fixed.\n\n' "$APP_NAME" >&2
+    printf '  1) %s\n' "$L1" >&2
+    printf '  2) %s\n' "$L2" >&2
+    printf '  3) %s\n' "$L3" >&2
+    printf '  4) %s\n' "$L4" >&2
+    printf '  5) %s\n' "$L5" >&2
+    printf '  6) %s\n' "$L6" >&2
+    printf '  7) %s\n' "$L7" >&2
+    printf '\n' >&2
+    local choice
+    read -r -p "Pick 1-7, or Enter to quit: " choice || choice=""
+    case "$choice" in
+      1) printf 'fix' ;;
+      2) printf 'deep-fix' ;;
+      3) printf 'browser' ;;
+      4) printf 'status' ;;
+      5) printf 'restore' ;;
+      6) printf 'autostart-on' ;;
+      7) printf 'autostart-off' ;;
+      *) printf '' ;;
+    esac
+  fi
+}
+
+# kdialog returns the verb directly; the list tools return the label text.
+label_to_verb() {
+  case "$1" in
+    fix | deep-fix | browser | status | restore | autostart-on | autostart-off)
+      printf '%s' "$1"
+      ;;
+    "$L1"*) printf 'fix' ;;
+    "$L2"*) printf 'deep-fix' ;;
+    "$L3"*) printf 'browser' ;;
+    "$L4"*) printf 'status' ;;
+    "$L5"*) printf 'restore' ;;
+    "$L6"*) printf 'autostart-on' ;;
+    "$L7"*) printf 'autostart-off' ;;
+    *) printf '' ;;
+  esac
+}
+
+# ----------------------------------------------------------------------- main
+
+# With arguments, behave exactly like the CLI. This is what the .desktop
+# actions use.
+if [ $# -gt 0 ]; then
+  exec "$ENGINE" "$@"
+fi
+
+CHOICE="$(pick_action)"
+# Some dialog tools append a separator to the selected row.
+CHOICE="${CHOICE%%|*}"
+VERB="$(label_to_verb "$CHOICE")"
+[ -z "$VERB" ] && exit 0
+
+EXTRA=""
+if [ "$VERB" = "browser" ]; then
+  EXTRA="$(ask_text "Meeting link, or leave empty for zoom.us/join:")"
+fi
+
+if [ "$VERB" = "deep-fix" ]; then
+  if ! confirm_box "Deep fix creates a temporary system user and runs Zoom as that user, so Zoom sees a different machine-local identity.
+
+It rotates through three slots and deletes the oldest automatically. Your own account is untouched.
+
+You will be asked for your password."; then
+    exit 0
+  fi
+fi
+
+# Level 2 needs a terminal for the sudo prompt when no graphical askpass is
+# configured, so hand it to one if we can find it.
+if [ "$VERB" = "deep-fix" ] && [ ! -t 0 ]; then
+  for term in x-terminal-emulator gnome-terminal konsole xfce4-terminal alacritty kitty xterm; do
+    if have "$term"; then
+      case "$term" in
+        gnome-terminal) exec "$term" -- "$ENGINE" deep-fix ;;
+        *) exec "$term" -e "$ENGINE deep-fix" ;;
+      esac
+    fi
+  done
+fi
+
+OUTPUT="$(NO_COLOR=1 WTF1132_ASSUME_YES=1 "$ENGINE" "$VERB" ${EXTRA:+"$EXTRA"} 2>&1)"
+STATUS=$?
+
+TITLE="$APP_NAME"
+[ "$STATUS" -ne 0 ] && TITLE="$APP_NAME - something went wrong"
+show_text "$TITLE" "$OUTPUT"
+
+exit "$STATUS"
