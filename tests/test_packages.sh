@@ -350,6 +350,15 @@ check "top level README exists" test -f README.md
 check_grep "README links the engine contract" "docs/ENGINE.md" README.md
 check_grep "README links the mobile notes" "docs/MOBILE.md" README.md
 
+# ../../raw/MAIN/dist/... 404s until this branch is merged. The download table
+# must not use that path: it is why the packages looked undownloadable.
+if grep -n 'raw/MAIN/dist' README.md dist/README.md >/dev/null 2>&1; then
+  fail "README download links do not point at MAIN (which 404s)" \
+    "$(grep -n 'raw/MAIN/dist' README.md dist/README.md)"
+else
+  pass "README download links do not point at MAIN (which 404s)"
+fi
+
 # Every platform README should say what to run first, because that is the only
 # thing most people will read.
 check_grep "windows README names the launcher" "1132.WTF.vbs" platforms/windows/README.md

