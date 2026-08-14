@@ -256,7 +256,45 @@ if problems:
 print("  ok    bundle plists and manifests all reference files and schemes that exist")
 PY
 
-# ----------------------------------------------------------- 6. script syntax
+# ------------------------------------------------- 6. packager platform names
+
+printf '\npackager platform names\n'
+
+# CI once passed "macos" to a packager that only accepted "mac", which failed the
+# build. Any platform name used in a workflow or a README must be one the
+# packager actually accepts.
+accepted="$(bash tools/build_all.sh --list-platforms 2>/dev/null)"
+if [ -z "$accepted" ]; then
+  fail "packager reports its platform names" "--list-platforms printed nothing"
+else
+  pass "packager reports its platform names"
+
+  # Only the workflows are checked, because those are what actually run. Prose
+  # in a README would produce false matches on ordinary English words.
+  used=""
+  while IFS= read -r word; do
+    used="${used:+$used }$word"
+  done < <(grep -rhoE 'build_all\.sh[^|&;#]*' .github/workflows 2>/dev/null |
+    tr ' ' '\n' |
+    grep -xE '[a-z]+' |
+    sort -u)
+
+  unknown=""
+  for word in $used; do
+    if ! printf '%s\n' "$accepted" | grep -qx -- "$word"; then
+      unknown="${unknown:+$unknown }$word"
+    fi
+  done
+
+  if [ -z "$unknown" ]; then
+    pass "workflows use canonical platform names"
+  else
+    fail "workflows use canonical platform names" \
+      "not in --list-platforms: $unknown (aliases work but should not be relied on)"
+  fi
+fi
+
+# ----------------------------------------------------------- 7. script syntax
 
 printf '\nevery shell script parses\n'
 syntax_bad=""
@@ -303,7 +341,7 @@ else
   printf '  skip  PowerShell parse check (pwsh not installed)\n'
 fi
 
-# ------------------------------------------------------- 7. docs are wired up
+# ------------------------------------------------------- 8. docs are wired up
 
 printf '\ndocumentation\n'
 check "engine contract exists" test -f docs/ENGINE.md

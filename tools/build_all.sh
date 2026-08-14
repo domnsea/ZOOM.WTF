@@ -2,11 +2,11 @@
 #
 # Build the distributable 1132.WTF package for every platform.
 #
-#   tools/build_all.sh              build all five packages into dist/
-#   tools/build_all.sh windows mac  build only the named ones
-#   tools/build_all.sh --no-brand   skip regenerating icons
+#   tools/build_all.sh                build all five packages into dist/
+#   tools/build_all.sh windows macos  build only the named ones
+#   tools/build_all.sh --no-brand     skip regenerating icons
 #
-# Platform names: windows, mac, linux, android, ios
+# Platform names: windows, macos, linux, android, ios ("mac" also works)
 #
 # Output: dist/1132.WTF-<platform>-<version>.zip plus dist/SHA256SUMS
 #
@@ -27,23 +27,37 @@ STAGE="$DIST/.stage"
 REBUILD_BRAND=1
 REQUESTED=()
 
+# The canonical platform names, in the order they are built. Anything that
+# invokes this script by name is checked against this list by
+# tests/test_packages.sh.
+PLATFORMS=(windows macos linux android ios)
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --no-brand) REBUILD_BRAND=0; shift ;;
-    -h | --help)
-      printf '%s\n' "Usage: $0 [--no-brand] [windows] [mac] [linux] [android] [ios]"
+    --list-platforms)
+      printf '%s\n' "${PLATFORMS[@]}"
       exit 0
       ;;
-    windows | mac | linux | android | ios) REQUESTED+=("$1"); shift ;;
+    -h | --help)
+      printf '%s\n' "Usage: $0 [--no-brand] [--list-platforms] [platform...]"
+      printf '%s\n' "Platforms: ${PLATFORMS[*]}"
+      exit 0
+      ;;
+    # "mac" is accepted as an alias, but macos is canonical: it is what the
+    # staged folder and the published zip are both named.
+    mac | macos) REQUESTED+=(macos); shift ;;
+    windows | linux | android | ios) REQUESTED+=("$1"); shift ;;
     *)
       printf '%s\n' "Unknown argument: $1" >&2
+      printf '%s\n' "Platform names: ${PLATFORMS[*]}" >&2
       exit 2
       ;;
   esac
 done
 
 if [ "${#REQUESTED[@]}" -eq 0 ]; then
-  REQUESTED=(windows mac linux android ios)
+  REQUESTED=("${PLATFORMS[@]}")
 fi
 
 wanted() {
@@ -125,7 +139,7 @@ fi
 
 # ----------------------------------------------------------------------- mac
 
-if wanted mac; then
+if wanted macos; then
   step "macOS"
   target="$STAGE/1132.WTF-macos"
   mkdir -p "$target"
