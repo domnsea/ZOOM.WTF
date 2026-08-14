@@ -27,7 +27,7 @@ jobs:
 
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Verify the packages match their recorded checksums
         working-directory: dist
