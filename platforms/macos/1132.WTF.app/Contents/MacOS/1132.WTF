@@ -1,0 +1,144 @@
+#!/bin/bash
+#
+# 1132.WTF app entry point for macOS.
+#
+# Double-clicked, it shows a native chooser and runs the picked action.
+# Started by the login item, it runs a level 1 reset with no interface.
+
+set -u
+set -o pipefail
+
+APP_NAME="1132.WTF"
+APP_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+export APP_ROOT
+ENGINE="$APP_ROOT/Contents/Resources/1132wtf-engine.sh"
+LOG_DIR="$HOME/Library/Logs/$APP_NAME"
+
+mkdir -p "$LOG_DIR"
+
+applescript_quote() {
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
+
+fail_dialog() {
+  /usr/bin/osascript -e "display dialog \"$(applescript_quote "$1")\" \
+    buttons {\"OK\"} default button \"OK\" with icon stop with title \"$APP_NAME\"" >/dev/null 2>&1 || true
+}
+
+if [ ! -f "$ENGINE" ]; then
+  fail_dialog "The engine is missing from this app bundle:
+
+$ENGINE
+
+Re-extract the package without changing what is inside $APP_NAME.app."
+  exit 1
+fi
+chmod +x "$ENGINE" 2>/dev/null || true
+
+run_engine() {
+  # Engine output goes to the terminal, its own log file, and back to us.
+  "$ENGINE" "$@" 2>&1
+}
+
+# ------------------------------------------------------- non-interactive mode
+
+if [ "${1:-}" = "--background" ]; then
+  run_engine fix >>"$LOG_DIR/background.log" 2>&1
+  exit $?
+fi
+
+# Allow the bundle to be driven directly for scripting or troubleshooting:
+#   1132.WTF.app/Contents/MacOS/1132.WTF status
+if [ $# -gt 0 ]; then
+  run_engine "$@"
+  exit $?
+fi
+
+# ------------------------------------------------------------ chooser mode
+
+OPT_FIX="1  Fix now - reset this Mac's Zoom identity, then reopen Zoom"
+OPT_DEEP="2  Deep fix - make a clean throwaway macOS account for Zoom"
+OPT_BROWSER="3  Join in browser - fresh private session, skip the client"
+OPT_STATUS="Status - what does 1132.WTF see on this Mac?"
+OPT_UNDO="Undo last fix - put the previous Zoom identity back"
+OPT_AUTO_ON="Turn on autostart - reset at every login"
+OPT_AUTO_OFF="Turn off autostart"
+OPT_LOGS="Open logs"
+
+CHOICE="$(/usr/bin/osascript <<OSA 2>/dev/null
+set choices to {"$OPT_FIX", "$OPT_DEEP", "$OPT_BROWSER", "$OPT_STATUS", "$OPT_UNDO", "$OPT_AUTO_ON", "$OPT_AUTO_OFF", "$OPT_LOGS"}
+set picked to choose from list choices with title "$APP_NAME" ¬
+  with prompt "Zoom error 1132, fixed." & return & return & ¬
+  "Work down the list. Stop as soon as you are back in the meeting." ¬
+  default items {"$OPT_FIX"} OK button name "Run" cancel button name "Close"
+if picked is false then
+  return "cancelled"
+else
+  return item 1 of picked
+end if
+OSA
+)"
+
+if [ -z "$CHOICE" ] || [ "$CHOICE" = "cancelled" ]; then
+  exit 0
+fi
+
+VERB=""
+NEEDS_REPORT=1
+case "$CHOICE" in
+  "$OPT_FIX") VERB="fix" ;;
+  "$OPT_DEEP") VERB="deep-fix"; NEEDS_REPORT=0 ;;
+  "$OPT_BROWSER") VERB="browser" ;;
+  "$OPT_STATUS") VERB="status" ;;
+  "$OPT_UNDO") VERB="restore" ;;
+  "$OPT_AUTO_ON") VERB="autostart-on" ;;
+  "$OPT_AUTO_OFF") VERB="autostart-off" ;;
+  "$OPT_LOGS") VERB="logs"; NEEDS_REPORT=0 ;;
+  *) exit 0 ;;
+esac
+
+# Level 3 asks for the meeting link first.
+EXTRA=""
+if [ "$VERB" = "browser" ]; then
+  EXTRA="$(/usr/bin/osascript -e "text returned of (display dialog \
+    \"Paste the meeting link, or leave this empty to open zoom.us/join.\" \
+    default answer \"\" with title \"$APP_NAME\" buttons {\"Cancel\", \"Open\"} \
+    default button \"Open\")" 2>/dev/null || printf '__cancelled__')"
+  [ "$EXTRA" = "__cancelled__" ] && exit 0
+fi
+
+# Level 2 explains itself before asking for an administrator password.
+if [ "$VERB" = "deep-fix" ]; then
+  CONFIRM="$(/usr/bin/osascript -e "button returned of (display dialog \
+    \"Deep fix creates a temporary macOS account and hands you its password, \
+so you can run Zoom there as a completely different machine-local identity.
+
+Your own account, files, and settings are untouched. The account is deleted \
+automatically as the rotation comes back around.
+
+macOS will ask for your administrator password.\" \
+    with title \"$APP_NAME\" buttons {\"Cancel\", \"Continue\"} \
+    default button \"Continue\")" 2>/dev/null || printf 'Cancel')"
+  [ "$CONFIRM" != "Continue" ] && exit 0
+fi
+
+OUTPUT="$(run_engine "$VERB" ${EXTRA:+"$EXTRA"})"
+STATUS=$?
+
+if [ "$NEEDS_REPORT" -eq 1 ]; then
+  # Show the last dozen lines, which is where the outcome always is.
+  SUMMARY="$(printf '%s\n' "$OUTPUT" | tail -n 12)"
+  if [ "$STATUS" -eq 0 ]; then
+    /usr/bin/osascript -e "display dialog \"$(applescript_quote "$SUMMARY")\" \
+      buttons {\"OK\"} default button \"OK\" with title \"$APP_NAME\"" >/dev/null 2>&1 || true
+  else
+    BUTTON="$(/usr/bin/osascript -e "button returned of (display dialog \
+      \"$(applescript_quote "$SUMMARY")\" buttons {\"Open logs\", \"OK\"} \
+      default button \"OK\" with icon caution with title \"$APP_NAME\")" 2>/dev/null || printf 'OK')"
+    if [ "$BUTTON" = "Open logs" ]; then
+      /usr/bin/open "$LOG_DIR" >/dev/null 2>&1 || true
+    fi
+  fi
+fi
+
+exit "$STATUS"
