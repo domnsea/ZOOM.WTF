@@ -363,6 +363,10 @@ fi
 # thing most people will read.
 check_grep "windows README names the launcher" "1132.WTF.vbs" platforms/windows/README.md
 check_grep "macos README names the installer" "INSTALL_TO_APPLICATIONS.command" platforms/macos/README.md
+check "macos package has OPEN_ME_FIRST.txt for Gatekeeper" test -f platforms/macos/OPEN_ME_FIRST.txt
+check_grep "OPEN_ME_FIRST tells them to right-click Open" "Right-click" platforms/macos/OPEN_ME_FIRST.txt
+check_grep "OPEN_ME_FIRST has a Terminal paste" "xattr -cr" platforms/macos/OPEN_ME_FIRST.txt
+check "macos allow helper exists" test -f platforms/macos/allow-macos.sh
 check_grep "linux README names the installer" "install.sh" platforms/linux/README.md
 check_grep "android README names the build script" "build-apk.sh" platforms/android/README.md
 check_grep "ios README names the project" "1132WTF.xcodeproj" platforms/ios/README.md

@@ -150,8 +150,8 @@ if wanted macos; then
   # The bundle will not launch without these bits set.
   chmod +x "$target/1132.WTF.app/Contents/MacOS/1132.WTF"
   chmod +x "$target/1132.WTF.app/Contents/Resources/1132wtf-engine.sh"
-  chmod +x "$target"/*.command
-  note "executable bits set on the app and .command files"
+  chmod +x "$target"/*.command "$target/allow-macos.sh"
+  note "executable bits set on the app, helpers, and .command files"
 
   package macos "1132.WTF-macos"
 fi

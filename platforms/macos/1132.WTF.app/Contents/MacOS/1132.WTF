@@ -16,6 +16,11 @@ LOG_DIR="$HOME/Library/Logs/$APP_NAME"
 
 mkdir -p "$LOG_DIR"
 
+# If Gatekeeper let us in once, drop the download flag so the next launch
+# does not show the same dialog.
+xattr -cr "$APP_ROOT" >/dev/null 2>&1 || true
+chmod +x "$ENGINE" >/dev/null 2>&1 || true
+
 applescript_quote() {
   printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
 }

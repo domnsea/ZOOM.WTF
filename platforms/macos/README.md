@@ -8,17 +8,25 @@ compile.
 
 ## Start here
 
-1. Run **`INSTALL_TO_APPLICATIONS.command`** (double-click it).
-   It copies the app to `/Applications`, marks it executable, and clears the
-   quarantine flag macOS puts on anything that came out of a downloaded zip.
+**If macOS says the author cannot be verified**, open `OPEN_ME_FIRST.txt`
+(plain text — Gatekeeper never blocks it) and follow it. The short version:
+
+1. Right-click `INSTALL_TO_APPLICATIONS.command` → **Open** → Open
+2. Or System Settings → Privacy & Security → **Open Anyway**
+3. Or paste the Terminal command from `OPEN_ME_FIRST.txt`
+
+That dialog is Gatekeeper. This app is not signed with a paid Apple Developer
+certificate, so macOS treats it like any other file from the internet. It is
+not a warning that the app is damaged.
+
+Otherwise:
+
+1. Run **`INSTALL_TO_APPLICATIONS.command`**.
+   It copies the app to `/Applications`, clears the download flag, and signs
+   this copy locally so Gatekeeper will launch it.
 2. Open **`1132.WTF`** from Applications.
 3. Pick an action and work down the list. Stop as soon as you are back in the
    meeting.
-
-If macOS says the app cannot be checked for malicious software, right-click it
-in Applications and choose **Open** once. That is Gatekeeper reacting to an
-app that is not signed with a paid Apple Developer certificate, not a warning
-about anything the app does.
 
 ## The three levels
 

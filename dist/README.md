@@ -46,11 +46,12 @@ have needs to say `OK`.
 
 ## Two notes on what your system will say
 
-**macOS** will refuse to open the app on the first try, saying it cannot be
-checked for malicious software. That is Gatekeeper reacting to an app not signed
-with a paid Apple Developer certificate. `INSTALL_TO_APPLICATIONS.command`
-clears the quarantine flag for you; if macOS still objects, right-click the app
-in Applications and choose **Open** once.
+**macOS** will say the author cannot be verified. That is Gatekeeper, because
+the app is not signed with a paid Apple Developer certificate. Open
+`OPEN_ME_FIRST.txt` in the zip (plain text, always opens) and follow it:
+right-click → Open, or Privacy & Security → Open Anyway, or the Terminal
+command in that file. `INSTALL_TO_APPLICATIONS.command` now strips the
+download flag and signs this copy locally.
 
 **Windows** may block the scripts because they came out of a downloaded zip.
 Right-click the zip, choose Properties, tick **Unblock**, then extract it again.
