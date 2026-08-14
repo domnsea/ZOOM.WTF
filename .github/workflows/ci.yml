@@ -1,0 +1,64 @@
+name: Tests
+
+# Runs every suite that does not need a Mac, a phone, or an emulator, which is
+# all four of them.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Install Pillow so the icon integrity check runs rather than skips
+        run: python3 -m pip install --quiet --break-system-packages Pillow
+
+      - name: Suites
+        run: tests/run_all.sh
+
+      - name: Packages still match their recorded checksums
+        working-directory: dist
+        run: sha256sum -c SHA256SUMS
+
+      - name: Rebuild the packages from source
+        # Proves the packager works from a clean checkout. The rebuilt archives
+        # are not compared byte for byte against dist/, because zip embeds
+        # timestamps, so identical inputs still produce different bytes.
+        run: |
+          tools/build_all.sh --no-brand windows macos linux ios
+          ls -la dist/
+
+  android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build the debug APK
+        working-directory: platforms/android
+        # Debug rather than release: a release build would generate a throwaway
+        # signing key on every run, and an APK signed with a different key each
+        # time cannot be installed as an update over the last one.
+        run: ./gradlew --console=plain assembleDebug
+
+      - name: Report what the APK claims
+        working-directory: platforms/android
+        run: |
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          ls -la "$apk"
+          "$ANDROID_HOME"/build-tools/34.0.0/aapt2 dump badging "$apk" |
+            grep -E 'package:|application:|launchable-activity:|sdkVersion:'

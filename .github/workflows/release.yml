@@ -1,0 +1,100 @@
+name: Release
+
+# Publishes the packages in dist/ as a GitHub Release, so they can be downloaded
+# with one click instead of hunting through the file tree. A pull request diff
+# shows binary files as "Binary file not shown" with no download link, which is
+# why a Release is the right home for them.
+#
+# Run it from the Actions tab (Release, then Run workflow), or push a v* tag.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag, for example v1.0.0'
+        required: true
+        default: 'v1.0.0'
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Verify the packages match their recorded checksums
+        working-directory: dist
+        run: sha256sum -c SHA256SUMS
+
+      - name: Install Pillow for the icon integrity check
+        run: python3 -m pip install --quiet --break-system-packages Pillow
+
+      - name: Run the test suites
+        run: tests/run_all.sh
+
+      - name: Work out the tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            printf 'value=%s\n' "${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            printf 'value=%s\n' "${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.value }}
+        run: |
+          set -u
+          notes=$(cat <<'NOTES'
+          Zoom error 1132, fixed. One behaviour contract, five platforms.
+
+          | Platform | Download | Then run |
+          |---|---|---|
+          | Windows | `1132.WTF-windows-*.zip` | `1132.WTF.vbs` |
+          | macOS | `1132.WTF-macos-*.zip` | `INSTALL_TO_APPLICATIONS.command` |
+          | Linux | `1132.WTF-linux-*.tar.gz` | `./install.sh` |
+          | Android | `1132.WTF-android-*.zip` | the `.apk` inside |
+          | iOS | `1132.WTF-ios-*.zip` | open the Xcode project |
+
+          Verify what you downloaded:
+
+          ```
+          sha256sum -c SHA256SUMS
+          ```
+
+          Start at level 1 and stop as soon as you are back in the meeting. See
+          the README for what each level changes, and for the cases where the
+          block is on your Zoom account or your IP address, which nothing
+          installed on your device can fix.
+          NOTES
+          )
+
+          # Idempotent: re-running against an existing tag refreshes the assets
+          # rather than failing or deleting the release.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            printf 'Release %s exists, refreshing its assets.\n' "$TAG"
+            gh release upload "$TAG" \
+              dist/1132.WTF-*.zip dist/1132.WTF-*.tar.gz dist/SHA256SUMS \
+              --clobber
+          else
+            printf 'Creating release %s.\n' "$TAG"
+            gh release create "$TAG" \
+              --title "1132.WTF $TAG" \
+              --notes "$notes" \
+              dist/1132.WTF-*.zip dist/1132.WTF-*.tar.gz dist/SHA256SUMS
+          fi
+
+      - name: Where it went
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.value }}
+        run: gh release view "$TAG" --json url,assets --jq '.url, (.assets[].name)'
