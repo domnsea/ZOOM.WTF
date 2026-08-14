@@ -1,0 +1,41 @@
+{
+  "name": "1132.WTF",
+  "slug": "1132wtf",
+  "tagline": "Zoom error 1132, fixed.",
+  "description": "Rotates your Zoom identity so error 1132 stops blocking you.",
+  "version": "1.0.0",
+  "build": 1,
+  "publisher": "1132.WTF",
+  "site": "https://1132.wtf",
+  "bundle_ids": {
+    "macos": "wtf.fix1132.mac",
+    "ios": "wtf.fix1132.ios",
+    "android": "wtf.fix1132.android",
+    "windows_task": "1132.WTF_AutoRun",
+    "linux_unit": "1132wtf",
+    "launch_agent": "wtf.fix1132.mac"
+  },
+  "paths": {
+    "windows_state": "%ProgramData%\\1132.WTF",
+    "macos_support": "~/Library/Application Support/1132.WTF",
+    "macos_logs": "~/Library/Logs/1132.WTF",
+    "linux_state": "~/.local/share/1132wtf"
+  },
+  "colors": {
+    "bg": "#0B0E14",
+    "bg_top": "#141A26",
+    "bg_bottom": "#06080D",
+    "ink": "#F5F7FA",
+    "muted": "#8A94A6",
+    "accent": "#00E5FF",
+    "accent2": "#FF2E88",
+    "ok": "#22C55E",
+    "warn": "#FFB020",
+    "err": "#FF4D4D"
+  },
+  "icon": {
+    "digits": "1132",
+    "layout": "2x2 seven-segment",
+    "corner_radius_pct": 22
+  }
+}
