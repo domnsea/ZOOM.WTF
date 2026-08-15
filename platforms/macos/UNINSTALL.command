@@ -5,17 +5,20 @@
 set -u
 
 APP_NAME="1132.WTF"
-BUNDLE_ID="wtf.fix1132.mac"
+BUNDLE_ID="wtf.fix1132.mac.12"
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
 LOG_DIR="$HOME/Library/Logs/$APP_NAME"
 PLIST="$HOME/Library/LaunchAgents/$BUNDLE_ID.plist"
+OLD_PLIST="$HOME/Library/LaunchAgents/wtf.fix1132.mac.plist"
 
 printf '%s\n' "=== Uninstall $APP_NAME ==="
 printf '%s\n' ""
 
-/bin/launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 ||
-  /bin/launchctl unload "$PLIST" >/dev/null 2>&1 || true
-rm -f "$PLIST"
+for item in "$PLIST" "$OLD_PLIST"; do
+  /bin/launchctl bootout "gui/$(id -u)" "$item" >/dev/null 2>&1 ||
+    /bin/launchctl unload "$item" >/dev/null 2>&1 || true
+  rm -f "$item"
+done
 printf '%s\n' "Login item removed."
 
 if [ -d "/Applications/$APP_NAME.app" ]; then

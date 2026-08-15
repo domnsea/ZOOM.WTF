@@ -1,20 +1,20 @@
-1132.WTF 1.0.11 — Mac only
+1132.WTF 1.0.12 — Mac only
 ==========================
 
 This app wipes the old Zoom identity, then opens Zoom.app.
-Not Safari. Not a web page. Zoom itself.
+It does not open a web page.
 
 Download the zip:
 
 https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132.WTF-macos-1.0.0.zip
 
-Double-click the zip. Double-click 1132.WTF.app.
+Delete the old zip first. Double-click the new zip. Double-click 1132.WTF.app.
 
-The window must say v1.0.11 and show the 1132 logo and the list.
+The window title must say 1132.WTF 1.0.12. If it does not, you still have the old app.
 
 STEP 1 - Click STEP 1 - Fix Zoom
 STEP 2 - Type Guest. Type the meeting number.
-LAUNCH - Click LAUNCH. Zoom opens. Join. Do not sign in as the old account.
+LAUNCH - Click LAUNCH. Zoom.app opens. Click Join. Paste the meeting number.
 
 If macOS will not replace the old app in Applications, paste this in Terminal:
 

@@ -10,7 +10,7 @@ var retained = {}
 
 function run(argv) {
   var iconPath = argv.length ? argv[0] : ''
-  var version = argv.length > 1 ? argv[1] : '1.0.11'
+  var version = argv.length > 1 ? argv[1] : '1.0.12'
 
   var items = [
     'STEP 1 - Fix Zoom',
@@ -65,10 +65,10 @@ function run(argv) {
   container.addSubview(tableHolder)
 
   var alert = $.NSAlert.alloc.init
-  alert.setMessageText('1132.WTF')
+  alert.setMessageText('1132.WTF  ' + version)
   alert.setInformativeText(
     'STEP 1  then  STEP 2  then  LAUNCH\n' +
-    'v' + version + '  —  LAUNCH opens Zoom. Not a browser.'
+    'LAUNCH opens Zoom.app. It does not open a web page.'
   )
   if (iconPath) {
     var icon = $.NSImage.alloc.initWithContentsOfFile(iconPath)

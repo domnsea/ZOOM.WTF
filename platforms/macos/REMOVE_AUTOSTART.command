@@ -2,12 +2,12 @@
 # Stop 1132.WTF from running at login.
 set -u
 
-BUNDLE_ID="wtf.fix1132.mac"
-PLIST="$HOME/Library/LaunchAgents/$BUNDLE_ID.plist"
-
-/bin/launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 ||
-  /bin/launchctl unload "$PLIST" >/dev/null 2>&1 || true
-rm -f "$PLIST"
+for BUNDLE_ID in wtf.fix1132.mac.12 wtf.fix1132.mac; do
+  PLIST="$HOME/Library/LaunchAgents/$BUNDLE_ID.plist"
+  /bin/launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 ||
+    /bin/launchctl unload "$PLIST" >/dev/null 2>&1 || true
+  rm -f "$PLIST"
+done
 
 /usr/bin/osascript -e 'display dialog "1132.WTF will no longer run at login." buttons {"OK"} default button "OK" with title "1132.WTF"' >/dev/null 2>&1 ||
   printf '%s\n' "1132.WTF will no longer run at login."

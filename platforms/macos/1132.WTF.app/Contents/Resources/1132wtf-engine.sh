@@ -4,7 +4,7 @@
 # Implements the levels described in docs/ENGINE.md.
 #
 # Usage: 1132wtf-engine.sh <verb> [argument]
-#   status | fix | deep-fix | browser [url] | restore
+#   status | fix | deep-fix | browser | restore
 #   autostart-on | autostart-off | logs
 #
 # Shell based on purpose: it is architecture neutral, so one copy runs on both
@@ -14,8 +14,8 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.11"
-BUNDLE_ID="wtf.fix1132.mac"
+APP_VERSION="1.0.12"
+BUNDLE_ID="wtf.fix1132.mac.12"
 
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
 LOG_DIR="$HOME/Library/Logs/$APP_NAME"
@@ -374,107 +374,6 @@ build_join_url() {
   printf '%s' "$url"
 }
 
-# Zoom web client. This is the 1132 fix on a Mac: the Zoom app sends a
-# hardware device id the host already blocked. /j/ and zoommtg:// open that
-# app. /wc/join/ stays in the browser as a new guest.
-build_web_client_url() {
-  local raw="${1:-${WTF1132_JOIN_URL:-${WTF1132_MEETING:-${WTF1132_MEETING_ID:-}}}}"
-  raw="$(printf '%s' "$raw" | tr -d '[:space:]')"
-  local name="${WTF1132_DISPLAY_NAME:-}"
-  local encoded=""
-  if [ -n "$name" ]; then
-    encoded="$(urlencode "$name")"
-  fi
-
-  if [ -z "$raw" ]; then
-    return 1
-  fi
-
-  case "$raw" in
-    *"/wc/join/"*|*"app.zoom.us/wc/"*)
-      if [ -n "$encoded" ] && ! printf '%s' "$raw" | grep -q 'uname='; then
-        case "$raw" in
-          *\?*) printf '%s&uname=%s' "$raw" "$encoded" ;;
-          *) printf '%s?uname=%s' "$raw" "$encoded" ;;
-        esac
-      else
-        printf '%s' "$raw"
-      fi
-      return 0
-      ;;
-  esac
-
-  local id pwd
-  id="$(printf '%s' "$raw" | sed -n 's|.*/j/\([0-9][0-9]*\).*|\1|p')"
-  [ -z "$id" ] && id="$(printf '%s' "$raw" | sed -n 's|.*/wc/join/\([0-9][0-9]*\).*|\1|p')"
-  [ -z "$id" ] && id="$(printf '%s' "$raw" | sed -n 's/.*confno=\([0-9][0-9]*\).*/\1/p')"
-  [ -z "$id" ] && id="$(printf '%s' "$raw" | tr -cd '0-9')"
-  [ -z "$id" ] && return 1
-  pwd="$(printf '%s' "$raw" | sed -n 's/.*[?&]pwd=\([^&]*\).*/\1/p')"
-
-  local url="https://zoom.us/wc/join/${id}?fromPWA=1"
-  [ -n "$pwd" ] && url="${url}&pwd=${pwd}"
-  [ -n "$encoded" ] && url="${url}&uname=${encoded}"
-  printf '%s' "$url"
-}
-
-# Put the join page on THIS desktop. `open -n` starts a second Chrome with no
-# window. `open https://zoom.us/...` is stolen by Zoom.app, which we then
-# kill — that is why LAUNCH looked like nothing opened.
-open_join_page() {
-  local url="$1"
-  local opened=0 q app bin
-
-  printf '%s\n' "$url" >"$LOG_DIR/last_join_url.txt"
-  printf '%s' "$url" | /usr/bin/pbcopy >/dev/null 2>&1 || true
-  log INFO "Join URL (also on the clipboard): $url"
-  q="$(applescript_quote "$url")"
-
-  # Safari is on every Mac. AppleScript loads the URL inside Safari so
-  # LaunchServices cannot hand it to Zoom.app.
-  log ACTION "Opening Safari"
-  if /usr/bin/osascript >>"$LOG_FILE" 2>&1 <<OSA
-with timeout of 15 seconds
-  tell application "Safari"
-    activate
-    make new document with properties {URL:"$q"}
-  end tell
-end timeout
-OSA
-  then
-    opened=1
-    log OK "Safari is opening the join page."
-  else
-    log WARN "Safari AppleScript failed. Trying open -a Safari."
-    /usr/bin/open -a "Safari" "$url" >>"$LOG_FILE" 2>&1 && opened=1
-  fi
-
-  for app in \
-    "/Applications/Google Chrome.app" \
-    "$HOME/Applications/Google Chrome.app" \
-    "/Applications/Microsoft Edge.app" \
-    "/Applications/Brave Browser.app"
-  do
-    [ -d "$app" ] || continue
-    bin=""
-    [ -x "$app/Contents/MacOS/Google Chrome" ] && bin="$app/Contents/MacOS/Google Chrome"
-    [ -z "$bin" ] && [ -x "$app/Contents/MacOS/Microsoft Edge" ] && bin="$app/Contents/MacOS/Microsoft Edge"
-    [ -z "$bin" ] && [ -x "$app/Contents/MacOS/Brave Browser" ] && bin="$app/Contents/MacOS/Brave Browser"
-    [ -n "$bin" ] || continue
-    log ACTION "Opening $app"
-    # Launch the browser binary from this desktop process. Do not use open -n.
-    "$bin" --incognito --new-window -- "$url" >>"$LOG_FILE" 2>&1 &
-    opened=1
-  done
-
-  if [ -d "/Applications/Firefox.app" ]; then
-    log ACTION "Opening Firefox"
-    /usr/bin/open -a "Firefox" --args -private-window "$url" >>"$LOG_FILE" 2>&1 && opened=1
-  fi
-
-  [ "$opened" -eq 1 ]
-}
-
 zoom_ui_running() {
   # Only the real Zoom window process. Helpers and path matches are not a window.
   /usr/bin/pgrep -x "zoom.us" >/dev/null 2>&1
@@ -494,37 +393,35 @@ activate_zoom() {
     -e 'end timeout' >>"$LOG_FILE" 2>&1 || true
 }
 
-# Open Zoom.app on this desktop. Never fall back to Safari or any browser.
-# Wipe already ran, so Zoom builds a new local profile. Open Zoom first;
-# join with zoommtg:// only after zoom.us is actually running.
+# Open Zoom.app only. Do not pass a URL to `open`: https://zoom.us and
+# zoommtg:// are what macOS hands to a web browser. The meeting number
+# goes on the clipboard so it can be pasted into Zoom's Join box.
 launch_zoom_clean() {
   local zoom_app="$1"
-  local join_url="" uid
-  join_url="$(build_join_url || true)"
+  local uid meeting
   uid="$(id -u)"
+  meeting="$(printf '%s' "${WTF1132_MEETING:-${WTF1132_JOIN_URL:-}}" | tr -d '[:space:]')"
 
-  if [ -n "$join_url" ]; then
-    log INFO "Will join as '${WTF1132_DISPLAY_NAME:-Guest}' after Zoom is up."
-  elif [ -n "${WTF1132_DISPLAY_NAME:-}" ]; then
-    log INFO "Type '${WTF1132_DISPLAY_NAME}' in Zoom. Do not sign in as the old account."
+  if [ -n "$meeting" ]; then
+    printf '%s' "$meeting" | /usr/bin/pbcopy >/dev/null 2>&1 || true
+    printf '%s\n' "$meeting" >"$LOG_DIR/last_meeting.txt"
+    log INFO "Meeting number is on the clipboard. Paste it into Zoom Join."
+  fi
+  if [ -n "${WTF1132_DISPLAY_NAME:-}" ]; then
+    log INFO "In Zoom type '${WTF1132_DISPLAY_NAME}'. Do not sign in as the old account."
   fi
 
-  log ACTION "Opening a clean Zoom"
-  activate_zoom "$zoom_app"
-  /bin/launchctl asuser "$uid" /usr/bin/open -a "$zoom_app" >>"$LOG_FILE" 2>&1 || true
+  log ACTION "Opening Zoom.app"
   /usr/bin/open -a "$zoom_app" >>"$LOG_FILE" 2>&1 || true
+  /bin/launchctl asuser "$uid" /usr/bin/open -a "$zoom_app" >>"$LOG_FILE" 2>&1 || true
+  activate_zoom "$zoom_app"
 
   local waited=0
   while [ "$waited" -lt 25 ]; do
     if zoom_ui_running; then
       activate_zoom "$zoom_app"
-      if [ -n "$join_url" ]; then
-        sleep 2
-        log ACTION "Joining the meeting as a new guest"
-        /usr/bin/open -a "$zoom_app" "$join_url" >>"$LOG_FILE" 2>&1 || true
-      fi
-      log OK "Clean Zoom is open."
-      log DONE "Join. Do not sign in as the old account."
+      log OK "Zoom.app is open."
+      log DONE "Click Join in Zoom. Paste the meeting number. Do not sign in as the old account."
       return 0
     fi
     sleep 1
@@ -698,37 +595,11 @@ do_deep_fix() {
   do_fix
 }
 
-# ----------------------------------------------------- level 3: browser join
-
+# The "browser" verb used to open a web page. That is disabled.
+# It now does the same thing as STEP 1: wipe identity, open Zoom.app.
 do_browser() {
-  local raw="${1:-}"
-  local url=""
-  url="$(build_web_client_url "$raw" || true)"
-  if [ -z "$url" ]; then
-    case "$raw" in
-      https://*|http://*)
-        case "$raw" in
-          *zoom.us/j/*|*zoommtg://*) url="https://zoom.us/wc/join" ;;
-          *) url="$raw" ;;
-        esac
-        ;;
-      *) url="https://zoom.us/wc/join" ;;
-    esac
-  fi
-
-  case "$url" in
-    zoommtg://*|https://zoom.us/j/*|http://zoom.us/j/*)
-      log WARN "Refusing to open the Zoom app join link (that is error 1132)."
-      url="$(build_web_client_url "$url" || printf '%s' "https://zoom.us/wc/join")"
-      ;;
-  esac
-
-  if ! open_join_page "$url"; then
-    die "Could not open Safari. The join link is on the clipboard: $url"
-  fi
-
-  log OK "Join in Safari. Click Join from your browser. Do not open the Zoom app."
-  log DONE "1132 bypass ready. The Zoom app is what shows 1132 — leave it closed."
+  log INFO "This app does not open a web page. Opening Zoom.app."
+  do_fix
 }
 
 # ------------------------------------------------------------------ autostart
@@ -853,7 +724,10 @@ log START "$APP_NAME verb=$VERB"
 EXIT_CODE=0
 case "$VERB" in
   status) do_status ;;
-  browser) do_browser "${1:-}" ;;
+  browser)
+    acquire_lock || die "Another $APP_NAME run is already active. Wait, or delete ~/Library/Application Support/$APP_NAME/run.lock"
+    do_browser
+    ;;
   logs)
     log INFO "$LOG_DIR"
     /usr/bin/open "$LOG_DIR" >/dev/null 2>&1 || true

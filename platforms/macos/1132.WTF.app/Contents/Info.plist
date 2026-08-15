@@ -5,13 +5,13 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>1132.WTF</string>
+	<string>1132.WTF 1.0.12</string>
 	<key>CFBundleExecutable</key>
 	<string>1132.WTF</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>wtf.fix1132.mac</string>
+	<string>wtf.fix1132.mac.12</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.11</string>
+	<string>1.0.12</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>11</string>
+	<string>12</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
@@ -35,6 +35,6 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>1132.WTF</string>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>1132.WTF shows a window with the 1132 logo and the action list, and opens a clean Zoom.</string>
+	<string>1132.WTF shows a window with the 1132 logo and the action list, and opens Zoom.app.</string>
 </dict>
 </plist>

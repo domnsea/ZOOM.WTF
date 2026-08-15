@@ -57,6 +57,10 @@ if [ -f "$DEST/Contents/MacOS/applet" ] || [ -f "$DEST/Contents/Resources/Script
 fi
 
 /usr/bin/killall -9 "1132.WTF" applet >/dev/null 2>&1 || true
+OLD_AGENT="$HOME/Library/LaunchAgents/wtf.fix1132.mac.plist"
+/bin/launchctl bootout "gui/$(id -u)" "$OLD_AGENT" >/dev/null 2>&1 ||
+  /bin/launchctl unload "$OLD_AGENT" >/dev/null 2>&1 || true
+rm -f "$OLD_AGENT"
 
 if [ -d "$DEST" ]; then
   printf '%s\n' "Replacing the existing copy in /Applications..."
