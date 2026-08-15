@@ -26,6 +26,17 @@ run_admin() {
   /usr/bin/osascript -e "do shell script \"$script\" with administrator privileges"
 }
 
+# The .command launcher always does `script ; exit`, so anything pasted into
+# this window after a failure is thrown away. Open a real Terminal instead.
+open_fresh_terminal_for_replace() {
+  local cmd
+  cmd="sudo rm -rf /Applications/1132.WTF.app && sudo cp -R '$SOURCE' /Applications/1132.WTF.app && sudo chown -R $(id -un):staff /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app"
+  /usr/bin/osascript -e "tell application \"Terminal\" to do script \"$(applescript_quote "$cmd")\"" >/dev/null 2>&1 || true
+  printf '%s\n' ""
+  printf '%s\n' "A new Terminal window should be asking for your password."
+  printf '%s\n' "Type it (nothing shows) and press Return."
+}
+
 printf '%s\n' "=== $APP_NAME installer ==="
 
 if [ ! -d "$SOURCE" ]; then
@@ -52,24 +63,24 @@ if [ -d "$DEST" ]; then
   if ! rm -rf "$DEST" 2>/dev/null; then
     printf '%s\n' "That copy is locked. macOS will ask for your password."
     if ! run_admin "/bin/rm -rf '$DEST'"; then
-      printf '%s\n' "Password refused. The old app is still in /Applications."
-      read -r -p "Press Return to close. " _
+      printf '%s\n' "Password refused. Opening a NEW Terminal so you can type it there."
+      open_fresh_terminal_for_replace
       exit 1
     fi
   fi
 fi
 
 if [ -d "$DEST" ]; then
-  printf '%s\n' "Could not remove $DEST."
-  read -r -p "Press Return to close. " _
+  printf '%s\n' "Could not remove $DEST. Opening a NEW Terminal."
+  open_fresh_terminal_for_replace
   exit 1
 fi
 
 if ! cp -R "$SOURCE" "$DEST" 2>/dev/null; then
   printf '%s\n' "Need your password to copy into /Applications."
   if ! run_admin "/bin/cp -R '$SOURCE' '$DEST' && /usr/sbin/chown -R $(id -un):staff '$DEST'"; then
-    printf '%s\n' "Could not copy into /Applications."
-    read -r -p "Press Return to close. " _
+    printf '%s\n' "Could not copy. Opening a NEW Terminal."
+    open_fresh_terminal_for_replace
     exit 1
   fi
 fi
