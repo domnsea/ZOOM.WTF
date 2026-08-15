@@ -38,19 +38,91 @@ source "$SCRIPT_DIR/common.sh"
 
 log_line "LAUNCH" "START console_uid=$CONSOLE_UID"
 
-ZOOM_APP="$(find_zoom_app 2>/dev/null || true)"
-if [[ -z "$ZOOM_APP" ]]; then
-  show_dialog "1132.WTF" "Zoom is not installed in Applications. Install Zoom, then run STEP 1 again." "stop"
-  exit 69
-fi
+# Current Zoom (7 / latest Workplace) is still 1132. Pin this session to
+# official Zoom 6.3.11 from zoom.us — not the copy in Applications.
+ZOOM6_VERSION="6.3.11.50104"
+ZOOM6_CACHE="/Library/Application Support/1132.WTF/zoom-6.3.11"
+ZOOM6_APP="$ZOOM6_CACHE/zoom.us.app"
+
+zoom6_ready() {
+  [ -x "$ZOOM6_APP/Contents/MacOS/zoom.us" ] || return 1
+  local ver
+  ver="$(/usr/bin/defaults read "$ZOOM6_APP/Contents/Info" CFBundleShortVersionString 2>/dev/null || true)"
+  case "$ver" in
+    6.3.11*) return 0 ;;
+  esac
+  return 1
+}
+
+extract_zoom6_pkg() {
+  local pkg="$1" dest="$2"
+  /bin/rm -rf "$dest"
+  /bin/mkdir -p "$dest"
+  if /usr/sbin/pkgutil --expand-full "$pkg" "$dest/expanded" >/dev/null 2>&1; then
+    :
+  else
+    (
+      cd "$dest" || exit 1
+      /usr/bin/xar -xf "$pkg" >/dev/null 2>&1 || exit 1
+      if [ -f Payload ]; then
+        /usr/bin/gunzip -dc Payload 2>/dev/null | /usr/bin/cpio -idm >/dev/null 2>&1 || true
+      fi
+    ) || return 1
+  fi
+  local found
+  found="$(/usr/bin/find "$dest" -name 'zoom.us.app' -type d 2>/dev/null | /usr/bin/head -n 1)"
+  [ -n "$found" ] && [ -d "$found" ] || return 1
+  /bin/mkdir -p "$ZOOM6_CACHE"
+  /bin/rm -rf "$ZOOM6_APP"
+  /bin/cp -R "$found" "$ZOOM6_APP"
+  /usr/bin/find "$ZOOM6_APP" \( -iname '*AutoUpdater*' -o -iname '*ZoomOpener*' \) -exec /bin/rm -rf {} + 2>/dev/null || true
+  /usr/sbin/chown -R root:wheel "$ZOOM6_CACHE" >/dev/null 2>&1 || true
+  return 0
+}
+
+ensure_zoom6() {
+  if zoom6_ready; then
+    log_line "ZOOM6" "using cached Zoom 6.3.11 at $ZOOM6_APP"
+    return 0
+  fi
+  notify_user "1132.WTF" "Downloading Zoom 6.3.11 from zoom.us"
+  show_dialog "1132.WTF" "This run uses Zoom 6.3.11, not the current Zoom in Applications.
+
+The first run downloads it from zoom.us (~150 MB). Wait. Do not open the Zoom in Applications." "note"
+  local arch url tmp
+  arch="$(/usr/bin/uname -m)"
+  url="https://zoom.us/client/${ZOOM6_VERSION}/zoomusInstallerFull.pkg"
+  if [ "$arch" = "arm64" ]; then
+    url="${url}?archType=arm64"
+  fi
+  tmp="$(/usr/bin/mktemp -d /tmp/1132zoom6.XXXXXX)"
+  log_line "ZOOM6" "download $url"
+  if ! /usr/bin/curl -fL --retry 3 --connect-timeout 20 --max-time 600 -o "$tmp/zoom.pkg" "$url"; then
+    /bin/rm -rf "$tmp"
+    show_dialog "1132.WTF" "Could not download Zoom 6.3.11 from zoom.us. Check the network and run STEP 1 again. The current Zoom in Applications was not used." "stop"
+    exit 69
+  fi
+  if ! extract_zoom6_pkg "$tmp/zoom.pkg" "$tmp/extract"; then
+    /bin/rm -rf "$tmp"
+    show_dialog "1132.WTF" "Downloaded Zoom 6.3.11 but could not unpack it. Run STEP 1 again." "stop"
+    exit 69
+  fi
+  /bin/rm -rf "$tmp"
+  if ! zoom6_ready; then
+    show_dialog "1132.WTF" "Zoom 6.3.11 did not install. The current Zoom in Applications was not used." "stop"
+    exit 69
+  fi
+  log_line "ZOOM6" "installed Zoom 6.3.11"
+}
+
+ensure_zoom6
+ZOOM_APP="$ZOOM6_APP"
 ZOOM_BIN="$ZOOM_APP/Contents/MacOS/zoom.us"
 if [[ ! -x "$ZOOM_BIN" ]]; then
-  ZOOM_BIN="$(/usr/bin/find "$ZOOM_APP/Contents/MacOS" -maxdepth 1 -type f -perm +111 2>/dev/null | /usr/bin/head -n 1)"
-fi
-if [[ -z "$ZOOM_BIN" || ! -x "$ZOOM_BIN" ]]; then
-  show_dialog "1132.WTF" "Zoom is installed but its executable is missing. Reinstall Zoom." "stop"
+  show_dialog "1132.WTF" "Zoom 6.3.11 is missing its executable. Run STEP 1 again." "stop"
   exit 69
 fi
+log_line "LAUNCH" "ZOOM_BIN=$ZOOM_BIN version=6.3.11"
 
 FIRSTS=(Alex Sam Jordan Casey Riley Quinn Avery Morgan Taylor Jamie Drew Reese Kai Rowan Sky Finn)
 LASTS=(Chen Patel Garcia Kim Novak Silva Haddad Okafor Ivanov Dubois Rossi Nakamura Andersson Costa Weber)
@@ -217,6 +289,8 @@ seed_zoom_prefs() {
   as_temp /usr/bin/defaults write us.zoom.xos UserName "$DISPLAY_NAME" >/dev/null 2>&1 || true
   as_temp /usr/bin/defaults write us.zoom.xos nologin -bool true >/dev/null 2>&1 || true
   as_temp /usr/bin/defaults write us.zoom.xos AutoLogin -bool false >/dev/null 2>&1 || true
+  as_temp /usr/bin/defaults write us.zoom.xos zDisableAutoUpdate -bool true >/dev/null 2>&1 || true
+  as_temp /usr/bin/defaults write us.zoom.xos AutoUpdate -bool false >/dev/null 2>&1 || true
   /usr/sbin/chown -R "$TEMP_USER:staff" "$TEMP_HOME/Library/Preferences" >/dev/null 2>&1 || true
 }
 
@@ -406,11 +480,11 @@ log_line "LAUNCH" "OK Zoom is running as throwaway uid=$TEMP_UID stable=$stable 
 printf '%s\n' "$!" >"$ACTIVE_STATE/monitor.pid"
 printf '%s' "$DISPLAY_NAME" | /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/pbcopy >/dev/null 2>&1 || true
 notify_user "1132.WTF" "Fresh Zoom is opening as $DISPLAY_NAME"
-show_dialog "1132.WTF" "Fresh Zoom is open as:
+show_dialog "1132.WTF" "Zoom 6.3.11 is open as:
 
 $DISPLAY_NAME
 
-Wi-Fi MAC and computer name were randomized for this session. If Join still says 1132, this network's public IP is still blocked — use a phone hotspot or VPN.
+This is not the Zoom in Applications. If Join still says 1132, switch to a phone hotspot or VPN.
 
 When you quit Zoom, the throwaway user, MAC, and computer name are put back." "note"
 exit 0

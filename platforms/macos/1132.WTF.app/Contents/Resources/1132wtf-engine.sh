@@ -14,8 +14,8 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.21"
-BUNDLE_ID="wtf.fix1132.mac.21"
+APP_VERSION="1.0.22"
+BUNDLE_ID="wtf.fix1132.mac.22"
 
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
 LOG_DIR="$HOME/Library/Logs/$APP_NAME"
@@ -437,16 +437,12 @@ do_wipe_identity() {
 }
 
 do_fix() {
-  local zoom
-  zoom="$(find_zoom_app || true)"
-  [ -n "$zoom" ] || die "Zoom is not installed. Install Zoom from zoom.us, then run this again."
-  log OK "Zoom: $zoom"
-
   if [ "${NO_LAUNCH:-${WTF1132_NO_LAUNCH:-0}}" = "1" ]; then
     stop_zoom
     do_wipe_identity
     return 0
   fi
+  log INFO "This run uses Zoom 6.3.11 from zoom.us, not the current Zoom in Applications."
   do_v9_launch
 }
 

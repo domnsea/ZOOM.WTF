@@ -10,7 +10,7 @@ var retained = {}
 
 function run(argv) {
   var iconPath = argv.length ? argv[0] : ''
-  var version = argv.length > 1 ? argv[1] : '1.0.21'
+  var version = argv.length > 1 ? argv[1] : '1.0.22'
 
   var items = [
     'STEP 1 - Fix Zoom',
@@ -25,7 +25,7 @@ function run(argv) {
   $.NSApplication.sharedApplication.activateIgnoringOtherApps(true)
 
   var banner = $.NSTextField.alloc.initWithFrame($.NSMakeRect(0, 284, 448, 32))
-  banner.setStringValue('1132 FRESH 1.0.21   new name + MAC   not your login')
+  banner.setStringValue('1132 FRESH 1.0.22   Zoom 6.3.11   not your login')
   banner.setFont($.NSFont.boldSystemFontOfSize(16))
   banner.setDrawsBackground(true)
   banner.setBackgroundColor($.NSColor.colorWithCalibratedRedGreenBlueAlpha(0.78, 1.0, 0.0, 1.0))
@@ -80,7 +80,7 @@ function run(argv) {
   alert.setMessageText('1132 FRESH')
   alert.setInformativeText(
     'v' + version + '\n' +
-    'STEP 1 opens factory-fresh Zoom with a new name, MAC, and computer name. Password once. If 1132 stays, use a phone hotspot or VPN. STEP 2 puts your regular Zoom and MAC back.'
+    'STEP 1 downloads Zoom 6.3.11 from zoom.us and opens it with a new name. Password once. If 1132 stays, use a phone hotspot. STEP 2 restores your regular Zoom.'
   )
   if (iconPath) {
     var icon = $.NSImage.alloc.initWithContentsOfFile(iconPath)
