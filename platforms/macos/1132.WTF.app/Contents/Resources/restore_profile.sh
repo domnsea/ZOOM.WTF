@@ -48,6 +48,7 @@ esac
 /bin/sleep 1
 
 restore_network "$STATE_DIR"
+restore_stashed_apps "$STATE_DIR"
 
 kill_preferences_cache
 mkdir -p "$QUARANTINE"

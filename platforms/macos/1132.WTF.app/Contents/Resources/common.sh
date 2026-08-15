@@ -271,3 +271,83 @@ restore_network() {
   fi
   log_line "NET" "computer name restored"
 }
+
+public_ip() {
+  /usr/bin/curl -fsS --max-time 8 https://api.ipify.org 2>/dev/null ||
+    /usr/bin/curl -fsS --max-time 8 https://ifconfig.me/ip 2>/dev/null ||
+    /usr/bin/curl -fsS --max-time 8 https://icanhazip.com 2>/dev/null ||
+    true
+}
+
+# Hide the Zoom in Applications so Dock / Spotlight cannot open the
+# 1132-tagged client during this session.
+stash_system_zoom() {
+  local state="$1"
+  local dest="$state/stashed-apps"
+  local app base
+  /bin/mkdir -p "$dest"
+  : >"$state/stashed-apps.list"
+  for app in \
+    "/Applications/zoom.us.app" \
+    "/Applications/Zoom Workplace.app" \
+    "$HOME/Applications/zoom.us.app" \
+    "$HOME/Applications/Zoom Workplace.app"
+  do
+    [ -d "$app" ] || continue
+    base="$(/usr/bin/basename "$app")"
+    if /bin/mv "$app" "$dest/$base" 2>/dev/null; then
+      printf '%s\t%s\n' "$app" "$base" >>"$state/stashed-apps.list"
+      log_line "STASH" "hid $app"
+    fi
+  done
+  if [ -d "/Library/Application Support/zoom.us" ]; then
+    if /bin/mv "/Library/Application Support/zoom.us" "$dest/Library-Application-Support-zoom.us" 2>/dev/null; then
+      printf '%s\t%s\n' "/Library/Application Support/zoom.us" "Library-Application-Support-zoom.us" >>"$state/stashed-apps.list"
+      log_line "STASH" "hid /Library/Application Support/zoom.us"
+    fi
+  fi
+}
+
+restore_stashed_apps() {
+  local state="$1"
+  local dest="$state/stashed-apps"
+  local orig base
+  [ -f "$state/stashed-apps.list" ] || return 0
+  while IFS="$(printf '\t')" read -r orig base; do
+    [ -n "$orig" ] && [ -n "$base" ] || continue
+    if [ -e "$dest/$base" ]; then
+      /bin/rm -rf "$orig" 2>/dev/null || true
+      /bin/mkdir -p "$(/usr/bin/dirname "$orig")"
+      /bin/mv "$dest/$base" "$orig" 2>/dev/null || true
+      log_line "STASH" "restored $orig"
+    fi
+  done <"$state/stashed-apps.list"
+}
+
+# 1132 after a new name / MAC / Zoom 6.3 is the public IP. Do not open Zoom
+# on the same address.
+require_new_public_ip() {
+  local state="$1"
+  local before after
+  before="$(public_ip | /usr/bin/tr -d '[:space:]')"
+  printf '%s\n' "$before" >"$state/ip.before"
+  show_dialog "1132.WTF" "Public IP right now: ${before:-unknown}
+
+A new name, MAC, and Zoom 6.3.11 still got 1132. That is this IP or this Mac.
+
+Connect a phone hotspot — not the same Wi-Fi. Then click OK." "note"
+  after="$(public_ip | /usr/bin/tr -d '[:space:]')"
+  printf '%s\n' "$after" >"$state/ip.after"
+  if [ -z "$before" ] || [ -z "$after" ]; then
+    log_line "NET" "public IP unread before=$before after=$after"
+    show_dialog "1132.WTF" "Could not read the public IP. Zoom was not opened. Connect a hotspot and run STEP 1 again." "stop"
+    return 1
+  fi
+  if [ "$before" = "$after" ]; then
+    log_line "NET" "public IP unchanged $after"
+    show_dialog "1132.WTF" "Still $after. Same IP = 1132. Zoom was not opened. Connect a phone hotspot and run STEP 1 again." "stop"
+    return 1
+  fi
+  log_line "NET" "public IP $before -> $after"
+  return 0
+}

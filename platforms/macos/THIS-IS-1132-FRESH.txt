@@ -1,12 +1,12 @@
-THIS IS 1132 FRESH 1.0.22
+THIS IS 1132 FRESH 1.0.23
 =========================
 
 Lime green icon.
 Window title: 1132 FRESH
-Banner: 1132 FRESH 1.0.22   Zoom 6.3.11   not your login
+Banner: 1132 FRESH 1.0.23   new IP required   Zoom 6.3.11
 Zip name: 1132-FRESH-macos.zip
 
-Opens official Zoom 6.3.11 from zoom.us, not the
-current Zoom in Applications.
+Will not open Zoom on the same public IP.
+Hides Applications Zoom for the session.
 
-If the banner does not say 1.0.22, that is the OLD app. Trash it.
+If the banner does not say 1.0.23, that is the OLD app. Trash it.

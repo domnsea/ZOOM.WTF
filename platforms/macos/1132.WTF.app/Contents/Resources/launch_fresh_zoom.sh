@@ -381,6 +381,13 @@ done < "$TARGETS_FILE"
 kill_preferences_cache
 log_line "LAUNCH" "PROFILE_READY protected_items=$MOVED"
 
+stash_system_zoom "$ACTIVE_STATE"
+if ! require_new_public_ip "$ACTIVE_STATE"; then
+  /bin/bash "$SCRIPT_DIR/restore_profile.sh" "$ACTIVE_STATE" "ip-unchanged" || true
+  /bin/rmdir "$LOCK_DIR" 2>/dev/null || true
+  exit 73
+fi
+
 IDENT="$(pick_identity)" || {
   /bin/bash "$SCRIPT_DIR/restore_profile.sh" "$ACTIVE_STATE" "identity-failed" || true
   /bin/rmdir "$LOCK_DIR" 2>/dev/null || true
@@ -425,13 +432,6 @@ if ! prepare_temp_keychain; then
 fi
 seed_zoom_prefs
 save_and_rotate_network "$ACTIVE_STATE"
-show_dialog "1132.WTF" "Name, MAC, and computer name are randomized for this session.
-
-Error 1132 after a new name is almost always this network's public IP, or this Mac's hardware id.
-
-Connect a phone hotspot or a VPN now, then click OK. The same home/work IP keeps 1132.
-
-This app cannot rewrite the logic-board serial." "note"
 
 # Aqua session of the logged-in desktop, process uid of the throwaway user.
 # Always pass the throwaway HOME. Never launch with the login account home.
@@ -484,7 +484,9 @@ show_dialog "1132.WTF" "Zoom 6.3.11 is open as:
 
 $DISPLAY_NAME
 
-This is not the Zoom in Applications. If Join still says 1132, switch to a phone hotspot or VPN.
+The Zoom in Applications is hidden for this session. Public IP changed.
 
-When you quit Zoom, the throwaway user, MAC, and computer name are put back." "note"
+If Join still says 1132 on this new IP, this Mac's hardware id is blocked. No app can rewrite that.
+
+When you quit Zoom, Applications Zoom, MAC, and name are put back." "note"
 exit 0

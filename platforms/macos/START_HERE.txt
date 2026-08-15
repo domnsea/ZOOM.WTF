@@ -1,23 +1,26 @@
-1132 FRESH 1.0.22 — Mac only
+1132 FRESH 1.0.23 — Mac only
 ============================
 
-1.0.22 does not use the Zoom in Applications.
-It downloads official Zoom 6.3.11 from zoom.us and
-opens that. First run is ~150 MB.
+Name, MAC, and Zoom 6.3.11 still got 1132. That is the
+public IP or this Mac's hardware id.
 
-The lime banner must say 1132 FRESH 1.0.22.
-If it does not, you have the old app. Trash it.
+1.0.23 will not open Zoom until the public IP changes.
+It also hides the Zoom in Applications so the Dock cannot
+open the old client.
 
-Download:
+Connect a phone hotspot when it shows your current IP.
+If the IP does not change, Zoom stays closed.
+
+If you already used a hotspot and still got 1132, this
+Mac is blocked. No app can rewrite the logic-board serial.
+
+The lime banner must say 1132 FRESH 1.0.23.
 
 https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132-FRESH-macos.zip
 
 STEP 1 - Right-click "STEP 1 - OPEN FRESH ZOOM.command" → Open → Open
-         Type your Mac password. Wait if it is downloading 6.3.11.
-         When asked, switch to a phone hotspot or VPN.
-STEP 2 - Zoom Join must show the random name, not your Mac login.
-LAUNCH - Quit Zoom when done. Your regular Zoom in Applications is left alone.
-
-If macOS will not replace the old app in Applications:
+         Password. When it shows the IP, switch to a phone hotspot, then OK.
+STEP 2 - Join only in the Zoom 6.3.11 window it opened.
+LAUNCH - If it refuses to open Zoom, the IP did not change.
 
 sudo rm -rf /Applications/1132.WTF.app && sudo cp -R "$HOME/Downloads/1132-FRESH-macos/1132.WTF.app" /Applications/1132.WTF.app && sudo chown -R "$(whoami):staff" /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app

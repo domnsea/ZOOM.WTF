@@ -11,7 +11,7 @@
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>wtf.fix1132.mac.22</string>
+	<string>wtf.fix1132.mac.23</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.22</string>
+	<string>1.0.23</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>22</string>
+	<string>23</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
@@ -35,6 +35,6 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>1132 FRESH</string>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>1132 FRESH 1.0.22 opens Zoom 6.3.11 with a new name and MAC so Join is not your Mac login.</string>
+	<string>1132 FRESH 1.0.23 opens Zoom 6.3.11 only after the public IP changes.</string>
 </dict>
 </plist>
