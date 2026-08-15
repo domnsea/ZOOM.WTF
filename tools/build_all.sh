@@ -110,9 +110,9 @@ PY
 }
 
 package() {
-  # package <platform> <staged-dir-name>
+  # package <platform> <staged-dir-name> [zip-filename]
   local platform="$1" name="$2"
-  local zip_path="$DIST/1132.WTF-$platform-$VERSION.zip"
+  local zip_path="$DIST/${3:-1132.WTF-$platform-$VERSION.zip}"
   rm -f "$zip_path"
   ( cd "$STAGE" && zip -q -r -y "$zip_path" "$name" ) || return 1
   note "wrote dist/$(basename "$zip_path") ($(wc -c <"$zip_path" | tr -d ' ') bytes)"
@@ -141,7 +141,7 @@ fi
 
 if wanted macos; then
   step "macOS"
-  target="$STAGE/1132.WTF-macos"
+  target="$STAGE/1132-FRESH-macos"
   mkdir -p "$target"
   cp -r platforms/macos/. "$target/"
   cp brand/out/AppIcon.icns "$target/1132.WTF.app/Contents/Resources/AppIcon.icns"
@@ -155,7 +155,8 @@ if wanted macos; then
   chmod +x "$target"/*.command "$target/allow-macos.sh"
   note "executable bits set on the app, helpers, and .command files"
 
-  package macos "1132.WTF-macos"
+  rm -f "$DIST/1132.WTF-macos-1.0.0.zip"
+  package macos "1132-FRESH-macos" "1132-FRESH-macos.zip"
 fi
 
 # --------------------------------------------------------------------- linux

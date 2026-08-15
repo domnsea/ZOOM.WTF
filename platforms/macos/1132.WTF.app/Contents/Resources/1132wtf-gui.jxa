@@ -10,7 +10,7 @@ var retained = {}
 
 function run(argv) {
   var iconPath = argv.length ? argv[0] : ''
-  var version = argv.length > 1 ? argv[1] : '1.0.13'
+  var version = argv.length > 1 ? argv[1] : '1.0.14'
 
   var items = [
     'STEP 1 - Fix Zoom',
@@ -23,6 +23,17 @@ function run(argv) {
   ]
 
   $.NSApplication.sharedApplication.activateIgnoringOtherApps(true)
+
+  var banner = $.NSTextField.alloc.initWithFrame($.NSMakeRect(0, 284, 448, 32))
+  banner.setStringValue('1132 FRESH   lime icon   temp-user Zoom')
+  banner.setFont($.NSFont.boldSystemFontOfSize(16))
+  banner.setDrawsBackground(true)
+  banner.setBackgroundColor($.NSColor.colorWithCalibratedRedGreenBlueAlpha(0.78, 1.0, 0.0, 1.0))
+  banner.setTextColor($.NSColor.blackColor)
+  banner.setBezeled(false)
+  banner.setEditable(false)
+  banner.setSelectable(false)
+  banner.setAlignment(1)
 
   var nameField = $.NSTextField.alloc.initWithFrame($.NSMakeRect(118, 252, 330, 24))
   nameField.setStringValue('Guest')
@@ -57,7 +68,8 @@ function run(argv) {
     retained.popup = popup
   }
 
-  var container = $.NSView.alloc.initWithFrame($.NSMakeRect(0, 0, 448, 280))
+  var container = $.NSView.alloc.initWithFrame($.NSMakeRect(0, 0, 448, 320))
+  container.addSubview(banner)
   container.addSubview(nameLabel)
   container.addSubview(nameField)
   container.addSubview(meetLabel)
@@ -65,9 +77,9 @@ function run(argv) {
   container.addSubview(tableHolder)
 
   var alert = $.NSAlert.alloc.init
-  alert.setMessageText('1132.WTF  ' + version)
+  alert.setMessageText('1132 FRESH')
   alert.setInformativeText(
-    'STEP 1  then  STEP 2  then  LAUNCH\n' +
+    'v' + version + '\n' +
     'LAUNCH creates a hidden temporary Mac user, opens Zoom on that empty profile, then deletes the user when you quit Zoom.'
   )
   if (iconPath) {

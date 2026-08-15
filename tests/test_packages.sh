@@ -210,8 +210,10 @@ check_grep "macos flushes cfprefsd" "cfprefsd" "$MAC_ENGINE"
 check_grep "macos can pass a guest display name" "uname=" "$MAC_ENGINE"
 check_grep "macos session helper prepares a throwaway user" "--prepare" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
-check_grep "macos app shows version 1.0.13 so an old copy is obvious" "1.0.13" \
+check_grep "macos app shows version 1.0.14 so an old copy is obvious" "1.0.14" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
+check_grep "macos window title is 1132 FRESH" "1132 FRESH" \
+  platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa
 check_grep "macos opens a clean Zoom app" "launch_zoom_temp_profile" "$MAC_ENGINE"
 check_grep "macos GUI is a branded window" "1132wtf-gui.jxa" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF

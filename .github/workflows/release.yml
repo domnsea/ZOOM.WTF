@@ -60,7 +60,7 @@ jobs:
           | Platform | Download | Then run |
           |---|---|---|
           | Windows | `1132.WTF-windows-*.zip` | `1132.WTF.vbs` |
-          | macOS | `1132.WTF-macos-*.zip` | `INSTALL_TO_APPLICATIONS.command` |
+          | macOS | `1132-FRESH-macos.zip` | `INSTALL_TO_APPLICATIONS.command` |
           | Linux | `1132.WTF-linux-*.tar.gz` | `./install.sh` |
           | Android | `1132.WTF-android-*.zip` | the `.apk` inside |
           | iOS | `1132.WTF-ios-*.zip` | open the Xcode project |
@@ -83,14 +83,14 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             printf 'Release %s exists, refreshing its assets.\n' "$TAG"
             gh release upload "$TAG" \
-              dist/1132.WTF-*.zip dist/1132.WTF-*.tar.gz dist/SHA256SUMS \
+              dist/*.zip dist/*.tar.gz dist/SHA256SUMS \
               --clobber
           else
             printf 'Creating release %s.\n' "$TAG"
             gh release create "$TAG" \
               --title "1132.WTF $TAG" \
               --notes "$notes" \
-              dist/1132.WTF-*.zip dist/1132.WTF-*.tar.gz dist/SHA256SUMS
+              dist/*.zip dist/*.tar.gz dist/SHA256SUMS
           fi
 
       - name: Where it went

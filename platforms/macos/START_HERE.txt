@@ -1,16 +1,22 @@
-1132.WTF 1.0.13 — Mac only
-==========================
+1132 FRESH 1.0.14 — Mac only
+============================
+
+This zip is named 1132-FRESH-macos.zip
+The icon is LIME GREEN, not cyan.
+The window title is 1132 FRESH.
+The Dock name is 1132 FRESH.
+
+If you do not see those, you have the old app.
 
 LAUNCH creates a hidden temporary Mac user, opens Zoom on that empty
 profile, then deletes the user when you quit Zoom.
 
-Download the zip:
+Download:
 
-https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132.WTF-macos-1.0.0.zip
+https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132-FRESH-macos.zip
 
-Delete the old zip first. Double-click the new zip. Double-click 1132.WTF.app.
-
-The window title must say 1132.WTF 1.0.13. If it does not, you still have the old app.
+Delete every old 1132 zip. Double-click 1132-FRESH-macos.zip.
+Double-click 1132.WTF.app. The window must say 1132 FRESH.
 
 STEP 1 - Click STEP 1 - Fix Zoom
 STEP 2 - Type Guest. Type the meeting number.
@@ -20,4 +26,4 @@ LAUNCH - Click LAUNCH. Type your Mac password when asked. Zoom opens on a
 
 If macOS will not replace the old app in Applications, paste this in Terminal:
 
-sudo rm -rf /Applications/1132.WTF.app && sudo cp -R "$HOME/Downloads/1132.WTF-macos-1.0.0/1132.WTF.app" /Applications/1132.WTF.app && sudo chown -R "$(whoami):staff" /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app
+sudo rm -rf /Applications/1132.WTF.app && sudo cp -R "$HOME/Downloads/1132-FRESH-macos/1132.WTF.app" /Applications/1132.WTF.app && sudo chown -R "$(whoami):staff" /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app

@@ -5,17 +5,18 @@
 set -u
 
 APP_NAME="1132.WTF"
-BUNDLE_ID="wtf.fix1132.mac.13"
+BUNDLE_ID="wtf.fix1132.mac.14"
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
 LOG_DIR="$HOME/Library/Logs/$APP_NAME"
 PLIST="$HOME/Library/LaunchAgents/$BUNDLE_ID.plist"
 OLD_PLIST="$HOME/Library/LaunchAgents/wtf.fix1132.mac.plist"
 OLD12_PLIST="$HOME/Library/LaunchAgents/wtf.fix1132.mac.12.plist"
+OLD13_PLIST="$HOME/Library/LaunchAgents/wtf.fix1132.mac.13.plist"
 
 printf '%s\n' "=== Uninstall $APP_NAME ==="
 printf '%s\n' ""
 
-for item in "$PLIST" "$OLD_PLIST" "$OLD12_PLIST"; do
+for item in "$PLIST" "$OLD_PLIST" "$OLD12_PLIST" "$OLD13_PLIST"; do
   /bin/launchctl bootout "gui/$(id -u)" "$item" >/dev/null 2>&1 ||
     /bin/launchctl unload "$item" >/dev/null 2>&1 || true
   rm -f "$item"

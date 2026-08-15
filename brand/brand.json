@@ -22,13 +22,13 @@
     "linux_state": "~/.local/share/1132wtf"
   },
   "colors": {
-    "bg": "#0B0E14",
-    "bg_top": "#141A26",
-    "bg_bottom": "#06080D",
+    "bg": "#071400",
+    "bg_top": "#163000",
+    "bg_bottom": "#030800",
     "ink": "#F5F7FA",
     "muted": "#8A94A6",
-    "accent": "#00E5FF",
-    "accent2": "#FF2E88",
+    "accent": "#C8FF00",
+    "accent2": "#FF6A00",
     "ok": "#22C55E",
     "warn": "#FFB020",
     "err": "#FF4D4D"

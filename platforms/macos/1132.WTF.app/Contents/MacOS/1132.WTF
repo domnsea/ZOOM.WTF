@@ -10,7 +10,7 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.13"
+APP_VERSION="1.0.14"
 APP_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 export APP_ROOT
 ENGINE="$APP_ROOT/Contents/Resources/1132wtf-engine.sh"
@@ -25,7 +25,8 @@ mkdir -p "$LOG_DIR"
 # web page. Kill that login item so only THIS copy can run.
 OLD_AGENT="$HOME/Library/LaunchAgents/wtf.fix1132.mac.plist"
 OLD_AGENT12="$HOME/Library/LaunchAgents/wtf.fix1132.mac.12.plist"
-for agent in "$OLD_AGENT" "$OLD_AGENT12"; do
+OLD_AGENT13="$HOME/Library/LaunchAgents/wtf.fix1132.mac.13.plist"
+for agent in "$OLD_AGENT" "$OLD_AGENT12" "$OLD_AGENT13"; do
   /bin/launchctl bootout "gui/$(id -u)" "$agent" >/dev/null 2>&1 ||
     /bin/launchctl unload "$agent" >/dev/null 2>&1 || true
   rm -f "$agent"
@@ -85,7 +86,7 @@ OPT_LOGS="Open logs"
 pick_from_plain_list() {
   /usr/bin/osascript <<OSA 2>/dev/null
 set choices to {"$OPT_FIX", "$OPT_DEEP", "$OPT_STATUS", "$OPT_UNDO", "$OPT_AUTO_ON", "$OPT_AUTO_OFF", "$OPT_LOGS"}
-set picked to choose from list choices with title "$APP_NAME $APP_VERSION" ¬
+set picked to choose from list choices with title "1132 FRESH $APP_VERSION" ¬
   with prompt "STEP 1 - click Fix Zoom" & return & ¬
   "STEP 2 - type a name and the meeting #" & return & ¬
   "LAUNCH creates a temporary user, then Zoom" ¬
@@ -153,9 +154,9 @@ That creates a hidden temporary user.
 Zoom opens on that empty profile.
 Click Join. Paste the meeting number.
 When you quit Zoom, that user is deleted."
-    /usr/bin/osascript -e "display notification \"Temporary Zoom profile is opening.\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true
+    /usr/bin/osascript -e "display notification \"1132 FRESH is opening Zoom.\" with title \"1132 FRESH $APP_VERSION\"" >/dev/null 2>&1 || true
     /usr/bin/osascript -e "display dialog \"$(applescript_quote "$SUMMARY")\" \
-      buttons {\"OK\"} default button \"OK\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true
+      buttons {\"OK\"} default button \"OK\" with title \"1132 FRESH $APP_VERSION\"" >/dev/null 2>&1 || true
   elif [ "$STATUS" -eq 0 ]; then
     /usr/bin/osascript -e "display dialog \"$(applescript_quote "$SUMMARY")\" \
       buttons {\"OK\"} default button \"OK\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true
