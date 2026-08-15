@@ -1,0 +1,675 @@
+#!/usr/bin/env bash
+#
+# 1132.WTF engine and CLI for Linux
+# Implements the levels described in docs/ENGINE.md.
+#
+# Usage: 1132wtf <verb> [argument]
+#   status | fix | deep-fix | browser [url] | restore
+#   autostart-on | autostart-off | logs | version | help
+#
+# Environment overrides, useful for unusual installs and for the test suite:
+#   WTF1132_ZOOM_BIN   path to the Zoom launcher, skips detection
+#   WTF1132_NO_LAUNCH  set to 1 to reset without starting Zoom afterwards
+#   WTF1132_ASSUME_YES set to 1 to skip interactive confirmations
+
+set -u
+set -o pipefail
+
+APP_NAME="1132.WTF"
+APP_ID="1132wtf"
+APP_VERSION="1.0.0"
+
+STATE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/$APP_ID"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
+LOG_DIR="$STATE_DIR/logs"
+BACKUP_DIR="$STATE_DIR/backups"
+SLOT_FILE="$STATE_DIR/slot.txt"
+LAST_RUN_FILE="$STATE_DIR/lastrun.txt"
+LOCK_DIR="$STATE_DIR/run.lock"
+AUTOSTART_FILE="$CONFIG_DIR/autostart/$APP_ID.desktop"
+
+# Throwaway rotation users. The prefix is reserved so rotation can never
+# delete a real account.
+SLOT_PREFIX="wtf1132"
+SLOT_NAMES=("wtf1132a" "wtf1132b" "wtf1132c")
+
+mkdir -p "$STATE_DIR" "$LOG_DIR" "$BACKUP_DIR"
+# The PID keeps two runs started inside the same second from sharing a log.
+LOG_FILE="$LOG_DIR/engine_$(date +%Y-%m-%d_%H%M%S)_$$.log"
+
+# --------------------------------------------------------------------- output
+
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+  C_RESET=$'\033[0m'; C_DIM=$'\033[2m'; C_CYAN=$'\033[36m'
+  C_GREEN=$'\033[32m'; C_YELLOW=$'\033[33m'; C_RED=$'\033[31m'
+else
+  C_RESET=""; C_DIM=""; C_CYAN=""; C_GREEN=""; C_YELLOW=""; C_RED=""
+fi
+
+log() {
+  local level="$1"
+  shift
+  local colour="$C_DIM"
+  case "$level" in
+    OK | DONE) colour="$C_GREEN" ;;
+    WARN) colour="$C_YELLOW" ;;
+    FATAL) colour="$C_RED" ;;
+    ACTION | START | STATE) colour="$C_CYAN" ;;
+  esac
+  printf '%s[%s]%s %s\n' "$colour" "$level" "$C_RESET" "$*"
+  printf '[%s] %s\n' "$level" "$*" >>"$LOG_FILE"
+}
+
+die() {
+  log FATAL "$*"
+  log FATAL "Log: $LOG_FILE"
+  exit 1
+}
+
+confirm() {
+  [ "${WTF1132_ASSUME_YES:-0}" = "1" ] && return 0
+  [ -t 0 ] || return 0
+  local answer
+  read -r -p "$1 [y/N] " answer
+  case "$answer" in
+    y | Y | yes | YES) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# ----------------------------------------------------------------- single run
+
+acquire_lock() {
+  if mkdir "$LOCK_DIR" 2>/dev/null; then
+    printf '%s\n' "$$" >"$LOCK_DIR/pid"
+    trap 'rm -rf "$LOCK_DIR" >/dev/null 2>&1 || true' EXIT INT TERM
+    return 0
+  fi
+  local existing=""
+  [ -f "$LOCK_DIR/pid" ] && existing="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+  if [ -n "$existing" ] && kill -0 "$existing" 2>/dev/null; then
+    log INFO "Another $APP_NAME run is already active (PID $existing)."
+    return 1
+  fi
+  log WARN "Clearing a stale lock from a previous run."
+  rm -rf "$LOCK_DIR" >/dev/null 2>&1 || true
+  mkdir "$LOCK_DIR" 2>/dev/null || return 1
+  printf '%s\n' "$$" >"$LOCK_DIR/pid"
+  trap 'rm -rf "$LOCK_DIR" >/dev/null 2>&1 || true' EXIT INT TERM
+  return 0
+}
+
+# ---------------------------------------------------------------- zoom lookup
+
+# Prints a Zoom spec: an absolute path, or "flatpak:<id>", or "snap:<name>".
+# The spec carries its own packaging kind, so callers can read it back with
+# zoom_kind even though this runs inside a command substitution.
+detect_zoom() {
+  if [ -n "${WTF1132_ZOOM_BIN:-}" ]; then
+    if [ -x "$WTF1132_ZOOM_BIN" ]; then
+      printf '%s\n' "$WTF1132_ZOOM_BIN"
+      return 0
+    fi
+    log WARN "WTF1132_ZOOM_BIN is set but not executable: $WTF1132_ZOOM_BIN"
+  fi
+
+  local candidate
+  for candidate in /usr/bin/zoom /usr/local/bin/zoom /opt/zoom/ZoomLauncher /opt/zoom/zoom; do
+    if [ -x "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  if command -v flatpak >/dev/null 2>&1 &&
+    flatpak info us.zoom.Zoom >/dev/null 2>&1; then
+    printf '%s\n' "flatpak:us.zoom.Zoom"
+    return 0
+  fi
+
+  if command -v snap >/dev/null 2>&1 &&
+    snap list zoom-client >/dev/null 2>&1; then
+    printf '%s\n' "snap:zoom-client"
+    return 0
+  fi
+
+  # Last resort: anything called zoom on PATH.
+  if command -v zoom >/dev/null 2>&1; then
+    command -v zoom
+    return 0
+  fi
+
+  return 1
+}
+
+zoom_kind() {
+  case "${1:-}" in
+    "") printf 'none' ;;
+    flatpak:*) printf 'flatpak' ;;
+    snap:*) printf 'snap' ;;
+    *) printf 'native' ;;
+  esac
+}
+
+zoom_running() {
+  pgrep -x zoom >/dev/null 2>&1 && return 0
+  pgrep -f ZoomLauncher >/dev/null 2>&1 && return 0
+  return 1
+}
+
+stop_zoom() {
+  if ! zoom_running; then
+    log INFO "Zoom was not running."
+    return 0
+  fi
+  log ACTION "Asking Zoom to quit"
+  pkill -x zoom >/dev/null 2>&1 || true
+  pkill -f ZoomLauncher >/dev/null 2>&1 || true
+
+  local waited=0
+  while zoom_running && [ "$waited" -lt 8 ]; do
+    sleep 1
+    waited=$((waited + 1))
+  done
+
+  if zoom_running; then
+    log WARN "Zoom ignored the request, forcing it."
+    pkill -9 -x zoom >/dev/null 2>&1 || true
+    pkill -9 -f ZoomLauncher >/dev/null 2>&1 || true
+    sleep 1
+  fi
+
+  if zoom_running; then
+    log WARN "Zoom is still running. The reset may be incomplete."
+  else
+    log OK "Zoom stopped."
+  fi
+}
+
+launch_zoom() {
+  local zoom="$1"
+  case "$zoom" in
+    flatpak:*)
+      log ACTION "Starting Zoom (flatpak)"
+      setsid flatpak run "${zoom#flatpak:}" >/dev/null 2>&1 &
+      ;;
+    snap:*)
+      log ACTION "Starting Zoom (snap)"
+      setsid snap run "${zoom#snap:}" >/dev/null 2>&1 &
+      ;;
+    *)
+      log ACTION "Starting Zoom"
+      setsid "$zoom" >/dev/null 2>&1 &
+      ;;
+  esac
+  sleep 2
+  if zoom_running; then
+    log OK "Zoom started."
+  else
+    log WARN "Zoom did not appear yet. Start it yourself if it stays away."
+  fi
+}
+
+# ------------------------------------------------------- level 1: local reset
+
+# label|path pairs. Labels keep backup folder names unique and let restore put
+# each item back exactly where it came from.
+identity_targets() {
+  printf '%s\n' "zoom_home|$HOME/.zoom"
+  printf '%s\n' "zoomus_conf|$CONFIG_DIR/zoomus.conf"
+  printf '%s\n' "zoom_cache|${XDG_CACHE_HOME:-$HOME/.cache}/zoom"
+  printf '%s\n' "zoom_config|$CONFIG_DIR/zoom"
+  # Flatpak keeps its own copy of everything under ~/.var/app.
+  printf '%s\n' "flatpak_data|$HOME/.var/app/us.zoom.Zoom"
+  # Snap does the same under ~/snap.
+  printf '%s\n' "snap_data|$HOME/snap/zoom-client"
+}
+
+list_backups() {
+  # Backup names are timestamps, so a reverse sort puts the newest first.
+  find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort -r
+}
+
+# Claim a backup directory that does not exist yet. Plain mkdir, not mkdir -p,
+# so a name already in use is reported rather than silently shared: two runs in
+# the same second must never write into one backup.
+new_backup_dir() {
+  local stamp attempt candidate
+  stamp="$(date +%Y-%m-%d_%H%M%S)"
+  for attempt in "" _2 _3 _4 _5 _6 _7 _8 _9; do
+    candidate="$BACKUP_DIR/${stamp}${attempt}"
+    if mkdir "$candidate" 2>/dev/null; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+do_fix() {
+  local zoom
+  zoom="$(detect_zoom || true)"
+  if [ -z "$zoom" ]; then
+    die "Zoom is not installed. Install the Zoom client, or use '$APP_ID browser'."
+  fi
+  log OK "Zoom: $zoom ($(zoom_kind "$zoom"))"
+
+  stop_zoom
+
+  local backup manifest moved
+  backup="$(new_backup_dir)" ||
+    die "Could not create a backup directory under $BACKUP_DIR"
+  manifest="$backup/manifest.txt"
+  : >"$manifest"
+  moved=0
+
+  local label path
+  while IFS='|' read -r label path; do
+    [ -z "${label:-}" ] && continue
+    [ -e "$path" ] || continue
+    if mv "$path" "$backup/$label" 2>/dev/null; then
+      printf '%s|%s\n' "$label" "$path" >>"$manifest"
+      log OK "Reset $path"
+      moved=$((moved + 1))
+    else
+      log WARN "Could not reset $path"
+    fi
+  done < <(identity_targets)
+
+  if [ "$moved" -eq 0 ]; then
+    rm -f "$manifest"
+    rmdir "$backup" 2>/dev/null || true
+    log INFO "Zoom identity was already clean, nothing to back up."
+  else
+    log INFO "Backup written to $backup"
+  fi
+
+  if [ "${WTF1132_NO_LAUNCH:-0}" != "1" ]; then
+    launch_zoom "$zoom"
+  fi
+
+  log DONE "Level 1 reset complete. Rejoin the meeting now."
+}
+
+do_restore() {
+  local latest
+  latest="$(list_backups | head -n 1)"
+  if [ -z "$latest" ]; then
+    log WARN "There is no backup to restore."
+    return 1
+  fi
+
+  local backup="$BACKUP_DIR/$latest"
+  log INFO "Restoring backup $latest"
+
+  if [ ! -f "$backup/manifest.txt" ]; then
+    log WARN "Backup has no manifest, so its items cannot be placed automatically."
+    return 1
+  fi
+
+  stop_zoom
+
+  local label path
+  while IFS='|' read -r label path; do
+    [ -z "${label:-}" ] && continue
+    [ -e "$backup/$label" ] || continue
+    rm -rf "$path" 2>/dev/null || true
+    mkdir -p "$(dirname "$path")"
+    if cp -a "$backup/$label" "$path" 2>/dev/null; then
+      log OK "Restored $path"
+    else
+      log WARN "Could not restore $path"
+    fi
+  done <"$backup/manifest.txt"
+
+  log DONE "Restore finished."
+  return 0
+}
+
+# ---------------------------------------------------- level 2: user rotation
+
+next_slot() {
+  local raw=1
+  if [ -f "$SLOT_FILE" ]; then
+    raw="$(tr -d '[:space:]' <"$SLOT_FILE" 2>/dev/null || printf '1')"
+  fi
+  case "$raw" in
+    1 | 2 | 3) printf '%s' "$raw" ;;
+    *) printf '1' ;;
+  esac
+}
+
+slot_to_remove() {
+  case "$1" in
+    1) printf '2' ;;
+    2) printf '3' ;;
+    3) printf '1' ;;
+  esac
+}
+
+linux_user_exists() {
+  id -u "$1" >/dev/null 2>&1
+}
+
+as_root() {
+  if [ "$(id -u)" -eq 0 ]; then
+    "$@"
+    return $?
+  fi
+  if command -v sudo >/dev/null 2>&1; then
+    sudo -- "$@"
+    return $?
+  fi
+  if command -v pkexec >/dev/null 2>&1; then
+    pkexec -- "$@"
+    return $?
+  fi
+  die "Level 2 needs root, but neither sudo nor pkexec is available."
+}
+
+do_deep_fix() {
+  local zoom
+  zoom="$(detect_zoom || true)"
+  if [ -z "$zoom" ]; then
+    die "Zoom is not installed. Install the Zoom client, or use '$APP_ID browser'."
+  fi
+  log OK "Zoom: $zoom ($(zoom_kind "$zoom"))"
+
+  if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
+    die "Level 2 needs a graphical session, and neither DISPLAY nor WAYLAND_DISPLAY is set."
+  fi
+
+  local slot remove_slot active remove
+  slot="$(next_slot)"
+  remove_slot="$(slot_to_remove "$slot")"
+  active="${SLOT_NAMES[$((slot - 1))]}"
+  remove="${SLOT_NAMES[$((remove_slot - 1))]}"
+
+  case "$active" in
+    "$SLOT_PREFIX"*) : ;;
+    *) die "Refusing to act on '$active': not a $APP_NAME rotation account." ;;
+  esac
+
+  log INFO "Rotation: running slot $slot ($active), destroying slot $remove_slot ($remove)"
+
+  if ! confirm "Create the throwaway user '$active' and run Zoom as it? Root is required."; then
+    log INFO "Cancelled, nothing was changed."
+    return 0
+  fi
+
+  if linux_user_exists "$remove"; then
+    case "$remove" in
+      "$SLOT_PREFIX"*) : ;;
+      *) die "Refusing to delete '$remove': not a $APP_NAME rotation account." ;;
+    esac
+    log ACTION "Deleting throwaway user $remove"
+    if as_root userdel -r "$remove" >>"$LOG_FILE" 2>&1; then
+      log OK "Deleted $remove"
+    else
+      log WARN "Could not fully delete $remove. See $LOG_FILE"
+    fi
+  fi
+
+  if linux_user_exists "$active"; then
+    log INFO "Throwaway user $active already exists, reusing it."
+  else
+    log ACTION "Creating throwaway user $active"
+    # A standard account with no password and no shell login: Zoom does not
+    # need either, and this keeps the account from being usable as a way in.
+    if as_root useradd --create-home --shell /usr/sbin/nologin \
+      --comment "$APP_NAME throwaway account" "$active" >>"$LOG_FILE" 2>&1; then
+      log OK "Created $active"
+    else
+      die "Could not create $active. See $LOG_FILE"
+    fi
+    as_root passwd -l "$active" >>"$LOG_FILE" 2>&1 || true
+  fi
+
+  # Let the throwaway user talk to this X server. Without this, Zoom cannot
+  # open a window.
+  if [ -n "${DISPLAY:-}" ] && command -v xhost >/dev/null 2>&1; then
+    if xhost "+SI:localuser:$active" >>"$LOG_FILE" 2>&1; then
+      log OK "Granted $active access to display $DISPLAY"
+    else
+      log WARN "xhost failed. Zoom may not be able to open a window."
+    fi
+  elif [ -n "${WAYLAND_DISPLAY:-}" ]; then
+    log WARN "This is a Wayland session. Running Zoom as another user often fails here."
+    log INFO "If Zoom does not appear, log out and choose an X11 session, or use level 3."
+  else
+    log WARN "xhost was not found, so the display grant was skipped."
+  fi
+
+  local zoom_cmd
+  case "$zoom" in
+    flatpak:*) zoom_cmd="flatpak run ${zoom#flatpak:}" ;;
+    snap:*) zoom_cmd="snap run ${zoom#snap:}" ;;
+    *) zoom_cmd="$zoom" ;;
+  esac
+
+  log ACTION "Starting Zoom as $active"
+  # zoom_cmd is deliberately word-split: it can be "flatpak run <id>".
+  # shellcheck disable=SC2086
+  as_root runuser -u "$active" -- env DISPLAY="${DISPLAY:-}" \
+    XAUTHORITY="${XAUTHORITY:-}" $zoom_cmd >>"$LOG_FILE" 2>&1 &
+  local launch_pid=$!
+  sleep 3
+  if kill -0 "$launch_pid" 2>/dev/null || zoom_running; then
+    log OK "Zoom launched as $active."
+  else
+    wait "$launch_pid" 2>/dev/null
+    log WARN "Zoom as $active exited straight away. See $LOG_FILE"
+  fi
+
+  local following
+  following=$((slot + 1))
+  [ "$following" -gt 3 ] && following=1
+  printf '%s\n' "$following" >"$SLOT_FILE"
+  log STATE "Next deep-fix will use slot $following"
+
+  log DONE "Level 2 rotation complete. Rejoin the meeting in the new Zoom window."
+}
+
+# ----------------------------------------------------- level 3: browser join
+
+do_browser() {
+  local url="${1:-}"
+  [ -z "$url" ] && url="https://zoom.us/join"
+
+  local opened=0
+  local browser
+  for browser in google-chrome google-chrome-stable chromium chromium-browser brave-browser microsoft-edge; do
+    if command -v "$browser" >/dev/null 2>&1; then
+      log ACTION "Opening a private window in $browser"
+      setsid "$browser" --incognito --new-window "$url" >/dev/null 2>&1 &
+      opened=1
+      break
+    fi
+  done
+
+  if [ "$opened" -ne 1 ] && command -v firefox >/dev/null 2>&1; then
+    log ACTION "Opening a private window in firefox"
+    setsid firefox --private-window "$url" >/dev/null 2>&1 &
+    opened=1
+  fi
+
+  if [ "$opened" -ne 1 ]; then
+    log WARN "No browser with a command-line private mode was found."
+    if command -v xdg-open >/dev/null 2>&1; then
+      log INFO "Opening your default browser. Use its private window yourself."
+      setsid xdg-open "$url" >/dev/null 2>&1 &
+    else
+      log INFO "Open this link in a private window: $url"
+    fi
+  fi
+
+  log OK "Join in that window, and choose \"Join from your browser\"."
+  log DONE "Level 3 bypass ready."
+}
+
+# ------------------------------------------------------------------ autostart
+
+autostart_on() {
+  local exe
+  exe="$(command -v "$0" 2>/dev/null || printf '%s' "$0")"
+  case "$exe" in
+    /*) : ;;
+    *) exe="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")" ;;
+  esac
+
+  mkdir -p "$(dirname "$AUTOSTART_FILE")"
+  cat >"$AUTOSTART_FILE" <<DESKTOP
+[Desktop Entry]
+Type=Application
+Name=$APP_NAME
+Comment=Reset Zoom's local identity at login
+Exec=$exe fix
+Icon=$APP_ID
+Terminal=false
+X-GNOME-Autostart-enabled=true
+DESKTOP
+  chmod 644 "$AUTOSTART_FILE"
+  log OK "Autostart installed: $AUTOSTART_FILE"
+}
+
+autostart_off() {
+  if [ -f "$AUTOSTART_FILE" ]; then
+    rm -f "$AUTOSTART_FILE"
+    log OK "Autostart removed."
+  else
+    log INFO "Autostart was not installed."
+  fi
+}
+
+# --------------------------------------------------------------------- status
+
+do_status() {
+  log INFO "$APP_NAME v$APP_VERSION"
+  log INFO "User=$(id -un)  Host=$(uname -n)  Kernel=$(uname -r)"
+  if [ -r /etc/os-release ]; then
+    # shellcheck disable=SC1091
+    log INFO "Distro=$(. /etc/os-release && printf '%s' "${PRETTY_NAME:-unknown}")"
+  fi
+
+  local session="none"
+  [ -n "${DISPLAY:-}" ] && session="X11 ($DISPLAY)"
+  [ -n "${WAYLAND_DISPLAY:-}" ] && session="Wayland ($WAYLAND_DISPLAY)"
+  log INFO "Graphical session: $session"
+
+  local zoom
+  zoom="$(detect_zoom || true)"
+  if [ -n "$zoom" ]; then
+    log OK "Zoom found: $zoom ($(zoom_kind "$zoom"))"
+  else
+    log WARN "Zoom was not found. Level 1 and 2 need the Zoom client installed."
+  fi
+
+  if zoom_running; then
+    log INFO "Zoom running: yes"
+  else
+    log INFO "Zoom running: no"
+  fi
+
+  log INFO "Next deep-fix slot: $(next_slot)"
+
+  local present="" name
+  for name in "${SLOT_NAMES[@]}"; do
+    if linux_user_exists "$name"; then
+      present="${present:+$present, }$name"
+    fi
+  done
+  log INFO "Throwaway users present: ${present:-none}"
+
+  log INFO "Identity backups: $(list_backups | wc -l | tr -d ' ')"
+
+  if [ -f "$AUTOSTART_FILE" ]; then
+    log INFO "Autostart installed: yes"
+  else
+    log INFO "Autostart installed: no"
+  fi
+
+  local found=0 label path
+  while IFS='|' read -r label path; do
+    [ -z "${label:-}" ] && continue
+    if [ -e "$path" ]; then
+      log INFO "Present: $path"
+      found=$((found + 1))
+    fi
+  done < <(identity_targets)
+  [ "$found" -eq 0 ] && log INFO "No Zoom identity data on disk right now."
+
+  [ -f "$LAST_RUN_FILE" ] && log INFO "Last run: $(cat "$LAST_RUN_FILE")"
+  log INFO "Logs: $LOG_DIR"
+}
+
+usage() {
+  cat <<USAGE
+$APP_NAME v$APP_VERSION - Zoom error 1132, fixed.
+
+Usage: $APP_ID <verb> [argument]
+
+Verbs
+  status          What this machine looks like right now
+  fix             Level 1: back up and erase Zoom's local identity, restart Zoom
+  deep-fix        Level 2: rotate a throwaway user and run Zoom as that user
+  browser [url]   Level 3: join in a fresh private browser session
+  restore         Undo the most recent fix
+  autostart-on    Run a level 1 reset at every login
+  autostart-off   Stop running at login
+  logs            Print the log directory
+  version         Print the version
+  help            This text
+
+Start with 'fix'. If 1132 comes back, try 'deep-fix', then 'browser'.
+
+Logs: $LOG_DIR
+USAGE
+}
+
+# ----------------------------------------------------------------------- main
+
+VERB="${1:-help}"
+[ $# -gt 0 ] && shift
+
+EXIT_CODE=0
+case "$VERB" in
+  help | -h | --help)
+    usage
+    exit 0
+    ;;
+  version | -v | --version)
+    printf '%s %s\n' "$APP_NAME" "$APP_VERSION"
+    exit 0
+    ;;
+esac
+
+log START "$APP_NAME verb=$VERB"
+
+case "$VERB" in
+  status) do_status ;;
+  browser) do_browser "${1:-}" ;;
+  logs) printf '%s\n' "$LOG_DIR" ;;
+  autostart-on) autostart_on ;;
+  autostart-off) autostart_off ;;
+  fix)
+    acquire_lock || exit 0
+    do_fix
+    ;;
+  deep-fix)
+    acquire_lock || exit 0
+    do_deep_fix
+    ;;
+  restore)
+    acquire_lock || exit 0
+    do_restore || EXIT_CODE=1
+    ;;
+  *)
+    log FATAL "Unknown verb '$VERB'."
+    printf '\n'
+    usage
+    exit 2
+    ;;
+esac
+
+printf '%s verb=%s exit=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$VERB" "$EXIT_CODE" >"$LAST_RUN_FILE"
+exit "$EXIT_CODE"
