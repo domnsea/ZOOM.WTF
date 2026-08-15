@@ -146,19 +146,15 @@ public class MainActivity extends Activity {
 
     private View buildLevelOneCard() {
         LinearLayout card = Brand.card(this);
-        card.addView(Brand.levelHeader(this, "1", "Reset Zoom on this phone", Brand.ACCENT));
-        card.addView(Brand.title(this, "Clear Zoom's data"));
+        card.addView(Brand.levelHeader(this, "1", "STEP 1 - Clear Zoom", Brand.ACCENT));
+        card.addView(Brand.title(this, "STEP 1 - Tap the button below"));
         card.addView(Brand.body(this,
-                "Clearing Zoom's storage throws away the device id it registered, which is "
-                        + "what error 1132 is usually attached to.\n\n"
-                        + "Android does not let one app wipe another app's data, so this button "
-                        + "opens Zoom's own system page. From there:\n\n"
-                        + "1.  Tap Force stop\n"
-                        + "2.  Tap Storage\n"
-                        + "3.  Tap Clear storage, then confirm\n"
-                        + "4.  Open Zoom and rejoin as a guest"));
+                "STEP 2 - On the next screen:\n"
+                        + "Force stop  →  Storage  →  Clear storage\n\n"
+                        + "LAUNCH - Open Zoom. Join as a guest.\n"
+                        + "Do not sign in as the old account."));
 
-        Button open = Brand.button(this, "Open Zoom's app settings", Brand.ACCENT, true);
+        Button open = Brand.button(this, "STEP 1 - Open Zoom settings", Brand.ACCENT, true);
         open.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -195,24 +191,19 @@ public class MainActivity extends Activity {
 
     private View buildLevelTwoCard() {
         LinearLayout card = Brand.card(this);
-        card.addView(Brand.levelHeader(this, "2", "A second user profile", Brand.ACCENT2));
-        card.addView(Brand.title(this, "Give Zoom a fresh profile"));
+        card.addView(Brand.levelHeader(this, "2", "STEP 2 - New phone user", Brand.ACCENT2));
+        card.addView(Brand.title(this, "Only if STEP 1 still fails"));
 
         String explanation = probe.multiUserSupported
-                ? "A second Android user is the phone version of a throwaway desktop account. "
-                + "Zoom installed there has its own storage, its own device registration, and "
-                + "no memory of the block.\n\n"
-                + "1.  Add a user, then switch to it\n"
-                + "2.  Install Zoom from the Play Store\n"
-                + "3.  Join as a guest with a new display name\n\n"
-                + "Switch back whenever you like. Nothing in your own profile changes."
-                : "This device does not allow extra user profiles, so this level is not "
-                + "available here. That is a restriction from the manufacturer, not from "
-                + "this app.\n\nGo to level 3 instead, which needs nothing special.";
+                ? "STEP 1 - Tap the button. Add a user. Switch to it.\n\n"
+                + "STEP 2 - Install Zoom on that user.\n\n"
+                + "LAUNCH - Join as a guest. Do not sign in as the old account."
+                : "This phone cannot add users. Skip this.\n\n"
+                + "Go to STEP 3 instead.";
 
         card.addView(Brand.body(this, explanation));
 
-        Button open = Brand.button(this, "Open user settings", Brand.ACCENT2, false);
+        Button open = Brand.button(this, "STEP 2 - Open user settings", Brand.ACCENT2, false);
         open.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -250,15 +241,15 @@ public class MainActivity extends Activity {
 
     private View buildLevelThreeCard() {
         LinearLayout card = Brand.card(this);
-        card.addView(Brand.levelHeader(this, "3", "Join without the app", Brand.OK));
-        card.addView(Brand.title(this, "Clean room join"));
+        card.addView(Brand.levelHeader(this, "3", "STEP 3 - Join in browser", Brand.OK));
+        card.addView(Brand.title(this, "Only if STEP 1 and STEP 2 still fail"));
         card.addView(Brand.body(this,
-                "Zoom's web client carries none of the app's device identity. This is the "
-                        + "level that works when the other two do not, and it is the only one "
-                        + "this app can do entirely by itself."));
+                "STEP 1 - Type the meeting number below.\n"
+                        + "STEP 2 - Use the name shown (not your old name).\n"
+                        + "LAUNCH"));
 
         meetingInput = new EditText(this);
-        meetingInput.setHint("Meeting link or ID");
+        meetingInput.setHint("STEP 1 - Meeting number or link");
         meetingInput.setHintTextColor(Brand.MUTED);
         meetingInput.setTextColor(Brand.INK);
         meetingInput.setTextSize(15);
@@ -279,7 +270,7 @@ public class MainActivity extends Activity {
         generatedName = Brand.mono(this, "Display name:  " + Identity.displayName());
         card.addView(generatedName);
 
-        Button cleanRoom = Brand.button(this, "Join in a wiped session", Brand.OK, true);
+        Button cleanRoom = Brand.button(this, "LAUNCH", Brand.OK, true);
         cleanRoom.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {

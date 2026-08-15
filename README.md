@@ -41,6 +41,53 @@ sha256sum -c SHA256SUMS      # shasum -a 256 -c SHA256SUMS on macOS
 
 Or build them yourself with `tools/build_all.sh`.
 
+## How to use
+
+Every package has a `START_HERE.txt`. Same three lines on every platform.
+
+### Windows
+
+STEP 1 - Unzip. Double-click `1132.WTF.vbs`
+
+STEP 2 - Click **STEP 1 - Fix Zoom**
+
+LAUNCH - Join. Do not sign in as the old account.
+
+### macOS
+
+STEP 1 - Right-click `INSTALL_TO_APPLICATIONS.command` → Open → Open
+
+STEP 2 - Click **STEP 1 - Fix Zoom**
+
+LAUNCH - Type a new name, then the meeting #, then LAUNCH
+
+### Linux
+
+STEP 1 - Run `./install.sh`
+
+STEP 2 - Open 1132.WTF from your launcher
+
+LAUNCH - Click **STEP 1 - Fix Zoom**
+
+### Android
+
+STEP 1 - Open the `.apk`. Allow install.
+
+STEP 2 - Open 1132.WTF
+
+LAUNCH - Do **STEP 1 - Clear Zoom** on the screen. Join as a guest.
+
+### iOS
+
+STEP 1 - Open `1132WTF.xcodeproj` in Xcode (needs a Mac)
+
+STEP 2 - Press Run on your iPhone
+
+LAUNCH - Do **STEP 1 - Clear Zoom** on the screen. Join as a guest.
+
+If STEP 1 still fails, use STEP 2, then STEP 3 / LAUNCH. Stop when you are in
+the meeting.
+
 ## What error 1132 actually is
 
 Zoom shows `1132` when you have been blocked. The block is not attached to your

@@ -108,7 +108,7 @@ case ":$PATH:" in
     ;;
 esac
 
-printf '%s\n' "Open it from your launcher as \"$APP_NAME\", or run:"
-printf '%s\n' "  $APP_ID status"
-printf '%s\n' "  $APP_ID fix"
+printf '%s\n' "STEP 1 - Open $APP_NAME from your launcher"
+printf '%s\n' "STEP 2 - Click STEP 1 - Fix Zoom"
+printf '%s\n' "LAUNCH - Zoom opens empty. Join. Do not sign in as the old account."
 printf '\n'

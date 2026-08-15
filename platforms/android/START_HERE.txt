@@ -1,0 +1,28 @@
+1132.WTF
+========
+
+Do these three things. Stop when you are in the meeting.
+
+STEP 1 - Open the .apk on your phone. Allow install.
+
+STEP 2 - Open 1132.WTF
+
+LAUNCH - Follow the three buttons on the screen, in order.
+
+
+On the screen
+-------------
+
+STEP 1 - Clear Zoom
+         Tap the button. Then:
+         Force stop → Storage → Clear storage
+         Open Zoom. Join as a guest. Do not sign in.
+
+STEP 2 - New phone user  (only if STEP 1 still fails)
+         Tap the button. Add a user. Switch to it.
+         Install Zoom there. Join as a guest.
+
+STEP 3 - Join in browser
+         Type the meeting number.
+         Tap LAUNCH.
+         Do not sign in as the old account.

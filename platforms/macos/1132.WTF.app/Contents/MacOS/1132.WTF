@@ -61,21 +61,21 @@ fi
 
 # ------------------------------------------------------------ chooser mode
 
-OPT_FIX="1  Fix now - wipe name, rooms, and login, then reopen Zoom empty"
-OPT_DEEP="2  Deep fix - switch to a clean throwaway macOS account for Zoom"
-OPT_BROWSER="3  Join in browser - fresh private session, skip the client"
-OPT_STATUS="Status - what does 1132.WTF see on this Mac?"
-OPT_UNDO="Undo last fix - put the previous Zoom identity back"
-OPT_AUTO_ON="Turn on autostart - reset at every login"
+OPT_FIX="STEP 1 - Fix Zoom"
+OPT_DEEP="STEP 2 - Deep fix (only if STEP 1 still fails)"
+OPT_BROWSER="STEP 3 - Join in browser"
+OPT_STATUS="Status"
+OPT_UNDO="Undo last fix"
+OPT_AUTO_ON="Turn on autostart"
 OPT_AUTO_OFF="Turn off autostart"
 OPT_LOGS="Open logs"
 
 CHOICE="$(/usr/bin/osascript <<OSA 2>/dev/null
 set choices to {"$OPT_FIX", "$OPT_DEEP", "$OPT_BROWSER", "$OPT_STATUS", "$OPT_UNDO", "$OPT_AUTO_ON", "$OPT_AUTO_OFF", "$OPT_LOGS"}
 set picked to choose from list choices with title "$APP_NAME" ¬
-  with prompt "Zoom error 1132, fixed." & return & return & ¬
-  "Fix now wipes the saved name, meeting history, and keychain login." & return & ¬
-  "Deleting throwaway accounts does nothing if you stay on this Mac login." ¬
+  with prompt "STEP 1 - click Fix Zoom" & return & ¬
+  "STEP 2 - type a new name and the meeting #" & return & ¬
+  "LAUNCH" ¬
   default items {"$OPT_FIX"} OK button name "Run" cancel button name "Close"
 if picked is false then
   return "cancelled"
@@ -107,54 +107,61 @@ esac
 EXTRA=""
 if [ "$VERB" = "browser" ]; then
   EXTRA="$(/usr/bin/osascript -e "text returned of (display dialog \
-    \"Paste the meeting link, or leave this empty to open zoom.us/join.\" \
-    default answer \"\" with title \"$APP_NAME\" buttons {\"Cancel\", \"Open\"} \
-    default button \"Open\")" 2>/dev/null || printf '__cancelled__')"
+    \"STEP 1 - Paste the meeting link.\" & return & return & \
+    \"STEP 2 - Leave empty if you just want the join page.\" & return & return & \
+    \"LAUNCH\" \
+    default answer \"\" with title \"$APP_NAME\" buttons {\"Cancel\", \"LAUNCH\"} \
+    default button \"LAUNCH\")" 2>/dev/null || printf '__cancelled__')"
   [ "$EXTRA" = "__cancelled__" ] && exit 0
 fi
 
-# Level 1 asks for the name Zoom should show and an optional meeting id, so
-# Zoom cannot prefill the Mac login name or reopen a remembered room.
 if [ "$VERB" = "fix" ]; then
   DISPLAY_NAME="$(/usr/bin/osascript -e "text returned of (display dialog \
-    \"What name should Zoom show? Do not use the name that got blocked \
-(or your Mac login name — Zoom will reuse that if you leave this empty).\" \
-    default answer \"Guest\" with title \"$APP_NAME\" buttons {\"Cancel\", \"Next\"} \
-    default button \"Next\")" 2>/dev/null || printf '__cancelled__')"
+    \"STEP 1 - Type the name Zoom should show.\" & return & return & \
+    \"Do not type your old name.\" \
+    default answer \"Guest\" with title \"$APP_NAME\" buttons {\"Cancel\", \"STEP 2\"} \
+    default button \"STEP 2\")" 2>/dev/null || printf '__cancelled__')"
   [ "$DISPLAY_NAME" = "__cancelled__" ] && exit 0
   MEETING="$(/usr/bin/osascript -e "text returned of (display dialog \
-    \"Meeting ID or link (optional). Leave empty to open Zoom and type it there.\" \
-    default answer \"\" with title \"$APP_NAME\" buttons {\"Cancel\", \"Fix now\"} \
-    default button \"Fix now\")" 2>/dev/null || printf '__cancelled__')"
+    \"STEP 2 - Type the meeting number.\" & return & return & \
+    \"Leave blank if you will type it in Zoom.\" & return & return & \
+    \"LAUNCH\" \
+    default answer \"\" with title \"$APP_NAME\" buttons {\"Cancel\", \"LAUNCH\"} \
+    default button \"LAUNCH\")" 2>/dev/null || printf '__cancelled__')"
   [ "$MEETING" = "__cancelled__" ] && exit 0
   export WTF1132_DISPLAY_NAME="$DISPLAY_NAME"
   export WTF1132_MEETING="$MEETING"
 fi
 
-# Level 2 explains itself before asking for an administrator password.
 if [ "$VERB" = "deep-fix" ]; then
   CONFIRM="$(/usr/bin/osascript -e "button returned of (display dialog \
-    \"Deep fix creates a temporary macOS account and hands you its password.
-
-You must SWITCH to that account (Apple menu → the wtf1132 name). \
-Staying on this login and deleting old accounts does nothing — Zoom \
-still sees this Mac user.
-
-Your own account, files, and settings are untouched. The throwaway \
-account is deleted automatically as the rotation comes back around.
-
-macOS will ask for your administrator password.\" \
-    with title \"$APP_NAME\" buttons {\"Cancel\", \"Continue\"} \
-    default button \"Continue\")" 2>/dev/null || printf 'Cancel')"
-  [ "$CONFIRM" != "Continue" ] && exit 0
+    \"STEP 1 - Type your Mac password when asked.\" & return & return & \
+    \"STEP 2 - Write down the new account and password.\" & return & return & \
+    \"LAUNCH - Click Switch now. Log in as that new account. Open Zoom there.\" & return & return & \
+    \"Do not stay on this login. Deleting those accounts does nothing.\" \
+    with title \"$APP_NAME\" buttons {\"Cancel\", \"LAUNCH\"} \
+    default button \"LAUNCH\")" 2>/dev/null || printf 'Cancel')"
+  [ "$CONFIRM" != "LAUNCH" ] && exit 0
 fi
 
 OUTPUT="$(run_engine "$VERB" ${EXTRA:+"$EXTRA"})"
 STATUS=$?
 
 if [ "$NEEDS_REPORT" -eq 1 ]; then
-  # Show the last dozen lines, which is where the outcome always is.
   SUMMARY="$(printf '%s\n' "$OUTPUT" | tail -n 12)"
+  if [ "$STATUS" -eq 0 ] && [ "$VERB" = "fix" ]; then
+    SUMMARY="Done.
+
+LAUNCH - Zoom is opening empty.
+Join with the name you typed.
+Do not sign in as the old account."
+  elif [ "$STATUS" -eq 0 ] && [ "$VERB" = "browser" ]; then
+    SUMMARY="Done.
+
+LAUNCH - A private browser window is opening.
+Join from the browser.
+Do not sign in as the old account."
+  fi
   if [ "$STATUS" -eq 0 ]; then
     /usr/bin/osascript -e "display dialog \"$(applescript_quote "$SUMMARY")\" \
       buttons {\"OK\"} default button \"OK\" with title \"$APP_NAME\"" >/dev/null 2>&1 || true

@@ -117,25 +117,18 @@ struct ContentView: View {
 
     private var levelOneCard: some View {
         Card {
-            LevelHeader(number: "1", label: "Reset Zoom on this iPhone", colour: Theme.accent)
-            CardTitle(text: "Offload and reinstall Zoom")
+            LevelHeader(number: "1", label: "STEP 1 - Clear Zoom", colour: Theme.accent)
+            CardTitle(text: "STEP 1 - Tap Open Settings")
             CardBody(text: """
-                Reinstalling Zoom throws away the device registration that error 1132 is \
-                usually attached to.
+                STEP 2 - General → iPhone Storage → Zoom → Delete App
+                Reinstall Zoom from the App Store.
 
-                iOS does not let one app remove another app's data, so this has to be done \
-                in Settings:
+                LAUNCH - Open Zoom. Join as a guest.
+                Do not sign in as the old account.
 
-                1.  Settings, then General
-                2.  iPhone Storage, then Zoom
-                3.  Delete App, then confirm
-                4.  Reinstall Zoom from the App Store
-                5.  Join as a guest, without signing in
-
-                Offload App is not enough on its own. It keeps the app's documents and data, \
-                which is exactly the part that has to go.
+                Offload App is not enough. You must Delete App.
                 """)
-            ActionButton(title: "Open Settings", colour: Theme.accent) {
+            ActionButton(title: "STEP 1 - Open Settings", colour: Theme.accent) {
                 openSettings()
             }
         }
@@ -153,19 +146,12 @@ struct ContentView: View {
 
     private var levelTwoCard: some View {
         Card {
-            LevelHeader(number: "2", label: "A second profile", colour: Theme.accent2)
-            CardTitle(text: "Not possible on iOS")
+            LevelHeader(number: "2", label: "STEP 2 - Not on iPhone", colour: Theme.accent2)
+            CardTitle(text: "Skip this")
             CardBody(text: """
-                On Windows, macOS, and Linux, 1132.WTF can run Zoom as a throwaway operating \
-                system user, which is the most reliable fix there is. iOS has no second user \
-                profile and no way for one app to create one, so that level does not exist \
-                here.
+                iPhone has no second user. Skip STEP 2.
 
-                The closest equivalents, in order of how well they work:
-
-                •  Join from the clean room below, which needs nothing
-                •  Use a different Zoom account, from a new email
-                •  Borrow a second device on a different network
+                Go to STEP 3 instead.
                 """)
         }
     }
@@ -174,13 +160,15 @@ struct ContentView: View {
 
     private var levelThreeCard: some View {
         Card {
-            LevelHeader(number: "3", label: "Join without the app", colour: Theme.ok)
-            CardTitle(text: "Clean room join")
-            CardBody(text: "Zoom's web client carries none of the app's device identity. This "
-                     + "runs inside 1132.WTF in a session with no cookies and no storage, "
-                     + "thrown away the moment you close it.")
+            LevelHeader(number: "3", label: "STEP 3 - Join in browser", colour: Theme.ok)
+            CardTitle(text: "Only if STEP 1 still fails")
+            CardBody(text: """
+                STEP 1 - Type the meeting number below.
+                STEP 2 - Use the name shown (not your old name).
+                LAUNCH
+                """)
 
-            TextField("Meeting link or ID", text: $meetingInput)
+            TextField("STEP 1 - Meeting number or link", text: $meetingInput)
                 .textFieldStyle(.plain)
                 .font(.system(size: 15))
                 .foregroundColor(Theme.ink)
@@ -199,7 +187,7 @@ struct ContentView: View {
 
             MonoBlock(text: "Display name:  \(displayName)")
 
-            ActionButton(title: "Join in a wiped session", colour: Theme.ok) {
+            ActionButton(title: "LAUNCH", colour: Theme.ok) {
                 showCleanRoom = true
             }
             ActionButton(title: "Open in Safari instead", colour: Theme.ok, filled: false) {

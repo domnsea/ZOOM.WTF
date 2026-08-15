@@ -376,6 +376,17 @@ fi
 # thing most people will read.
 check_grep "windows README names the launcher" "1132.WTF.vbs" platforms/windows/README.md
 check_grep "macos README names the installer" "INSTALL_TO_APPLICATIONS.command" platforms/macos/README.md
+
+# Every platform must tell the user what to do in the same three lines.
+# The first write-up was a wall of text and people could not follow it.
+for platform in windows macos linux android ios; do
+  start="platforms/$platform/START_HERE.txt"
+  check "$platform has START_HERE.txt" test -f "$start"
+  check_grep "$platform START_HERE says STEP 1" "STEP 1" "$start"
+  check_grep "$platform START_HERE says STEP 2" "STEP 2" "$start"
+  check_grep "$platform START_HERE says LAUNCH" "LAUNCH" "$start"
+done
+check_grep "top-level README has How to use" "## How to use" README.md
 check "macos package has OPEN_ME_FIRST.txt for Gatekeeper" test -f platforms/macos/OPEN_ME_FIRST.txt
 check_grep "OPEN_ME_FIRST tells them to right-click Open" "Right-click" platforms/macos/OPEN_ME_FIRST.txt
 check_grep "OPEN_ME_FIRST has a Terminal paste" "xattr -cr" platforms/macos/OPEN_ME_FIRST.txt

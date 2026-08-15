@@ -5,6 +5,18 @@ Zoom error 1132, fixed.
 A complete SwiftUI app for iPhone and iPad, iOS 16 and newer. Open the project
 in Xcode and press Run.
 
+## How to use
+
+Open `START_HERE.txt`. Short version:
+
+STEP 1 - On a Mac, open **`1132WTF.xcodeproj`** in Xcode
+
+STEP 2 - Plug in your iPhone. Press Run.
+
+LAUNCH - On the phone, do **STEP 1 - Clear Zoom**. Then join as a guest.
+
+If that fails: skip STEP 2 (iPhone cannot do it). Use **STEP 3** and tap **LAUNCH**.
+
 ## Build it
 
 **This needs a Mac.** iOS apps can only be compiled by Apple's toolchain, which

@@ -5,25 +5,22 @@ Zoom error 1132, fixed.
 Plain bash with no dependencies beyond coreutils, so it runs on any
 distribution. It handles Zoom installed natively, as a Flatpak, or as a Snap.
 
-## Install
+## How to use
 
-For just you, into `~/.local`:
+Open `START_HERE.txt`. Short version:
 
-```bash
-./install.sh
-```
+STEP 1 - Run **`./install.sh`**
 
-For everyone, into `/usr/local`:
+STEP 2 - Open **1132.WTF** from your app launcher (or run `1132wtf-gui`)
+
+LAUNCH - Click **STEP 1 - Fix Zoom**. Join. Do not sign in as the old account.
+
+If that fails: **STEP 2 - Deep fix**. If that fails: **STEP 3 - Join in browser**.
+
+For everyone on the machine:
 
 ```bash
 sudo ./install.sh --system
-```
-
-Then open **1132.WTF** from your application launcher, or use the command line:
-
-```bash
-1132wtf status
-1132wtf fix
 ```
 
 To remove it later, run `./uninstall.sh` with the same flags you installed

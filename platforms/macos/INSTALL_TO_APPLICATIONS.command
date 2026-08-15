@@ -41,19 +41,21 @@ fi
 
 allow_target "$DEST"
 
-printf '%s\n' "Installed: $DEST"
-printf '%s\n' "Opening it now."
+printf '%s\n' "STEP 1 - Installed: $DEST"
+printf '%s\n' "STEP 2 - Cleared the download block"
+printf '%s\n' "LAUNCH - Opening 1132.WTF now"
 printf '%s\n' ""
 
 if open "$DEST"; then
-  printf '%s\n' "If a dialog still says the author cannot be verified:"
-  printf '%s\n' "  1. Click Done, not Move to Trash"
-  printf '%s\n' "  2. System Settings → Privacy & Security"
-  printf '%s\n' "  3. Scroll down and click Open Anyway"
+  printf '%s\n' "If macOS still blocks it:"
+  printf '%s\n' "  STEP 1 - Click Done (not Move to Trash)"
+  printf '%s\n' "  STEP 2 - System Settings → Privacy & Security → Open Anyway"
+  printf '%s\n' "  LAUNCH - Open 1132.WTF from Applications"
 else
-  printf '%s\n' "macOS blocked the open. Do this:"
-  printf '%s\n' "  System Settings → Privacy & Security → Open Anyway"
-  printf '%s\n' "or right-click $DEST in Finder and choose Open."
+  printf '%s\n' "macOS blocked the open."
+  printf '%s\n' "  STEP 1 - System Settings → Privacy & Security → Open Anyway"
+  printf '%s\n' "  STEP 2 - Or right-click $DEST → Open"
+  printf '%s\n' "  LAUNCH - Open 1132.WTF from Applications"
 fi
 
 read -r -p "Press Return to close. " _

@@ -1,25 +1,20 @@
-1132.WTF — read this if macOS will not open the app
-====================================================
+1132.WTF — macOS will not open the app
+======================================
 
-macOS is saying the author cannot be verified. That is Gatekeeper. This app
-is not signed with a paid Apple Developer certificate ($99/year), so macOS
-treats it like any other file that arrived from the internet. It is not a
-warning that the app is damaged.
+macOS is blocking the download. That is normal. Do this:
 
-Do ONE of these, in this order.
+STEP 1 - Right-click INSTALL_TO_APPLICATIONS.command
+         Click Open. Click Open again.
 
-1. Right-click  (works on most Macs)
-   Right-click INSTALL_TO_APPLICATIONS.command → Open → Open.
-   If the app itself is what was blocked, right-click 1132.WTF.app → Open.
+STEP 2 - If it still blocks:
+         Click Done (not Move to Trash).
+         System Settings → Privacy & Security → Open Anyway.
 
-2. Privacy & Security  (macOS 13, 14, 15 Sequoia)
-   After the dialog appears, click Done (not Move to Trash).
-   Open System Settings → Privacy & Security.
-   Scroll to the bottom. Click Open Anyway. Confirm.
+LAUNCH - Open 1132.WTF from Applications.
+         Then follow START_HERE.txt
 
-3. Terminal  (always works)
-   Open Terminal (Spotlight, type Terminal, press Return).
-   Paste this entire block, then press Return:
+
+If that still fails, open Terminal, paste this, press Return:
 
 xattr -cr ~/Downloads ~/Desktop /Applications/1132.WTF.app 2>/dev/null
 find ~/Downloads ~/Desktop /Applications -name '1132.WTF.app' -type d -maxdepth 6 \
@@ -28,8 +23,3 @@ find ~/Downloads ~/Desktop /Applications -name '1132.WTF.app' -type d -maxdepth 
 open /Applications/1132.WTF.app 2>/dev/null \
   || open ~/Downloads/1132.WTF-macos-1.0.0/1132.WTF.app 2>/dev/null \
   || open ~/Downloads/1132.WTF-macos/1132.WTF.app 2>/dev/null
-
-   Then double-click 1132.WTF in Applications, or the one in this folder.
-
-That command only removes the "downloaded from the internet" flag from
-1132.WTF and signs it as your own copy. It does not turn Gatekeeper off.

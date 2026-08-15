@@ -89,7 +89,7 @@ $title.Location = [System.Drawing.Point]::new(90, 18)
 $header.Controls.Add($title)
 
 $subtitle = [System.Windows.Forms.Label]::new()
-$subtitle.Text = "Zoom error 1132, fixed.   v$AppVersion"
+$subtitle.Text = "STEP 1  then  STEP 2  then  LAUNCH     v$AppVersion"
 $subtitle.Font = $FontSub
 $subtitle.ForeColor = $Palette.Accent2
 $subtitle.AutoSize = $true
@@ -317,29 +317,30 @@ function Update-StatusLine {
 
 $script:Buttons = @()
 
-$fix = New-ActionButton -Text 'FIX NOW' -Detail 'Level 1 - reset this PC''s Zoom identity and relaunch' `
+$fix = New-ActionButton -Text 'STEP 1 - Fix Zoom' -Detail 'Wipe the old name and rooms, then open Zoom empty' `
     -Accent $Palette.Accent -OnClick {
-        Start-EngineAction -EngineAction 'fix' -Header 'Level 1: reset Zoom identity'
+        Start-EngineAction -EngineAction 'fix' -Header 'STEP 1 - Fix Zoom'
     }
 
-$deep = New-ActionButton -Text 'DEEP FIX' -Detail 'Level 2 - rotate a throwaway Windows user (asks for admin)' `
+$deep = New-ActionButton -Text 'STEP 2 - Deep fix' -Detail 'Only if STEP 1 still fails. Asks for admin.' `
     -Accent $Palette.Accent2 -OnClick {
         $answer = [System.Windows.Forms.MessageBox]::Show(
-            "Deep fix creates a temporary standard Windows user and runs Zoom as that user.`n`n" +
-            "It rotates through three slots and deletes the oldest one automatically.`n`nContinue?",
+            "STEP 1 - Click Yes. Allow admin when Windows asks.`n`n" +
+            "STEP 2 - Wait. A temporary Windows user is created.`n`n" +
+            "LAUNCH - Zoom opens as that user. Join. Do not sign in as the old account.",
             $AppName, 'YesNo', 'Question')
         if ($answer -eq 'Yes') {
-            Start-EngineAction -EngineAction 'deep-fix' -Header 'Level 2: rotate throwaway user'
+            Start-EngineAction -EngineAction 'deep-fix' -Header 'STEP 2 - Deep fix'
         }
     }
 
-$browser = New-ActionButton -Text 'JOIN IN BROWSER' -Detail 'Level 3 - fresh private session, skips the client entirely' `
+$browser = New-ActionButton -Text 'STEP 3 - Join in browser' -Detail 'Only if STEP 1 and STEP 2 still fail' `
     -Accent $Palette.Ok -OnClick {
         $url = [Microsoft.VisualBasic.Interaction]::InputBox(
-            "Meeting link, or leave blank for zoom.us/join", $AppName, '')
+            "STEP 1 - Paste the meeting link`r`nSTEP 2 - Or leave blank`r`nLAUNCH", $AppName, '')
         $extra = @()
         if ($url) { $extra = @('-Url', ('"{0}"' -f $url)) }
-        Start-EngineAction -EngineAction 'browser' -Header 'Level 3: private browser session' -Extra $extra
+        Start-EngineAction -EngineAction 'browser' -Header 'STEP 3 - Join in browser' -Extra $extra
     }
 
 $script:Buttons = @($fix, $deep, $browser)
@@ -425,7 +426,9 @@ $form.Controls.Add($header)
 $form.Add_Shown({
     Update-StatusLine
     Add-LogLine "$AppName v$AppVersion ready."
-    Add-LogLine 'Start with FIX NOW. If 1132 comes back, try DEEP FIX, then JOIN IN BROWSER.'
+    Add-LogLine 'STEP 1 - click Fix Zoom'
+    Add-LogLine 'STEP 2 - if that fails, click Deep fix'
+    Add-LogLine 'LAUNCH - or Join in browser'
     Add-LogLine ''
 })
 

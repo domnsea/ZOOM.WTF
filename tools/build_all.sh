@@ -195,6 +195,7 @@ if wanted android; then
   rm -f "$target/source/keystore.properties" "$target/source"/*.keystore "$target/source"/*.apk
   cp docs/MOBILE.md "$target/MOBILE.md"
   cp platforms/android/README.md "$target/README.md"
+  cp platforms/android/START_HERE.txt "$target/START_HERE.txt"
 
   # The installable APK, built now if the SDK is around.
   apk=""

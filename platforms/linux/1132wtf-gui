@@ -23,12 +23,12 @@ else
   exit 1
 fi
 
-L1="Fix now  -  reset this machine's Zoom identity, then restart Zoom"
-L2="Deep fix  -  run Zoom as a throwaway user (needs root)"
-L3="Join in browser  -  fresh private session, skip the client"
-L4="Status  -  what does 1132.WTF see here?"
-L5="Undo last fix  -  put the previous Zoom identity back"
-L6="Autostart on  -  reset at every login"
+L1="STEP 1 - Fix Zoom"
+L2="STEP 2 - Deep fix (only if STEP 1 still fails)"
+L3="STEP 3 - Join in browser"
+L4="Status"
+L5="Undo last fix"
+L6="Autostart on"
 L7="Autostart off"
 
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -92,19 +92,19 @@ pick_action() {
   # Prints the chosen verb, or nothing when cancelled.
   if have zenity; then
     zenity --list --title="$APP_NAME" \
-      --text="Zoom error 1132, fixed.\n\nWork down the list. Stop as soon as you are back in the meeting." \
+      --text="STEP 1 - click Fix Zoom\nSTEP 2 - if that fails, click Deep fix\nLAUNCH" \
       --column="Action" --hide-header --width=620 --height=380 \
       "$L1" "$L2" "$L3" "$L4" "$L5" "$L6" "$L7" 2>/dev/null
   elif have kdialog; then
-    kdialog --title "$APP_NAME" --menu "Zoom error 1132, fixed." \
+    kdialog --title "$APP_NAME" --menu "STEP 1 - Fix Zoom.  STEP 2 - Deep fix.  LAUNCH" \
       fix "$L1" deep-fix "$L2" browser "$L3" status "$L4" \
       restore "$L5" autostart-on "$L6" autostart-off "$L7" 2>/dev/null
   elif have yad; then
-    yad --list --title="$APP_NAME" --text="Zoom error 1132, fixed." \
+    yad --list --title="$APP_NAME" --text="STEP 1 - Fix Zoom.  STEP 2 - Deep fix.  LAUNCH" \
       --column="Action" --no-headers --width=620 --height=380 \
       "$L1" "$L2" "$L3" "$L4" "$L5" "$L6" "$L7" 2>/dev/null
   else
-    printf '\n%s - Zoom error 1132, fixed.\n\n' "$APP_NAME" >&2
+    printf '\n%s\n\nSTEP 1 - Fix Zoom\nSTEP 2 - Deep fix (only if STEP 1 still fails)\nLAUNCH\n\n' "$APP_NAME" >&2
     printf '  1) %s\n' "$L1" >&2
     printf '  2) %s\n' "$L2" >&2
     printf '  3) %s\n' "$L3" >&2
@@ -161,15 +161,15 @@ VERB="$(label_to_verb "$CHOICE")"
 
 EXTRA=""
 if [ "$VERB" = "browser" ]; then
-  EXTRA="$(ask_text "Meeting link, or leave empty for zoom.us/join:")"
+  EXTRA="$(ask_text "STEP 1 - Paste the meeting link.  STEP 2 - Or leave empty.  LAUNCH")"
 fi
 
 if [ "$VERB" = "deep-fix" ]; then
-  if ! confirm_box "Deep fix creates a temporary system user and runs Zoom as that user, so Zoom sees a different machine-local identity.
+  if ! confirm_box "STEP 1 - Type your password when asked.
 
-It rotates through three slots and deletes the oldest automatically. Your own account is untouched.
+STEP 2 - Wait. A temporary user is created.
 
-You will be asked for your password."; then
+LAUNCH - Zoom opens as that user. Join. Do not sign in as the old account."; then
     exit 0
   fi
 fi

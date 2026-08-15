@@ -6,6 +6,18 @@ Runs on Android 5.0 and newer. No third-party libraries at all — not even
 AndroidX — so the APK is under 200 KB and builds offline once the SDK is in
 place.
 
+## How to use
+
+Open `START_HERE.txt`. Short version:
+
+STEP 1 - Open the **`.apk`** on your phone. Allow install.
+
+STEP 2 - Open **1132.WTF**
+
+LAUNCH - Do **STEP 1 - Clear Zoom** on the screen. Then join as a guest.
+
+If that fails: **STEP 2 - New phone user**. If that fails: **STEP 3** and tap **LAUNCH**.
+
 ## Install the built APK
 
 If you have the prebuilt APK from the release package, copy it to the phone and

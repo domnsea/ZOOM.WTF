@@ -13,6 +13,18 @@ compiling.
 | `1132.WTF-ios-1.0.0.zip` | iOS 16+ | open `1132WTF.xcodeproj` in Xcode |
 | `SHA256SUMS` | checksums for all of the above | see below |
 
+## How to use
+
+Every unzipped package has a `START_HERE.txt`. Same three lines everywhere:
+
+STEP 1 - run the installer / launcher named in the table above
+
+STEP 2 - click **STEP 1 - Fix Zoom** (or Clear Zoom on a phone)
+
+LAUNCH - join. Do not sign in as the old account.
+
+If that fails, use STEP 2, then STEP 3 / LAUNCH.
+
 ## How to download one
 
 GitHub cannot preview a zip, so there is no preview button on these files, only

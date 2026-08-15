@@ -1,0 +1,33 @@
+1132.WTF
+========
+
+Do these three things. Stop when you are in the meeting.
+
+STEP 1 - Run:  ./install.sh
+
+STEP 2 - Open 1132.WTF from your app launcher
+         (or run:  1132wtf-gui)
+
+LAUNCH - Click STEP 1 - Fix Zoom
+         Zoom opens empty. Join.
+         Do not sign in as the old account.
+
+
+If STEP 1 still fails
+---------------------
+
+STEP 1 - Click STEP 2 - Deep fix. Type your password.
+
+STEP 2 - Wait. Zoom opens as a new user.
+
+LAUNCH - Join. Do not sign in as the old account.
+
+
+If that still fails
+-------------------
+
+STEP 1 - Click STEP 3 - Join in browser
+
+STEP 2 - Paste the meeting link (or leave blank)
+
+LAUNCH - Join from the browser. Do not sign in as the old account.

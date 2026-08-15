@@ -5,20 +5,23 @@ Zoom error 1132, fixed.
 Works on Windows 10 and 11 with the PowerShell that already ships with
 Windows. Nothing to install, no runtime to download.
 
-## Start here
+## How to use
 
-Double-click **`1132.WTF.vbs`**. The app window opens.
+Open `START_HERE.txt`. Short version:
 
-![the app](../../brand/out/wordmark.png)
+STEP 1 - Double-click **`1132.WTF.vbs`**
 
-Then work down the buttons in order. Stop as soon as you get back into the
-meeting.
+STEP 2 - Click **STEP 1 - Fix Zoom**
+
+LAUNCH - Zoom opens empty. Join. Do not sign in as the old account.
+
+If that fails: **STEP 2 - Deep fix**. If that fails: **STEP 3 - Join in browser**.
 
 | Button | What it does | Admin needed |
 |---|---|---|
-| **FIX NOW** | Erases the Zoom client identity on this PC and relaunches Zoom with an empty profile | no |
-| **DEEP FIX** | Creates a temporary standard Windows user and runs Zoom as that user | yes |
-| **JOIN IN BROWSER** | Opens a fresh private browser window so you can join without the client at all | no |
+| **STEP 1 - Fix Zoom** | Erases the Zoom identity on this PC and opens Zoom empty | no |
+| **STEP 2 - Deep fix** | Creates a temporary Windows user and runs Zoom as that user | yes |
+| **STEP 3 - Join in browser** | Opens a private browser window so you skip the Zoom app | no |
 
 If you would rather not use the window, every action has a one-click file:
 

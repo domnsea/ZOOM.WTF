@@ -6,27 +6,18 @@ Runs on macOS 10.13 and newer, on both Intel and Apple Silicon. The app is
 shell based, so there is no architecture-specific binary and nothing to
 compile.
 
-## Start here
+## How to use
 
-**If macOS says the author cannot be verified**, open `OPEN_ME_FIRST.txt`
-(plain text — Gatekeeper never blocks it) and follow it. The short version:
+Open `START_HERE.txt`. Short version:
 
-1. Right-click `INSTALL_TO_APPLICATIONS.command` → **Open** → Open
-2. Or System Settings → Privacy & Security → **Open Anyway**
-3. Or paste the Terminal command from `OPEN_ME_FIRST.txt`
+STEP 1 - Right-click **`INSTALL_TO_APPLICATIONS.command`** → Open → Open
 
-That dialog is Gatekeeper. This app is not signed with a paid Apple Developer
-certificate, so macOS treats it like any other file from the internet. It is
-not a warning that the app is damaged.
+STEP 2 - Click **STEP 1 - Fix Zoom**
 
-Otherwise:
+LAUNCH - Type a name that is not your old name. Type the meeting #. Click LAUNCH.
 
-1. Run **`INSTALL_TO_APPLICATIONS.command`**.
-   It copies the app to `/Applications`, clears the download flag, and signs
-   this copy locally so Gatekeeper will launch it.
-2. Open **`1132.WTF`** from Applications.
-3. Pick an action and work down the list. Stop as soon as you are back in the
-   meeting.
+If macOS says the author cannot be verified, that is normal. Click Done, then
+System Settings → Privacy & Security → Open Anyway. Or open `OPEN_ME_FIRST.txt`.
 
 ## The three levels
 
@@ -95,6 +86,7 @@ start with `wtf1132`. Your own account is never touched.
 
 | File | Role |
 |---|---|
+| `START_HERE.txt` | the only file you need to read |
 | `1132.WTF.app` | the app |
 | `INSTALL_TO_APPLICATIONS.command` | copies it to /Applications and de-quarantines it |
 | `OPEN_LOGS.command` | opens the log folder |

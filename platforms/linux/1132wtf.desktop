@@ -3,7 +3,7 @@ Type=Application
 Version=1.0
 Name=1132.WTF
 GenericName=Zoom 1132 fixer
-Comment=Zoom error 1132, fixed. Resets the Zoom identity this machine shows.
+Comment=STEP 1 - Fix Zoom.  STEP 2 - Deep fix.  LAUNCH.
 Exec=1132wtf-gui
 TryExec=1132wtf-gui
 Icon=1132wtf
@@ -14,15 +14,15 @@ StartupNotify=true
 Actions=FixNow;DeepFix;Browser;Status;
 
 [Desktop Action FixNow]
-Name=Fix now (level 1)
+Name=STEP 1 - Fix Zoom
 Exec=1132wtf-gui fix
 
 [Desktop Action DeepFix]
-Name=Deep fix (level 2)
+Name=STEP 2 - Deep fix
 Exec=1132wtf-gui deep-fix
 
 [Desktop Action Browser]
-Name=Join in browser (level 3)
+Name=STEP 3 - Join in browser
 Exec=1132wtf-gui browser
 
 [Desktop Action Status]
