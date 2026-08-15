@@ -1,11 +1,14 @@
 #!/bin/bash
 #
-# Same-screen throwaway Zoom session.
+# Throwaway-user helper. Runs as root.
 #
-# Runs as root (started by the engine's admin prompt). Creates a hidden
-# wtf1132tmp user, opens Zoom as that user on the current desktop, waits
-# until that Zoom exits, then deletes the user. The password is never shown
-# and is never written to a log.
+# --prepare DIR  create the hidden wtf1132tmp user and start a watcher, then
+#                return. The engine (not this script) opens Zoom on screen.
+# --watch        wait until Zoom quits, then delete wtf1132tmp.
+#
+# This script must not launch Zoom itself. A root/osascript process has no
+# desktop, so Zoom started from here never appears — and a later killall
+# was killing Zoom if the app did manage to open it.
 
 set -u
 
@@ -28,142 +31,69 @@ if [ "$(id -u)" -ne 0 ]; then
   die "This helper must run as root."
 fi
 
-# --start-from DIR: read zoom.path / join.url / display.name / session.log
-# then detach a watcher and return so the app is not blocked.
-if [ "${1:-}" = "--start-from" ]; then
+if [ "${1:-}" = "--prepare" ]; then
   DIR="${2:-}"
   [ -d "$DIR" ] || die "session dir missing: $DIR"
-  ZOOM_APP="$(cat "$DIR/zoom.path" 2>/dev/null || true)"
-  JOIN_URL="$(cat "$DIR/join.url" 2>/dev/null || true)"
-  DISPLAY_NAME="$(cat "$DIR/display.name" 2>/dev/null || printf 'Guest')"
   LOG="$(cat "$DIR/session.log" 2>/dev/null || printf '%s' "$DIR/session.log")"
   mkdir -p "$(dirname "$LOG")"
-  nohup /bin/bash "$0" --watch "$ZOOM_APP" "$JOIN_URL" "$DISPLAY_NAME" >>"$LOG" 2>&1 &
-  printf '%s\n' "session watcher pid $!"
+
+  if /usr/bin/dscl . -read "/Users/$TEMP_USER" >/dev/null 2>&1; then
+    printf '%s\n' "[INFO] leftover $TEMP_USER exists, deleting it first" >>"$LOG"
+    /usr/sbin/sysadminctl -deleteUser "$TEMP_USER" >/dev/null 2>&1 || true
+    /bin/rm -rf "/Users/$TEMP_USER" >/dev/null 2>&1 || true
+  fi
+
+  PASSWORD="$(/usr/bin/openssl rand -base64 24 | /usr/bin/tr -d '/+=' | /usr/bin/head -c 20)"
+  [ -n "$PASSWORD" ] || die "Could not generate a password."
+
+  if ! /usr/sbin/sysadminctl -addUser "$TEMP_USER" \
+    -fullName "$APP_NAME Guest" \
+    -password "$PASSWORD" >/dev/null 2>&1; then
+    die "sysadminctl could not create $TEMP_USER"
+  fi
+
+  /usr/bin/dscl . -create "/Users/$TEMP_USER" IsHidden 1 >/dev/null 2>&1 || true
+  /usr/sbin/createhomedir -c -u "$TEMP_USER" >/dev/null 2>&1 || true
+  printf '%s\n' "[OK] created hidden user $TEMP_USER" >>"$LOG"
+
+  nohup /bin/bash "$0" --watch >>"$LOG" 2>&1 &
+  printf '%s\n' "watcher pid $!"
   exit 0
 fi
 
-[ "${1:-}" = "--watch" ] || die "Usage: $0 --start-from <dir>"
-shift
+[ "${1:-}" = "--watch" ] || die "Usage: $0 --prepare <dir>"
 
-ZOOM_APP="${1:-}"
-JOIN_URL="${2:-}"
-DISPLAY_NAME="${3:-Guest}"
+printf '%s\n' "[START] waiting for Zoom to appear, then for you to quit it"
 
-[ -d "$ZOOM_APP" ] || die "Zoom app not found: $ZOOM_APP"
-
-ZOOM_BIN=""
-for candidate in \
-  "$ZOOM_APP/Contents/MacOS/zoom.us" \
-  "$ZOOM_APP/Contents/MacOS/Zoom" \
-  "$ZOOM_APP/Contents/MacOS/zoom"
-do
-  if [ -x "$candidate" ]; then
-    ZOOM_BIN="$candidate"
-    break
-  fi
-done
-[ -n "$ZOOM_BIN" ] || die "No Zoom binary inside $ZOOM_APP"
-
-CONSOLE_USER="$(/usr/bin/stat -f %Su /dev/console 2>/dev/null || true)"
-CONSOLE_UID="$(/usr/bin/id -u "$CONSOLE_USER" 2>/dev/null || true)"
-[ -n "$CONSOLE_UID" ] || die "Could not find the logged-in console user."
-
-printf '%s\n' "[START] same-screen session for $TEMP_USER (console=$CONSOLE_USER)"
-
-# ------------------------------------------------------------------ create
-
-if /usr/bin/dscl . -read "/Users/$TEMP_USER" >/dev/null 2>&1; then
-  printf '%s\n' "[INFO] leftover $TEMP_USER exists, deleting it first"
-  /usr/sbin/sysadminctl -deleteUser "$TEMP_USER" >/dev/null 2>&1 || true
-  /bin/rm -rf "/Users/$TEMP_USER" >/dev/null 2>&1 || true
-fi
-
-PASSWORD="$(/usr/bin/openssl rand -base64 24 | /usr/bin/tr -d '/+=' | /usr/bin/head -c 20)"
-[ -n "$PASSWORD" ] || die "Could not generate a password."
-
-if ! /usr/sbin/sysadminctl -addUser "$TEMP_USER" \
-  -fullName "$APP_NAME Guest" \
-  -password "$PASSWORD" >/dev/null 2>&1; then
-  die "sysadminctl could not create $TEMP_USER"
-fi
-
-# Hidden: must not appear in Users & Groups or the Fast User Switching list.
-/usr/bin/dscl . -create "/Users/$TEMP_USER" IsHidden 1 >/dev/null 2>&1 || true
-/usr/sbin/createhomedir -c -u "$TEMP_USER" >/dev/null 2>&1 || true
-
-HOME_DIR="$(/usr/bin/dscl . -read "/Users/$TEMP_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
-[ -n "$HOME_DIR" ] || HOME_DIR="/Users/$TEMP_USER"
-DATA_DIR="$HOME_DIR/zoom-data"
-/bin/mkdir -p "$DATA_DIR"
-/usr/sbin/chown -R "$TEMP_USER:staff" "$HOME_DIR" >/dev/null 2>&1 || true
-
-TEMP_UID="$(/usr/bin/id -u "$TEMP_USER")"
-printf '%s\n' "[OK] created hidden user $TEMP_USER uid=$TEMP_UID"
-
-# ------------------------------------------------------------------- launch
-
-# Force-close any Zoom still on this Mac so we do not attach to dustin's session.
-/usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
-/usr/bin/pkill -9 -f "/zoom.us.app/" >/dev/null 2>&1 || true
-sleep 1
-
-ARGS=(--data="$DATA_DIR")
-if [ -n "$JOIN_URL" ]; then
-  ARGS+=(--url="$JOIN_URL")
-fi
-
-# Run the Zoom binary as the throwaway user, but inside the logged-in user's
-# Aqua session so the window appears on THIS desktop (no profile switch).
-printf '%s\n' "[ACTION] launching Zoom as $TEMP_USER on $CONSOLE_USER's screen"
-/bin/launchctl asuser "$CONSOLE_UID" /usr/bin/sudo -u "$TEMP_USER" \
-  "$ZOOM_BIN" "${ARGS[@]}" >/dev/null 2>&1 &
-sleep 4
-
-zoom_for_temp() {
-  /usr/bin/pgrep -u "$TEMP_UID" -f "zoom.us" >/dev/null 2>&1 && return 0
-  /usr/bin/pgrep -f "$DATA_DIR" >/dev/null 2>&1 && return 0
-  return 1
-}
-
-if ! zoom_for_temp; then
-  printf '%s\n' "[WARN] uid launch did not appear, opening Zoom with the temp profile on this screen"
-  /bin/launchctl asuser "$CONSOLE_UID" \
-    "$ZOOM_BIN" "${ARGS[@]}" >/dev/null 2>&1 &
-  sleep 3
-fi
-
-if zoom_for_temp || /usr/bin/pgrep -ix "zoom.us" >/dev/null 2>&1; then
-  printf '%s\n' "[OK] Zoom is running. Waiting until you quit it."
-else
-  printf '%s\n' "[WARN] Zoom did not start. Cleaning up the temp user."
-fi
-
-# --------------------------------------------------------------------- wait
-
-# Until Zoom (and helpers using this data dir) are gone.
+# Wait until Zoom is actually on screen. Do not treat "not running yet" as quit.
+appeared=0
 waited=0
-# Give it a moment to actually come up before we treat "not running" as quit.
-sleep 2
-while zoom_for_temp || /usr/bin/pgrep -f "$DATA_DIR" >/dev/null 2>&1; do
-  sleep 2
-  waited=$((waited + 2))
-  # Safety valve: 8 hours. Do not leave a hidden user forever if Zoom hangs.
-  if [ "$waited" -gt 28800 ]; then
-    printf '%s\n' "[WARN] timed out waiting for Zoom to quit"
+while [ "$waited" -lt 60 ]; do
+  if /usr/bin/pgrep -ix "zoom.us" >/dev/null 2>&1 || \
+     /usr/bin/pgrep -f "zoom.us.app/Contents/MacOS" >/dev/null 2>&1; then
+    appeared=1
     break
   fi
+  sleep 1
+  waited=$((waited + 1))
 done
 
-printf '%s\n' "[ACTION] Zoom exited. Deleting $TEMP_USER"
-
-/usr/bin/killall -9 zoom.us ZoomOpener CptHost aomhost >/dev/null 2>&1 || true
+if [ "$appeared" -ne 1 ]; then
+  printf '%s\n' "[WARN] Zoom never appeared. Deleting $TEMP_USER."
+else
+  printf '%s\n' "[OK] Zoom is running. Waiting until you quit it."
+  while /usr/bin/pgrep -ix "zoom.us" >/dev/null 2>&1 || \
+        /usr/bin/pgrep -f "zoom.us.app/Contents/MacOS" >/dev/null 2>&1; do
+    sleep 2
+  done
+  printf '%s\n' "[ACTION] Zoom exited. Deleting $TEMP_USER"
+fi
 
 assert_safe_user "$TEMP_USER"
 if /usr/bin/dscl . -read "/Users/$TEMP_USER" >/dev/null 2>&1; then
   /usr/sbin/sysadminctl -deleteUser "$TEMP_USER" >/dev/null 2>&1 || true
 fi
-/bin/rm -rf "/Users/$TEMP_USER" "$HOME_DIR" >/dev/null 2>&1 || true
+/bin/rm -rf "/Users/$TEMP_USER" >/dev/null 2>&1 || true
 
 if /usr/bin/dscl . -read "/Users/$TEMP_USER" >/dev/null 2>&1; then
   printf '%s\n' "[WARN] $TEMP_USER is still on the system"

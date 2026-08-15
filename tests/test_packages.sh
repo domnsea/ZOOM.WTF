@@ -210,8 +210,9 @@ fi
 check_grep "macos loop-deletes keychain items" "delete-generic-password" "$MAC_ENGINE"
 check_grep "macos flushes cfprefsd" "cfprefsd" "$MAC_ENGINE"
 check_grep "macos can pass a guest display name" "uname=" "$MAC_ENGINE"
-check_grep "macos launches Zoom as a throwaway user on this screen" "launchctl asuser" \
+check_grep "macos session helper prepares a throwaway user" "--prepare" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
+check_grep "macos opens Zoom from the logged-in desktop" "Opening Zoom on this screen" "$MAC_ENGINE"
 check_grep "macos hides the throwaway user from the login list" "IsHidden" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
 check_grep "macos deletes the throwaway user after Zoom quits" "Zoom exited. Deleting" \

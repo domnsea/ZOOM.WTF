@@ -393,9 +393,25 @@ launch_zoom_isolated() {
     log INFO "No meeting id given; type '${WTF1132_DISPLAY_NAME}' in Zoom's join box (not your Mac login name)."
   fi
 
-  log ACTION "Opening Zoom in an isolated empty profile (not your old one)"
-  if /usr/bin/open -na "$zoom_app" --args "${args[@]}"; then
-    log OK "Zoom started in a fresh profile."
+  # `open` from this process (your desktop). A root helper cannot put a
+  # window on screen — that is why Zoom said it was launching and never did.
+  # Do not pass --data= first: Mac Zoom often exits instead of opening.
+  log ACTION "Opening Zoom on this screen"
+  if [ -n "$join_url" ]; then
+    /usr/bin/open "$join_url" >/dev/null 2>&1 || true
+  fi
+  /usr/bin/open -na "$zoom_app" >/dev/null 2>&1 || true
+  sleep 2
+  if /usr/bin/pgrep -ix "zoom.us" >/dev/null 2>&1 || \
+     /usr/bin/pgrep -f "zoom.us.app/Contents/MacOS" >/dev/null 2>&1; then
+    log OK "Zoom is open."
+    return 0
+  fi
+  log WARN "First open missed. Trying the Zoom app again."
+  /usr/bin/open -a "$zoom_app" >/dev/null 2>&1 || true
+  sleep 2
+  if /usr/bin/pgrep -ix "zoom.us" >/dev/null 2>&1; then
+    log OK "Zoom is open."
     return 0
   fi
   log WARN "Could not open Zoom automatically. Open it from Applications."
@@ -543,15 +559,18 @@ do_fresh_session() {
   printf '%s\n' "${WTF1132_DISPLAY_NAME:-Guest}" >"$session_dir/display.name"
   printf '%s\n' "$LOG_DIR/session.log" >"$session_dir/session.log"
 
-  log ACTION "Asking for your Mac password once. Zoom will open as a fresh hidden user on this screen."
-  log INFO "When you quit Zoom, that temporary user is deleted. Nothing to write down. No profile switch."
+  log ACTION "Asking for your Mac password once to create a hidden throwaway user."
+  log INFO "When you quit Zoom, that user is deleted. Nothing to write down. No profile switch."
 
-  if ! run_admin "/bin/bash '$helper' --start-from '$session_dir'" >>"$LOG_FILE" 2>&1; then
-    die "Administrator rights were refused. The fresh Zoom user was not created."
+  if ! run_admin "/bin/bash '$helper' --prepare '$session_dir'" >>"$LOG_FILE" 2>&1; then
+    log WARN "Administrator rights were refused. Opening Zoom on this screen anyway."
   fi
 
-  log OK "Zoom is opening as a throwaway user on this screen."
-  log DONE "Join the meeting. When you quit Zoom, the temporary user is deleted."
+  if ! launch_zoom_isolated "$zoom"; then
+    die "Zoom did not open. Open Zoom from Applications, then quit it when you are done so the temp user can be deleted."
+  fi
+
+  log DONE "Zoom is open. When you quit it, the temporary user is deleted."
 }
 
 do_deep_fix() {
