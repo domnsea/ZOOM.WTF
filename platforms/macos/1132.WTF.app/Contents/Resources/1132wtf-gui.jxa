@@ -1,0 +1,188 @@
+// 1132.WTF branded chooser for macOS.
+//
+// A real window: the 1132 logo, the title, and the same action list the
+// old "choose from list" dialog had. Prints CHOICE=/NAME=/MEETING= lines
+// for the shell launcher. Prints "cancelled" when Close is clicked.
+
+ObjC.import('Cocoa')
+
+var retained = {}
+
+function run(argv) {
+  var iconPath = argv.length ? argv[0] : ''
+  var version = argv.length > 1 ? argv[1] : '1.0.20'
+
+  var items = [
+    'STEP 1 - Fix Zoom',
+    'STEP 2 - Close and restore Zoom',
+    'Status',
+    'Undo last fix',
+    'Turn on autostart',
+    'Turn off autostart',
+    'Open logs'
+  ]
+
+  $.NSApplication.sharedApplication.activateIgnoringOtherApps(true)
+
+  var banner = $.NSTextField.alloc.initWithFrame($.NSMakeRect(0, 284, 448, 32))
+  banner.setStringValue('1132 FRESH 1.0.20   random name   Zoom opens on this desktop')
+  banner.setFont($.NSFont.boldSystemFontOfSize(16))
+  banner.setDrawsBackground(true)
+  banner.setBackgroundColor($.NSColor.colorWithCalibratedRedGreenBlueAlpha(0.78, 1.0, 0.0, 1.0))
+  banner.setTextColor($.NSColor.blackColor)
+  banner.setBezeled(false)
+  banner.setEditable(false)
+  banner.setSelectable(false)
+  banner.setAlignment(1)
+
+  var nameField = $.NSTextField.alloc.initWithFrame($.NSMakeRect(118, 252, 330, 24))
+  nameField.setStringValue(randomDisplayName())
+  nameField.setFont($.NSFont.systemFontOfSize(13))
+
+  var meetField = $.NSTextField.alloc.initWithFrame($.NSMakeRect(118, 220, 330, 24))
+  meetField.setStringValue('')
+  meetField.setFont($.NSFont.systemFontOfSize(13))
+
+  var nameLabel = labelAt(0, 254, 'Name to show')
+  var meetLabel = labelAt(0, 222, 'Meeting #')
+
+  var tableHolder = $.NSView.alloc.initWithFrame($.NSMakeRect(0, 0, 448, 208))
+  var tableView = null
+
+  try {
+    tableView = makeTable(items)
+    var scroll = $.NSScrollView.alloc.initWithFrame($.NSMakeRect(0, 0, 448, 208))
+    scroll.setDocumentView(tableView)
+    scroll.setHasVerticalScroller(true)
+    scroll.setAutohidesScrollers(true)
+    scroll.setBorderType($.NSBezelBorder)
+    scroll.setDrawsBackground(true)
+    tableHolder.addSubview(scroll)
+    retained.table = tableView
+  } catch (e) {
+    var popup = $.NSPopUpButton.alloc.initWithFramePullsDown($.NSMakeRect(0, 176, 448, 28), false)
+    for (var i = 0; i < items.length; i++) {
+      popup.addItemWithTitle(items[i])
+    }
+    tableHolder.addSubview(popup)
+    retained.popup = popup
+  }
+
+  var container = $.NSView.alloc.initWithFrame($.NSMakeRect(0, 0, 448, 320))
+  container.addSubview(banner)
+  container.addSubview(nameLabel)
+  container.addSubview(nameField)
+  container.addSubview(meetLabel)
+  container.addSubview(meetField)
+  container.addSubview(tableHolder)
+
+  var alert = $.NSAlert.alloc.init
+  alert.setMessageText('1132 FRESH')
+  alert.setInformativeText(
+    'v' + version + '\n' +
+    'STEP 1 wipes the old Zoom identity, sets a random Join name, and opens Zoom on this desktop. Password once. STEP 2 restores your Mac full name and regular Zoom.'
+  )
+  if (iconPath) {
+    var icon = $.NSImage.alloc.initWithContentsOfFile(iconPath)
+    if (icon) {
+      alert.setIcon(icon)
+    }
+  }
+  alert.setAccessoryView(container)
+  alert.addButtonWithTitle('LAUNCH')
+  alert.addButtonWithTitle('Close')
+
+  var response = alert.runModal()
+  if (response !== 1000) {
+    return 'cancelled'
+  }
+
+  var choice = items[0]
+  try {
+    var row = -1
+    if (retained.table && typeof retained.table.selectedRow === 'function') {
+      row = retained.table.selectedRow()
+    } else if (retained.popup && typeof retained.popup.indexOfSelectedItem === 'function') {
+      row = retained.popup.indexOfSelectedItem()
+    }
+    if (row >= 0 && row < items.length) {
+      choice = items[row]
+    }
+  } catch (e) {}
+
+  var name = unwrap(nameField.stringValue) || randomDisplayName()
+  var meeting = unwrap(meetField.stringValue) || ''
+
+  return 'CHOICE=' + choice + '\nNAME=' + name + '\nMEETING=' + meeting
+}
+
+function labelAt(x, y, text) {
+  var field = $.NSTextField.alloc.initWithFrame($.NSMakeRect(x, y, 114, 22))
+  field.setStringValue(text)
+  field.setBezeled(false)
+  field.setDrawsBackground(false)
+  field.setEditable(false)
+  field.setSelectable(false)
+  field.setFont($.NSFont.systemFontOfSize(12))
+  return field
+}
+
+function unwrap(value) {
+  try {
+    return ObjC.unwrap(value)
+  } catch (e) {
+    return String(value || '')
+  }
+}
+
+function randomDisplayName() {
+  var firsts = [
+    'Alex', 'Sam', 'Jordan', 'Casey', 'Riley', 'Quinn', 'Avery', 'Morgan',
+    'Taylor', 'Jamie', 'Drew', 'Reese', 'Kai', 'Rowan', 'Sky', 'Finn'
+  ]
+  var lasts = [
+    'Chen', 'Patel', 'Garcia', 'Kim', 'Novak', 'Silva', 'Haddad', 'Okafor',
+    'Ivanov', 'Dubois', 'Rossi', 'Nakamura', 'Andersson', 'Costa', 'Weber'
+  ]
+  var first = firsts[Math.floor(Math.random() * firsts.length)]
+  var last = lasts[Math.floor(Math.random() * lasts.length)]
+  var num = String(Math.floor(Math.random() * 1000))
+  while (num.length < 3) {
+    num = '0' + num
+  }
+  return first + ' ' + last + ' ' + num
+}
+
+function makeTable(items) {
+  ObjC.registerSubclass({
+    name: 'WTF1132ListDS',
+    methods: {
+      'numberOfRowsInTableView:': function (tv) {
+        return items.length
+      },
+      'tableView:objectValueForTableColumn:row:': function (tv, col, row) {
+        return items[row]
+      }
+    }
+  })
+
+  var ds = $.WTF1132ListDS.alloc.init
+  retained.ds = ds
+  retained.items = items
+
+  var column = $.NSTableColumn.alloc.initWithIdentifier('action')
+  column.setWidth(426)
+  column.headerCell.setStringValue('Action')
+
+  var table = $.NSTableView.alloc.initWithFrame($.NSMakeRect(0, 0, 448, 208))
+  table.addTableColumn(column)
+  table.setHeaderView(null)
+  table.setRowHeight(26)
+  table.setDataSource(ds)
+  table.setAllowsEmptySelection(false)
+  table.setAllowsMultipleSelection(false)
+  table.reloadData()
+  table.selectRowIndexesByExtendingSelection($.NSIndexSet.indexSetWithIndex(0), false)
+  table.sizeLastColumnToFit()
+  return table
+}

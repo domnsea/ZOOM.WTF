@@ -1,0 +1,18 @@
+{%- comment -%}
+  1132.WTF catalog: five $10 digital products, auto-emailed after payment.
+  Handles and variant-id fallbacks match live ballroom.wtf as of 15 Aug 2026.
+{%- endcomment -%}
+{%- assign zoom_wtf_mac = all_products['1132-mac-workaround'] -%}
+{%- assign zoom_wtf_win = all_products['1132-windows-workaround'] -%}
+{%- assign zoom_wtf_linux = all_products['1132-linux-workaround'] -%}
+{%- assign zoom_wtf_ios = all_products['digital-product'] -%}
+{%- assign zoom_wtf_android = all_products['1132-android-workaround'] -%}
+
+{%- assign zoom_wtf_mac_vid = zoom_wtf_mac.selected_or_first_available_variant.id | default: 52818503008532 -%}
+{%- assign zoom_wtf_win_vid = zoom_wtf_win.selected_or_first_available_variant.id | default: 52818503139604 -%}
+{%- assign zoom_wtf_linux_vid = zoom_wtf_linux.selected_or_first_available_variant.id | default: 52939951964436 -%}
+{%- assign zoom_wtf_ios_vid = zoom_wtf_ios.selected_or_first_available_variant.id | default: 53566816846100 -%}
+{%- assign zoom_wtf_android_vid = zoom_wtf_android.selected_or_first_available_variant.id | default: 53656022221076 -%}
+
+{%- assign zoom_wtf_price = zoom_wtf_mac.selected_or_first_available_variant.price | default: 1000 -%}
+{%- assign zoom_wtf_price_money = zoom_wtf_price | money_without_trailing_zeros -%}

@@ -1,0 +1,109 @@
+{% include 'zoom-wtf-platform-data' %}
+<style>
+  .zoom-wtf-modal[hidden] { display: none !important; }
+  .zoom-wtf-modal { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .zoom-wtf-modal__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.72); }
+  .zoom-wtf-modal__panel { position: relative; width: min(100%, 640px); padding: 28px 24px 24px; border: 1px solid rgba(184,232,136,0.28); background: #0a0a0a; box-shadow: 0 24px 80px rgba(0,0,0,0.55); }
+  .zoom-wtf-modal__close { position: absolute; top: 10px; right: 12px; width: 36px; height: 36px; border: none; background: transparent; color: #888; font-size: 28px; cursor: pointer; }
+  .zoom-wtf-modal__kicker { font-size: 10px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: #888; margin: 0 0 8px; text-align: center; }
+  .zoom-wtf-modal__title { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 32px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #b8e888; margin: 0 0 10px; text-align: center; }
+  .zoom-wtf-modal__lead { color: #999; font-size: 14px; line-height: 1.6; margin: 0 0 18px; text-align: center; }
+  .zoom-wtf-modal__field { margin: 0 0 14px; }
+  .zoom-wtf-modal__label { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #b8e888; margin: 0 0 8px; }
+  .zoom-wtf-modal__input { width: 100%; box-sizing: border-box; padding: 12px 14px; border: 1px solid rgba(184,232,136,0.28); background: #000; color: #eee; font: inherit; font-size: 16px; }
+  .zoom-wtf-modal__choices {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 10px;
+  }
+  .zoom-wtf-modal__choice { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 84px; width: 100%; padding: 14px 8px; border: 1px solid rgba(184,232,136,0.28); background: #000; color: #eee; cursor: pointer; font: inherit; }
+  .zoom-wtf-modal__choice:hover { border-color: #b8e888; }
+  .zoom-wtf-modal__choice:disabled { opacity: 0.5; cursor: wait; }
+  .zoom-wtf-modal__choice-label { font-size: 13px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
+  .zoom-wtf-modal__choice-sub { font-size: 10px; color: #888; }
+  .zoom-wtf-modal__choice--mac:hover { border-color: #7ec94a; }
+  .zoom-wtf-modal__choice--win:hover { border-color: #3d95ce; }
+  .zoom-wtf-modal__choice--linux:hover { border-color: #e95420; }
+  .zoom-wtf-modal__choice--ios:hover { border-color: #7d7d7d; }
+  .zoom-wtf-modal__choice--android:hover { border-color: #3ddc84; }
+  .zoom-wtf-modal__fineprint { margin: 18px 0 0; font-size: 11px; color: #888; text-align: center; }
+  .zoom-wtf-modal__fineprint a { color: #b8e888; }
+  .zoom-wtf-modal-open { overflow: hidden; }
+  .zoom-wtf-modal__form { margin: 0; }
+  .zoom-wtf-modal__error { display: none; margin: 0 0 12px; color: #ffb4b4; font-size: 12px; text-align: center; }
+  .zoom-wtf-modal__error.is-visible { display: block; }
+  @media (max-width: 520px) {
+    .zoom-wtf-modal__choices { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+
+<div class="zoom-wtf-modal" id="zoom-wtf-modal" hidden aria-hidden="true">
+  <div class="zoom-wtf-modal__backdrop" data-zoom-wtf-close tabindex="-1"></div>
+  <div class="zoom-wtf-modal__panel" role="dialog" aria-modal="true" aria-labelledby="zoom-wtf-modal-title">
+    <button type="button" class="zoom-wtf-modal__close" data-zoom-wtf-close aria-label="Close">×</button>
+    <p class="zoom-wtf-modal__kicker">{{ zoom_wtf_price_money }} · automatic email</p>
+    <img src="{{ '1132-wtf-logo.png' | asset_url }}" width="120" height="120" alt="" style="margin:0 auto 12px;display:block;">
+    <h2 class="zoom-wtf-modal__title" id="zoom-wtf-modal-title">1132.WTF</h2>
+    <p class="zoom-wtf-modal__lead">Enter email, pick Mac, Windows, Linux, iOS, or Android, pay. The correct installer is emailed automatically after payment.</p>
+    <p class="zoom-wtf-modal__error" id="zoom-wtf-modal-error" role="alert"></p>
+
+    <form class="zoom-wtf-modal__form" id="zoom-wtf-modal-form" action="/cart/add" method="post" accept-charset="UTF-8">
+      <div class="zoom-wtf-modal__field">
+        <label class="zoom-wtf-modal__label" for="zoom-wtf-modal-email">Email for automatic download</label>
+        <input class="zoom-wtf-modal__input" id="zoom-wtf-modal-email" type="email" name="properties[Delivery email]" autocomplete="email" required placeholder="you@email.com">
+      </div>
+      <input type="hidden" name="quantity" value="1">
+      <input type="hidden" name="id" id="zoom-wtf-modal-vid" value="{{ zoom_wtf_mac_vid }}">
+      <input type="hidden" name="properties[Platform]" id="zoom-wtf-modal-platform" value="Mac">
+      <input type="hidden" name="return_to" value="/checkout">
+      {% render 'zoom-wtf-platform-buttons', class_prefix: 'zoom-wtf-modal' %}
+    </form>
+    <p class="zoom-wtf-modal__fineprint">Full page: <a href="/pages/zoom-wtf">1132.WTF</a></p>
+  </div>
+</div>
+
+{% render 'zoom-wtf-buy-js',
+  form_id: 'zoom-wtf-modal-form',
+  email_id: 'zoom-wtf-modal-email',
+  vid_id: 'zoom-wtf-modal-vid',
+  platform_id: 'zoom-wtf-modal-platform',
+  error_id: 'zoom-wtf-modal-error',
+  checkout_fallback: '/pages/zoom-wtf'
+%}
+
+<script>
+  (() => {
+    const modal = document.getElementById('zoom-wtf-modal');
+    const FALLBACK = '/pages/zoom-wtf';
+    function openModal() {
+      if (!modal) { window.location.href = FALLBACK; return; }
+      modal.hidden = false;
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('zoom-wtf-modal-open');
+      const email = document.getElementById('zoom-wtf-modal-email');
+      if (email) email.focus();
+    }
+    function closeModal() {
+      if (!modal) return;
+      modal.hidden = true;
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('zoom-wtf-modal-open');
+    }
+    document.addEventListener('click', (event) => {
+      const openBtn = event.target && event.target.closest && event.target.closest('[data-zoom-wtf-open]');
+      if (openBtn) {
+        if (openBtn.getAttribute('href')) return;
+        event.preventDefault();
+        openModal();
+        return;
+      }
+      if (event.target && event.target.closest && event.target.closest('[data-zoom-wtf-close]')) {
+        event.preventDefault();
+        closeModal();
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeModal();
+    });
+  })();
+</script>

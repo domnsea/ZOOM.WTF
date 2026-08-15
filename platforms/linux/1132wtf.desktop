@@ -1,0 +1,30 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=1132.WTF
+GenericName=Zoom 1132 fixer
+Comment=STEP 1 - Fix Zoom.  STEP 2 - Deep fix.  LAUNCH.
+Exec=1132wtf-gui
+TryExec=1132wtf-gui
+Icon=1132wtf
+Terminal=false
+Categories=Utility;Network;
+Keywords=zoom;1132;meeting;blocked;banned;fix;
+StartupNotify=true
+Actions=FixNow;DeepFix;Browser;Status;
+
+[Desktop Action FixNow]
+Name=STEP 1 - Fix Zoom
+Exec=1132wtf-gui fix
+
+[Desktop Action DeepFix]
+Name=STEP 2 - Deep fix
+Exec=1132wtf-gui deep-fix
+
+[Desktop Action Browser]
+Name=STEP 3 - Join in browser
+Exec=1132wtf-gui browser
+
+[Desktop Action Status]
+Name=Status
+Exec=1132wtf-gui status

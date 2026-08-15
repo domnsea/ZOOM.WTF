@@ -1,0 +1,41 @@
+1132.WTF
+========
+
+Do these three things. Stop when you are in the meeting.
+
+STEP 1 - Unzip this folder. Double-click 1132.WTF.vbs
+
+STEP 2 - Click STEP 1 - Fix Zoom
+
+LAUNCH - Zoom opens empty. Join.
+         Do not sign in as the old account.
+
+
+If Windows blocks the file
+--------------------------
+
+STEP 1 - Right-click the zip → Properties → tick Unblock → OK
+
+STEP 2 - Unzip again. Double-click 1132.WTF.vbs
+
+LAUNCH - Click STEP 1 - Fix Zoom
+
+
+If STEP 1 still fails
+---------------------
+
+STEP 1 - Click STEP 2 - Deep fix. Click Yes. Allow admin.
+
+STEP 2 - Wait. Zoom opens as a new Windows user.
+
+LAUNCH - Join. Do not sign in as the old account.
+
+
+If that still fails
+-------------------
+
+STEP 1 - Click STEP 3 - Join in browser
+
+STEP 2 - Paste the meeting link (or leave blank)
+
+LAUNCH - Join from the browser. Do not sign in as the old account.

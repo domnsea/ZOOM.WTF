@@ -1,0 +1,25 @@
+1132 FRESH 1.0.20 — Mac only
+============================
+
+1.0.19 tried to open Zoom as a hidden throwaway
+user. macOS would not show that window, so STEP 1
+failed and Zoom never opened.
+
+1.0.20 opens Zoom on THIS desktop, as you.
+
+The lime banner must say 1132 FRESH 1.0.20.
+If it does not, you have the old app. Trash it.
+
+Download:
+
+https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132-FRESH-macos.zip
+
+STEP 1 - Right-click "STEP 1 - OPEN FRESH ZOOM.command" → Open → Open
+         Type your Mac password when asked.
+STEP 2 - Zoom opens. Join should show the random name, not your Mac login.
+         Do not sign in as the old Zoom account.
+LAUNCH - Quit Zoom when done, or run STEP 2 - CLOSE AND CLEAN ZOOM.command
+
+If macOS will not replace the old app in Applications:
+
+sudo rm -rf /Applications/1132.WTF.app && sudo cp -R "$HOME/Downloads/1132-FRESH-macos/1132.WTF.app" /Applications/1132.WTF.app && sudo chown -R "$(whoami):staff" /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app
