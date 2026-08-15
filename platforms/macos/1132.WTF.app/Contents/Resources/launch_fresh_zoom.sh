@@ -129,6 +129,106 @@ kill_login_zoom() {
       /bin/kill -9 "$pid" 2>/dev/null || true
     done
   fi
+  /usr/bin/killall -9 ZoomOpener ZoomAutoUpdater >/dev/null 2>&1 || true
+}
+
+# After a failed throwaway launch, restore the regular profile but do not
+# let LaunchServices reopen Zoom as the Mac login (that is the "same
+# dustin profile" bug after the keychain dialogs).
+hold_zoom_closed() {
+  local i
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
+    kill_login_zoom
+    /bin/sleep 1
+  done
+}
+
+unload_zoom_helpers() {
+  local agent
+  for agent in \
+    "$CONSOLE_HOME/Library/LaunchAgents/us.zoom.updater.plist" \
+    "$CONSOLE_HOME/Library/LaunchAgents/us.zoom.ZoomAutoUpdater.plist" \
+    /Library/LaunchAgents/us.zoom.updater.plist \
+    /Library/LaunchAgents/us.zoom.ZoomAutoUpdater.plist
+  do
+    [ -f "$agent" ] || continue
+    /bin/launchctl bootout "gui/$CONSOLE_UID" "$agent" >/dev/null 2>&1 ||
+      /bin/launchctl unload "$agent" >/dev/null 2>&1 || true
+  done
+  /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/osascript -e \
+    'tell application "System Events" to delete (every login item whose name contains "zoom")' \
+    >/dev/null 2>&1 || true
+}
+
+# Same Aqua session Zoom will use. Always HOME=throwaway, never the login home.
+as_temp() {
+  /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/sudo -u "$TEMP_USER" -H /usr/bin/env \
+    HOME="$TEMP_HOME" \
+    CFFIXED_USER_HOME="$TEMP_HOME" \
+    TMPDIR="$TEMP_HOME/tmp/" \
+    USER="$TEMP_USER" \
+    LOGNAME="$TEMP_USER" \
+    "$@"
+}
+
+# Hidden users created with sysadminctl never get a login keychain until a
+# GUI login. Zoom then shows "A keychain cannot be found to store Zoom",
+# dies, and the regular profile reopens as the Mac login.
+prepare_temp_keychain() {
+  local kcdir="$TEMP_HOME/Library/Keychains"
+  local kc="$kcdir/login.keychain-db"
+  local kc_old="$kcdir/login.keychain"
+  local use=""
+  /bin/mkdir -p "$kcdir" "$TEMP_HOME/tmp"
+  /usr/sbin/chown -R "$TEMP_USER:staff" "$TEMP_HOME/Library" "$TEMP_HOME/tmp" >/dev/null 2>&1 || true
+  /bin/rm -f "$kc" "$kc_old" "$kcdir/metadata.keychain-db" 2>/dev/null || true
+
+  if as_temp /usr/bin/security create-keychain -p "$PASSWORD" "$kc" >/dev/null 2>&1; then
+    use="$kc"
+  elif as_temp /usr/bin/security create-keychain -p "$PASSWORD" "$kc_old" >/dev/null 2>&1; then
+    use="$kc_old"
+  elif as_temp /usr/bin/security create-keychain -p "$PASSWORD" login.keychain >/dev/null 2>&1; then
+    if [ -f "$kc" ]; then
+      use="$kc"
+    else
+      use="$kc_old"
+    fi
+  fi
+  if [ -z "$use" ] || [ ! -f "$use" ]; then
+    log_line "LAUNCH" "WARNING could not create throwaway login keychain"
+    return 1
+  fi
+
+  as_temp /usr/bin/security default-keychain -d user -s "$use" >/dev/null 2>&1 || true
+  as_temp /usr/bin/security unlock-keychain -p "$PASSWORD" "$use" >/dev/null 2>&1 || true
+  as_temp /usr/bin/security set-keychain-settings "$use" >/dev/null 2>&1 || true
+  as_temp /usr/bin/security list-keychains -d user -s "$use" >/dev/null 2>&1 || true
+  as_temp /usr/bin/security set-key-partition-list -S "apple-tool:,apple:,codesign:" -s -k "$PASSWORD" "$use" >/dev/null 2>&1 || true
+  as_temp /usr/bin/security add-generic-password -a "$TEMP_USER" -s "us.zoom.xos" -w "none" -T "$ZOOM_BIN" -T "/usr/bin/security" "$use" >/dev/null 2>&1 || true
+  as_temp /usr/bin/security add-generic-password -a "Zoom" -s "Zoom" -w "none" -T "$ZOOM_BIN" "$use" >/dev/null 2>&1 || true
+  /usr/sbin/chown -R "$TEMP_USER:staff" "$kcdir" >/dev/null 2>&1 || true
+  log_line "LAUNCH" "KEYCHAIN ready path=$use"
+  return 0
+}
+
+seed_zoom_prefs() {
+  as_temp /usr/bin/defaults write us.zoom.xos ZoomDisplayName "$DISPLAY_NAME" >/dev/null 2>&1 || true
+  as_temp /usr/bin/defaults write us.zoom.xos UserName "$DISPLAY_NAME" >/dev/null 2>&1 || true
+  as_temp /usr/bin/defaults write us.zoom.xos nologin -bool true >/dev/null 2>&1 || true
+  as_temp /usr/bin/defaults write us.zoom.xos AutoLogin -bool false >/dev/null 2>&1 || true
+  /usr/sbin/chown -R "$TEMP_USER:staff" "$TEMP_HOME/Library/Preferences" >/dev/null 2>&1 || true
+}
+
+fail_throwaway_launch() {
+  local reason="$1"
+  log_line "LAUNCH" "FAILED $reason"
+  delete_temp_user "$TEMP_USER"
+  /bin/bash "$SCRIPT_DIR/restore_profile.sh" "$ACTIVE_STATE" "launch-failed" || true
+  /bin/rmdir "$LOCK_DIR" 2>/dev/null || true
+  hold_zoom_closed
+  show_dialog "1132.WTF" "Zoom did not stay open as the throwaway user (that is the keychain error). It was not left open as your Mac login. Regular Zoom was restored and kept closed. Run STEP 1 again." "stop"
+  exit 72
 }
 
 if [ "${1:-}" = "--watch" ]; then
@@ -139,6 +239,7 @@ if [ "${1:-}" = "--watch" ]; then
   appeared=0
   waited=0
   while [ "$waited" -lt 180 ]; do
+    kill_login_zoom
     if [ -n "$TEMP_UID" ] && zoom_for_uid "$TEMP_UID"; then
       appeared=1
       break
@@ -148,6 +249,7 @@ if [ "${1:-}" = "--watch" ]; then
   done
   if [ "$appeared" -eq 1 ]; then
     while zoom_for_uid "$TEMP_UID"; do
+      kill_login_zoom
       /bin/sleep 2
     done
   fi
@@ -163,6 +265,7 @@ REQUESTED_NAME="$(printf '%s' "${1:-}" | /usr/bin/tr -cd 'A-Za-z0-9 ._-')"
 
 /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
 /usr/bin/pkill -9 -f "/zoom.us.app/" >/dev/null 2>&1 || true
+unload_zoom_helpers
 /bin/sleep 1
 
 if [[ -d "$ACTIVE_STATE" ]]; then
@@ -234,7 +337,8 @@ TEMP_HOME="$(/usr/bin/dscl . -read "/Users/$TEMP_USER" NFSHomeDirectory 2>/dev/n
   "$TEMP_HOME/Library/Application Support" \
   "$TEMP_HOME/Library/Preferences" \
   "$TEMP_HOME/Library/Caches" \
-  "$TEMP_HOME/Library/Logs"
+  "$TEMP_HOME/Library/Logs" \
+  "$TEMP_HOME/Library/Keychains"
 /usr/sbin/chown -R "$TEMP_USER:staff" "$TEMP_HOME" >/dev/null 2>&1 || true
 TEMP_UID="$(/usr/bin/id -u "$TEMP_USER")"
 printf '%s\n' "$TEMP_USER" >"$ACTIVE_STATE/temp.user"
@@ -242,45 +346,54 @@ printf '%s\n' "$DISPLAY_NAME" >"$ACTIVE_STATE/display.name"
 printf '%s\n' "$DISPLAY_NAME" >"$LOG_DIR/last_display_name.txt"
 log_line "LAUNCH" "THROWAY_USER uid=$TEMP_UID short=$TEMP_USER display=$DISPLAY_NAME"
 
+if ! prepare_temp_keychain; then
+  fail_throwaway_launch "throwaway keychain was not created"
+fi
+seed_zoom_prefs
+
 # Aqua session of the logged-in desktop, process uid of the throwaway user.
-# Do not launch Zoom with osascript. Do not fall back to the console user.
+# Always pass the throwaway HOME. Never launch with the login account home.
 launch_as_temp() {
   log_line "LAUNCH" "launchctl asuser $CONSOLE_UID sudo -u $TEMP_USER $*"
-  /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/sudo -u "$TEMP_USER" "$@" >/dev/null 2>&1 &
+  as_temp "$@" >/dev/null 2>&1 &
 }
 
-launch_as_temp /usr/bin/env \
-  HOME="$TEMP_HOME" \
-  CFFIXED_USER_HOME="$TEMP_HOME" \
-  TMPDIR="$TEMP_HOME/tmp/" \
-  CFPREFERENCES_AVOID_DAEMON=1 \
-  USER="$TEMP_USER" \
-  LOGNAME="$TEMP_USER" \
-  "$ZOOM_BIN"
+launch_as_temp "$ZOOM_BIN"
 
 if ! wait_for_uid_zoom "$TEMP_UID" 12; then
-  log_line "LAUNCH" "retry sudo -u without extra env"
-  launch_as_temp -H "$ZOOM_BIN"
-fi
-
-if ! wait_for_uid_zoom "$TEMP_UID" 8; then
-  log_line "LAUNCH" "retry sudo -u then asuser"
-  /usr/bin/sudo -u "$TEMP_USER" /bin/launchctl asuser "$CONSOLE_UID" "$ZOOM_BIN" >/dev/null 2>&1 &
+  log_line "LAUNCH" "retry sudo -u with throwaway env"
+  launch_as_temp /usr/bin/env \
+    HOME="$TEMP_HOME" \
+    CFFIXED_USER_HOME="$TEMP_HOME" \
+    CFPREFERENCES_AVOID_DAEMON=1 \
+    USER="$TEMP_USER" \
+    LOGNAME="$TEMP_USER" \
+    "$ZOOM_BIN"
   wait_for_uid_zoom "$TEMP_UID" 10 || true
 fi
 
 kill_login_zoom
 
 if ! zoom_for_uid "$TEMP_UID"; then
-  log_line "LAUNCH" "FAILED Zoom did not start as the throwaway user"
-  delete_temp_user "$TEMP_USER"
-  /bin/bash "$SCRIPT_DIR/restore_profile.sh" "$ACTIVE_STATE" "launch-failed" || true
-  /bin/rmdir "$LOCK_DIR" 2>/dev/null || true
-  show_dialog "1132.WTF" "Zoom did not start as the throwaway user, so it was not opened as your Mac login. Regular Zoom was restored. Run STEP 1 again." "stop"
-  exit 72
+  fail_throwaway_launch "Zoom did not start as the throwaway user"
 fi
 
-log_line "LAUNCH" "OK Zoom is running as throwaway uid=$TEMP_UID name-ready=YES"
+# Keychain dialogs used to kill throwaway Zoom in a few seconds, then the
+# restored login profile reopened. Wait until this instance stays up.
+stable=0
+waited=0
+while [ "$waited" -lt 12 ]; do
+  kill_login_zoom
+  if zoom_for_uid "$TEMP_UID"; then
+    stable=$((stable + 1))
+  else
+    fail_throwaway_launch "throwaway Zoom exited during startup (keychain)"
+  fi
+  /bin/sleep 1
+  waited=$((waited + 1))
+done
+
+log_line "LAUNCH" "OK Zoom is running as throwaway uid=$TEMP_UID stable=$stable name-ready=YES"
 /usr/bin/nohup /bin/bash "$SELF" --watch "$ACTIVE_STATE" "$TEMP_USER" "$TEMP_UID" >>"$LOG_FILE" 2>&1 &
 printf '%s\n' "$!" >"$ACTIVE_STATE/monitor.pid"
 printf '%s' "$DISPLAY_NAME" | /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/pbcopy >/dev/null 2>&1 || true

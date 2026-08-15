@@ -1,16 +1,17 @@
-1132 FRESH 1.0.19 — Mac only
+1132 FRESH 1.0.20 — Mac only
 ============================
 
-Zoom Join showed your Mac login because Zoom was still
-running as that account. Changing HOME or the Mac full
-name does not change that.
+1.0.19 opened Zoom as a throwaway user with no login
+keychain. Zoom then said "A keychain cannot be found to
+store Zoom", quit, and your regular dustin profile
+reopened.
 
-1.0.19 creates a hidden throwaway Mac user whose name is
-not your login, opens Zoom as THAT user on this desktop,
-and deletes the user when you quit Zoom. If Zoom comes up
-as your login, this build refuses instead of opening it.
+1.0.20 creates that keychain first, waits until throwaway
+Zoom stays up, and if it dies it restores your regular
+Zoom and keeps it closed so the login profile cannot pop
+back open.
 
-The lime banner must say 1132 FRESH 1.0.19.
+The lime banner must say 1132 FRESH 1.0.20.
 If it does not, you have the old app. Trash it.
 
 Download:

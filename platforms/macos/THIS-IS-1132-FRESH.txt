@@ -1,12 +1,12 @@
-THIS IS 1132 FRESH 1.0.19
+THIS IS 1132 FRESH 1.0.20
 =========================
 
 Lime green icon.
 Window title: 1132 FRESH
-Banner: 1132 FRESH 1.0.19   random name   not your Mac login
+Banner: 1132 FRESH 1.0.20   random name   not your Mac login
 Zip name: 1132-FRESH-macos.zip
 
-Opens Zoom as a throwaway Mac user so Join cannot show
-your Mac login. Any Zoom version.
+Opens Zoom as a throwaway Mac user with its own keychain
+so Join cannot show your Mac login. Any Zoom version.
 
-If the banner does not say 1.0.19, that is the OLD app. Trash it.
+If the banner does not say 1.0.20, that is the OLD app. Trash it.
