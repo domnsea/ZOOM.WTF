@@ -1,0 +1,487 @@
+{% comment %}
+  ZOOM DIRECTORY — live feed from HOSTBOT2.
+  Mounts on /pages/zoom-directory (also safe to render from layout/theme.liquid).
+  Refreshes every 5 minutes. Room identity comes from the HOSTBOT2 key;
+  posts usually name the room as a website.
+{% endcomment %}
+<style>
+  .zoom-directory {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: calc(var(--below-fixed, 120px) + 16px) 24px 80px;
+  }
+  .zoom-directory[hidden] { display: none !important; }
+  .zoom-directory__kicker {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #888;
+    margin: 0 0 8px;
+  }
+  .zoom-directory__title {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #b8e888;
+    margin: 0 0 10px;
+  }
+  .zoom-directory__lead {
+    color: #999;
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0 0 18px;
+  }
+  .zoom-directory__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    align-items: baseline;
+    color: #777;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0 0 22px;
+  }
+  .zoom-directory__meta strong { color: #b8e888; font-weight: 700; }
+  .zoom-directory__status-line { color: #888; }
+  .zoom-directory__status-line.is-error { color: #ffb4b4; }
+  .zoom-directory__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+  }
+  .zoom-directory__card {
+    padding: 20px 18px 18px;
+    border: 1px solid rgba(184,232,136,0.22);
+    background: #0a0a0a;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 168px;
+  }
+  .zoom-directory__card.is-open {
+    border-color: rgba(184,232,136,0.55);
+    box-shadow: 0 0 0 1px rgba(184,232,136,0.12);
+  }
+  .zoom-directory__card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .zoom-directory__name {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: #eee;
+    margin: 0;
+  }
+  .zoom-directory__pill {
+    flex: 0 0 auto;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 5px 8px;
+    border: 1px solid #333;
+    color: #888;
+  }
+  .zoom-directory__pill.is-open {
+    color: #0a0a0a;
+    background: #b8e888;
+    border-color: #b8e888;
+  }
+  .zoom-directory__website {
+    color: #b8e888;
+    font-size: 13px;
+    text-decoration: none;
+    word-break: break-all;
+  }
+  .zoom-directory__website:hover { text-decoration: underline; }
+  .zoom-directory__room-no {
+    color: #999;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .zoom-directory__join {
+    margin-top: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 10px 14px;
+    border: 1px solid rgba(184,232,136,0.4);
+    background: #b8e888;
+    color: #0a0a0a;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    text-decoration: none;
+  }
+  .zoom-directory__join:hover { filter: brightness(1.06); }
+  .zoom-directory__closed-note {
+    margin-top: auto;
+    color: #666;
+    font-size: 13px;
+  }
+  .zoom-directory__empty {
+    padding: 28px 20px;
+    border: 1px dashed rgba(184,232,136,0.25);
+    color: #888;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+</style>
+
+<div class="zoom-directory" data-zoom-directory data-zoom-directory-page hidden>
+  <p class="zoom-directory__kicker">HOSTBOT2 · live rooms</p>
+  <h1 class="zoom-directory__title">ZOOM DIRECTORY</h1>
+  <p class="zoom-directory__lead">Rooms are named from the HOSTBOT2 key. A post usually identifies the room as a website — <code>ballroom.wtf</code> is Ballroom. This list refreshes every 5 minutes.</p>
+  <div class="zoom-directory__meta">
+    <span>Open <strong data-dir-open-count>—</strong></span>
+    <span data-dir-stamp>Waiting for HOSTBOT2…</span>
+    <span class="zoom-directory__status-line" data-dir-status></span>
+  </div>
+  <div class="zoom-directory__grid" data-dir-grid></div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const REFRESH_MS = 5 * 60 * 1000;
+  const ASSET_URL = {{ 'zoom-directory.json' | asset_url | json }};
+  const NOISE = {
+    'zoom.us': 1, 'www.zoom.us': 1, 'app.zoom.us': 1, 'zoom.com': 1,
+    't.me': 1, 'telegram.me': 1, 'telegram.org': 1, 'discord.gg': 1, 'discord.com': 1,
+    'youtube.com': 1, 'youtu.be': 1, 'twitter.com': 1, 'x.com': 1, 'instagram.com': 1,
+    'facebook.com': 1, 'bit.ly': 1, 'soundcloud.com': 1, 'github.com': 1
+  };
+
+  function isDirectoryPage() {
+    const path = (window.location.pathname || '').replace(/\/+$/, '');
+    return path === '/pages/zoom-directory' || path === '/pages/directory';
+  }
+
+  function $(sel, root) {
+    return (root || document).querySelector(sel);
+  }
+
+  function hidePlaceholder() {
+    const page = document.querySelector('.generic-page');
+    const mount = document.querySelector('[data-zoom-directory]');
+    if (!mount) return mount;
+    if (page && mount.parentElement !== page) {
+      const content = page.querySelector('.generic-content');
+      if (content) content.hidden = true;
+      const title = page.querySelector('.generic-title');
+      if (title) title.hidden = true;
+      page.appendChild(mount);
+    }
+    mount.hidden = false;
+    return mount;
+  }
+
+  function compactName(value) {
+    let s = String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    if (s.indexOf('the') === 0 && s.length - 3 >= 4) s = s.slice(3);
+    return s;
+  }
+
+  function normalizeHost(host) {
+    host = String(host || '').trim().toLowerCase().split(':')[0];
+    if (host.indexOf('www.') === 0) host = host.slice(4);
+    return host;
+  }
+
+  function isNoise(host) {
+    host = normalizeHost(host);
+    if (!host || host.indexOf('.') === -1) return true;
+    if (NOISE[host]) return true;
+    for (const n of Object.keys(NOISE)) {
+      if (host === n || host.slice(-(n.length + 1)) === '.' + n) return true;
+    }
+    return false;
+  }
+
+  function extractZoom(text) {
+    const re = /https?:\/\/(?:[\w-]+\.)?(?:zoom\.us|app\.zoom\.us)\/[^\s<>"']+/ig;
+    const found = [];
+    let m;
+    while ((m = re.exec(String(text || '')))) {
+      found.push(m[0].replace(/[).,;\]>]+$/, ''));
+    }
+    return found;
+  }
+
+  function extractMeetingId(text) {
+    const m = String(text || '').match(/(?:\/j\/|\/wc\/join\/|[?&]confno=)(\d{9,12})/i);
+    if (m) return m[1];
+    return '';
+  }
+
+  function extractHosts(text) {
+    const hosts = [];
+    const seen = {};
+    const cleaned = String(text || '').replace(/\b\S+@\S+\.\S+\b/g, ' ');
+    const urlRe = /https?:\/\/[^\s<>"']+/ig;
+    let m;
+    while ((m = urlRe.exec(cleaned))) {
+      try {
+        const host = normalizeHost(new URL(m[0]).hostname);
+        if (host && !isNoise(host) && !seen[host]) {
+          seen[host] = 1;
+          hosts.push(host);
+        }
+      } catch (_) {}
+    }
+    const bareRe = /\b(?:www\.)?([a-z0-9][a-z0-9-]{1,61}(?:\.[a-z0-9][a-z0-9-]{1,61})*\.[a-z]{2,24})\b/ig;
+    while ((m = bareRe.exec(cleaned))) {
+      const host = normalizeHost(m[1]);
+      if (host && !isNoise(host) && !seen[host]) {
+        seen[host] = 1;
+        hosts.push(host);
+      }
+    }
+    return hosts;
+  }
+
+  function phrasePresent(phrase, text) {
+    phrase = String(phrase || '').trim();
+    if (phrase.length < 3) return false;
+    const re = new RegExp('(?<![a-z0-9])' + phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![a-z0-9])', 'i');
+    return re.test(text);
+  }
+
+  function asRooms(key) {
+    if (!key) return [];
+    if (Array.isArray(key)) return key;
+    if (Array.isArray(key.rooms)) return key.rooms;
+    if (Array.isArray(key.key)) return key.key;
+    return [];
+  }
+
+  function asPosts(raw) {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw.map((p) => (typeof p === 'string' ? { text: p } : p));
+    if (Array.isArray(raw.posts)) return asPosts(raw.posts);
+    if (Array.isArray(raw.messages)) return asPosts(raw.messages);
+    return [];
+  }
+
+  function roomHosts(room) {
+    const blob = [room.website, room.site, room.url, room.domain].concat(room.aliases || []).filter(Boolean).join(' ');
+    return extractHosts(blob);
+  }
+
+  function scoreRoom(text, room) {
+    const hosts = extractHosts(text);
+    const owned = roomHosts(room);
+    const name = room.name || room.room || room.title || '';
+    const compact = compactName(name);
+    let score = 0;
+    const clues = [];
+    for (let i = 0; i < hosts.length; i++) {
+      if (owned.indexOf(hosts[i]) !== -1) {
+        score = Math.max(score, 100);
+        clues.push('website');
+        break;
+      }
+    }
+    for (let i = 0; i < hosts.length; i++) {
+      const label = compactName(hosts[i].split('.')[0]);
+      if (compact && label === compact && compact.length >= 4) {
+        score = Math.max(score, 90);
+        clues.push('name_as_website');
+        break;
+      }
+    }
+    const mid = extractMeetingId(text);
+    const ids = (room.meeting_ids || room.meetingIds || []).map(String);
+    if (mid && ids.indexOf(mid) !== -1) {
+      score = Math.max(score, 70);
+      clues.push('meeting_id');
+    }
+    if (phrasePresent(name, text)) {
+      score = Math.max(score, 45);
+      clues.push('name');
+    }
+    if (clues.length && compact) score += Math.min(compact.length, 20);
+    return { score: score, clues: clues };
+  }
+
+  function matchDirectory(data) {
+    if (data && Array.isArray(data.rooms) && data.rooms.length && data.rooms[0] && Object.prototype.hasOwnProperty.call(data.rooms[0], 'status') && !data.key) {
+      return data;
+    }
+    const keyRooms = asRooms(data.key || data.rooms || data);
+    const posts = asPosts(data.posts || data.messages || data.feed);
+    if (!keyRooms.length) return data;
+    const byName = keyRooms.map((room) => ({
+      id: room.id || compactName(room.name || ''),
+      name: room.name || room.room || room.title || '',
+      website: room.website || room.site || room.url || null,
+      status: 'closed',
+      join_url: null,
+      room_number: null,
+      matched_by: [],
+      score: 0,
+      last_seen: room.last_seen || null,
+      source: null
+    }));
+    const unmatched = [];
+    posts.forEach((post) => {
+      const text = post.text || post.message || post.body || '';
+      const links = extractZoom(text);
+      if (!links.length) return;
+      const join = links[links.length - 1];
+      let best = null;
+      byName.forEach((room, idx) => {
+        const scored = scoreRoom(text, keyRooms[idx]);
+        if (!best || scored.score > best.score) best = { room: room, score: scored.score, clues: scored.clues };
+      });
+      if (!best || best.score < 45) {
+        unmatched.push({ join_url: join, excerpt: text.slice(0, 160), reason: 'no key match' });
+        return;
+      }
+      if (best.score >= best.room.score) {
+        best.room.status = 'open';
+        best.room.join_url = join;
+        best.room.room_number = extractMeetingId(join) || extractMeetingId(text) || null;
+        best.room.matched_by = best.clues;
+        best.room.score = best.score;
+        best.room.last_seen = post.ts || post.date || data.generated_at || null;
+        best.room.source = post.source || 'HOSTBOT2';
+      }
+    });
+    return {
+      source: data.source || 'HOSTBOT2',
+      generated_at: data.generated_at || null,
+      refresh_seconds: data.refresh_seconds || 300,
+      rooms: byName,
+      unmatched: unmatched
+    };
+  }
+
+  function formatRoomNumber(value) {
+    const digits = String(value || '').replace(/\D/g, '');
+    if (!digits) return '';
+    const nb = '\u202F';
+    if (digits.length === 10 || digits.length === 11) {
+      return digits.slice(0, 3) + nb + digits.slice(3, 6) + nb + digits.slice(6);
+    }
+    return digits;
+  }
+
+  function hostLabel(website) {
+    if (!website) return '';
+    try {
+      const url = website.indexOf('://') === -1 ? 'https://' + website : website;
+      return new URL(url).hostname.replace(/^www\./, '');
+    } catch (_) {
+      return String(website).replace(/^https?:\/\//, '');
+    }
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function render(directory, meta) {
+    const grid = document.querySelector('[data-dir-grid]');
+    const openEl = document.querySelector('[data-dir-open-count]');
+    const stamp = document.querySelector('[data-dir-stamp]');
+    const status = document.querySelector('[data-dir-status]');
+    if (!grid) return;
+    const rooms = (directory && directory.rooms) || [];
+    const openCount = rooms.filter((r) => r.status === 'open' && r.join_url).length;
+    if (openEl) openEl.textContent = String(openCount);
+    if (stamp) {
+      const when = directory && directory.generated_at ? directory.generated_at : meta.fetchedAt;
+      stamp.innerHTML = 'Updated <strong>' + escapeHtml(when ? new Date(when).toLocaleString() : 'just now') + '</strong> · next refresh 5 min';
+    }
+    if (status) {
+      status.textContent = meta.error || '';
+      status.classList.toggle('is-error', Boolean(meta.error));
+    }
+    if (!rooms.length) {
+      grid.innerHTML = '<div class="zoom-directory__empty">HOSTBOT2 has not published the key yet. Put room names on the key (with websites) and publish <code>zoom-directory.json</code>.</div>';
+      return;
+    }
+    grid.innerHTML = rooms.map((room) => {
+      const open = room.status === 'open' && room.join_url;
+      const site = room.website ? hostLabel(room.website) : '';
+      const href = room.website && room.website.indexOf('://') === -1 ? 'https://' + room.website : room.website;
+      const num = formatRoomNumber(room.room_number);
+      return (
+        '<article class="zoom-directory__card' + (open ? ' is-open' : '') + '">' +
+          '<div class="zoom-directory__card-top">' +
+            '<h2 class="zoom-directory__name">' + escapeHtml(room.name || 'Room') + '</h2>' +
+            '<span class="zoom-directory__pill' + (open ? ' is-open' : '') + '">' + (open ? 'OPEN' : 'CLOSED') + '</span>' +
+          '</div>' +
+          (site ? '<a class="zoom-directory__website" href="' + escapeHtml(href) + '" target="_blank" rel="noopener">' + escapeHtml(site) + '</a>' : '') +
+          (open && num ? '<div class="zoom-directory__room-no">Room # ' + escapeHtml(num) + '</div>' : '') +
+          (open
+            ? '<a class="zoom-directory__join" href="' + escapeHtml(room.join_url) + '" target="_blank" rel="noopener">Join room</a>'
+            : '<div class="zoom-directory__closed-note">No live link from HOSTBOT2 yet.</div>') +
+        '</article>'
+      );
+    }).join('');
+  }
+
+  function feedUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const override = params.get('feed') || window.BALLROOM_DIRECTORY_URL;
+    const base = override || ASSET_URL || '/cdn/shop/t/192/assets/zoom-directory.json';
+    const join = String(base).indexOf('?') === -1 ? '?' : '&';
+    return base + join + 't=' + Date.now();
+  }
+
+  async function refresh() {
+    const meta = { fetchedAt: new Date().toISOString(), error: '' };
+    try {
+      const res = await fetch(feedUrl(), { cache: 'no-store' });
+      if (!res.ok) throw new Error('HOSTBOT2 feed HTTP ' + res.status);
+      const data = await res.json();
+      render(matchDirectory(data), meta);
+    } catch (err) {
+      meta.error = 'Could not refresh from HOSTBOT2. Retrying every 5 minutes.';
+      const grid = document.querySelector('[data-dir-grid]');
+      if (grid && !grid.children.length) {
+        render({ rooms: [] }, meta);
+      } else {
+        const status = document.querySelector('[data-dir-status]');
+        if (status) {
+          status.textContent = meta.error;
+          status.classList.add('is-error');
+        }
+      }
+    }
+  }
+
+  function boot() {
+    if (!isDirectoryPage()) return;
+    hidePlaceholder();
+    refresh();
+    window.setInterval(refresh, REFRESH_MS);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refresh();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>

@@ -1,0 +1,19 @@
+{
+  "source": "HOSTBOT2",
+  "generated_at": null,
+  "refresh_seconds": 300,
+  "rooms": [
+    {
+      "id": "ballroom",
+      "name": "Ballroom",
+      "website": "https://ballroom.wtf",
+      "status": "closed",
+      "join_url": null,
+      "room_number": null,
+      "matched_by": [],
+      "last_seen": null,
+      "source": null
+    }
+  ],
+  "unmatched": []
+}
