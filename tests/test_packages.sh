@@ -210,12 +210,11 @@ check_grep "macos flushes cfprefsd" "cfprefsd" "$MAC_ENGINE"
 check_grep "macos can pass a guest display name" "uname=" "$MAC_ENGINE"
 check_grep "macos session helper prepares a throwaway user" "--prepare" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
-check_grep "macos app shows version 1.0.8 so an old copy is obvious" "1.0.8" \
+check_grep "macos app shows version 1.0.9 so an old copy is obvious" "1.0.9" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
-check_grep "macos opens Zoom from the logged-in desktop" "Opening Zoom on this screen" "$MAC_ENGINE"
-check_grep "macos activates Zoom through AppleScript" 'tell application "zoom.us" to activate' "$MAC_ENGINE"
-check_grep "macos opens Zoom with open -a" '/usr/bin/open -a' "$MAC_ENGINE"
-check_grep "macos falls back to the https join page" "build_https_join_url" "$MAC_ENGINE"
+check_grep "macos joins through the Zoom web client" "zoom.us/wc/join" "$MAC_ENGINE"
+check_grep "macos builds a web client URL" "build_web_client_url" "$MAC_ENGINE"
+check_grep "macos stops Zoom.app from stealing the join" "prevent_zoom_handoff" "$MAC_ENGINE"
 check_grep "macos hides the throwaway user from the login list" "IsHidden" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
 check_grep "macos deletes the throwaway user after Zoom quits" "Zoom exited. Deleting" \
@@ -238,19 +237,21 @@ if grep -vE '^[[:space:]]*#' platforms/macos/1132.WTF.app/Contents/Resources/113
 else
   pass "macos session helper does not kill Zoom"
 fi
-# Launch must happen before the admin password dialog. After that dialog,
-# open often never puts a window on screen.
+# Opening Zoom.app or zoommtg:// is what shows 1132 on a blocked Mac.
 python_check <<'PY'
 from pathlib import Path
 text = Path("platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-engine.sh").read_text()
-start = text.find("do_fresh_session()")
-end = text.find("\ndo_deep_fix()", start)
+start = text.find("do_fix()")
+end = text.find("\nlist_backups()", start)
 block = text[start:end]
-launch = block.find("launch_zoom_isolated")
-admin = block.find("run_admin")
-if launch < 0 or admin < 0 or launch > admin:
-    raise SystemExit("do_fresh_session must open Zoom before the admin password dialog")
-print("  ok    macos opens Zoom before the admin password dialog")
+if "do_browser" not in block or "build_web_client_url" not in block:
+    raise SystemExit("do_fix must join through the web client")
+if "do_fresh_session" in block or "launch_zoom_isolated" in block:
+    raise SystemExit("do_fix must not open Zoom.app — that is error 1132")
+ui = Path("platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF").read_text()
+if "zoommtg://" in ui:
+    raise SystemExit("the Mac app must not reopen Zoom.app via zoommtg://")
+print("  ok    macos fix joins in the browser instead of Zoom.app")
 PY
 if grep -q "Switch now" "$MAC_ENGINE"; then
   fail "macos fix does not ask you to switch profiles" "Switch now is still in the engine"

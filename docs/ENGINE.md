@@ -116,9 +116,10 @@ keychain: every item labeled or serviced zoom.us / us.zoom.xos / Zoom
           (loop-deleted; one delete-generic-password call is not enough)
 ```
 
-After the wipe, macOS launches Zoom as a **new instance** (`open -n`) against
-an empty `--data=` profile. `open -a` without `-n` reuses the running app and
-its old name, rooms, and signed-in account.
+After the wipe, macOS joins through Zoom's **web client**
+(`https://zoom.us/wc/join/...`) in a private browser window. Opening Zoom.app
+or a `zoommtg://` / `/j/` link on a blocked Mac is what shows error 1132 —
+those send the same hardware device id. The web client does not.
 
 **Linux**
 

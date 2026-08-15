@@ -1,8 +1,11 @@
-1132.WTF 1.0.8 — Mac only
+1132.WTF 1.0.9 — Mac only
 =========================
 
-The first screen MUST say 1132.WTF 1.0.8.
-If it does not, you still have the old app. Zoom will never open.
+The Zoom app on this Mac is what shows error 1132.
+LAUNCH joins as a new guest in a private browser window instead.
+
+The first screen MUST say 1132.WTF 1.0.9.
+If it does not, you still have the old app.
 
 Delete the old zip first (same filename every time). Download:
 
@@ -15,12 +18,10 @@ STEP 1 - Press Cmd + Space. Type Terminal. Press Return.
 
 sudo rm -rf /Applications/1132.WTF.app && sudo cp -R "$HOME/Downloads/1132.WTF-macos-1.0.0/1132.WTF.app" /Applications/1132.WTF.app && sudo chown -R "$(whoami):staff" /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app
 
-STEP 2 - The list title must say 1132.WTF 1.0.8.
+STEP 2 - The list title must say 1132.WTF 1.0.9.
          Click STEP 1 - Fix Zoom.
          Type Guest. Type the meeting number. Click LAUNCH.
-         Type your Mac password when asked (once). That is for the hidden user, not for Zoom.
 
-LAUNCH - Zoom comes to the front on THIS screen.
-         Join. Do not sign in as the old account.
-         When you quit Zoom, the temporary user is deleted.
+LAUNCH - A private window opens. Click Join from your browser.
+         Do not click Open Zoom app. Do not sign in as the old account.
          Nothing to write down. No profile switch.

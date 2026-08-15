@@ -14,7 +14,7 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.8"
+APP_VERSION="1.0.9"
 BUNDLE_ID="wtf.fix1132.mac"
 
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
@@ -374,25 +374,60 @@ build_join_url() {
   printf '%s' "$url"
 }
 
-# Browser join page. Used when the zoommtg handler does not bring a window up.
-build_https_join_url() {
-  local raw="${WTF1132_JOIN_URL:-${WTF1132_MEETING:-${WTF1132_MEETING_ID:-}}}"
+# Zoom web client. This is the 1132 fix on a Mac: the Zoom app sends a
+# hardware device id the host already blocked. /j/ and zoommtg:// open that
+# app. /wc/join/ stays in the browser as a new guest.
+build_web_client_url() {
+  local raw="${1:-${WTF1132_JOIN_URL:-${WTF1132_MEETING:-${WTF1132_MEETING_ID:-}}}}"
   raw="$(printf '%s' "$raw" | tr -d '[:space:]')"
-  [ -z "$raw" ] && return 1
+  local name="${WTF1132_DISPLAY_NAME:-}"
+  local encoded=""
+  if [ -n "$name" ]; then
+    encoded="$(urlencode "$name")"
+  fi
+
+  if [ -z "$raw" ]; then
+    return 1
+  fi
+
   case "$raw" in
-    https://*|http://*) printf '%s' "$raw"; return 0 ;;
+    *"/wc/join/"*|*"app.zoom.us/wc/"*)
+      if [ -n "$encoded" ] && ! printf '%s' "$raw" | grep -q 'uname='; then
+        case "$raw" in
+          *\?*) printf '%s&uname=%s' "$raw" "$encoded" ;;
+          *) printf '%s?uname=%s' "$raw" "$encoded" ;;
+        esac
+      else
+        printf '%s' "$raw"
+      fi
+      return 0
+      ;;
   esac
+
   local id pwd
   id="$(printf '%s' "$raw" | sed -n 's|.*/j/\([0-9][0-9]*\).*|\1|p')"
+  [ -z "$id" ] && id="$(printf '%s' "$raw" | sed -n 's|.*/wc/join/\([0-9][0-9]*\).*|\1|p')"
   [ -z "$id" ] && id="$(printf '%s' "$raw" | sed -n 's/.*confno=\([0-9][0-9]*\).*/\1/p')"
   [ -z "$id" ] && id="$(printf '%s' "$raw" | tr -cd '0-9')"
   [ -z "$id" ] && return 1
   pwd="$(printf '%s' "$raw" | sed -n 's/.*[?&]pwd=\([^&]*\).*/\1/p')"
-  if [ -n "$pwd" ]; then
-    printf 'https://zoom.us/j/%s?pwd=%s' "$id" "$pwd"
-  else
-    printf 'https://zoom.us/j/%s' "$id"
-  fi
+
+  local url="https://zoom.us/wc/join/${id}?fromPWA=1"
+  [ -n "$pwd" ] && url="${url}&pwd=${pwd}"
+  [ -n "$encoded" ] && url="${url}&uname=${encoded}"
+  printf '%s' "$url"
+}
+
+# Stop Zoom.app from stealing the join via zoommtg:// (that is error 1132).
+prevent_zoom_handoff() {
+  /bin/bash -c '
+    n=0
+    while [ "$n" -lt 30 ]; do
+      /usr/bin/killall -9 zoom.us ZoomOpener CptHost aomhost >/dev/null 2>&1 || true
+      sleep 1
+      n=$((n + 1))
+    done
+  ' >/dev/null 2>&1 &
 }
 
 zoom_ui_running() {
@@ -481,12 +516,12 @@ launch_zoom_isolated() {
 do_fix() {
   local zoom
   zoom="$(find_zoom_app || true)"
-  if [ -z "$zoom" ]; then
-    die "Zoom is not installed on this Mac. Install Zoom, or use the browser bypass."
+  if [ -n "$zoom" ]; then
+    log OK "Zoom: $zoom"
+    stop_zoom
+  else
+    log INFO "Zoom app is not installed. Joining in the browser, which is the 1132 fix."
   fi
-  log OK "Zoom: $zoom"
-
-  stop_zoom
 
   local backup moved manifest
   backup="$(new_backup_dir)" ||
@@ -520,7 +555,12 @@ do_fix() {
   fi
 
   if [ "${NO_LAUNCH:-${WTF1132_NO_LAUNCH:-0}}" != "1" ]; then
-    do_fresh_session "$zoom"
+    # Never open Zoom.app or zoommtg:// after a wipe. That client is what
+    # shows 1132. The web client in a private window is a new guest.
+    local join
+    join="$(build_web_client_url || true)"
+    [ -z "$join" ] && join="https://zoom.us/wc/join"
+    do_browser "$join"
   fi
 }
 
@@ -637,43 +677,62 @@ do_fresh_session() {
 }
 
 do_deep_fix() {
-  local zoom
-  zoom="$(find_zoom_app || true)"
-  [ -n "$zoom" ] || die "Zoom is not installed on this Mac. Install Zoom, or use the browser bypass."
-  stop_zoom
-  do_fresh_session "$zoom"
+  do_fix
 }
 
 # ----------------------------------------------------- level 3: browser join
 
 do_browser() {
-  local url="${1:-https://zoom.us/join}"
+  local raw="${1:-}"
+  local url=""
+  url="$(build_web_client_url "$raw" || true)"
+  if [ -z "$url" ]; then
+    case "$raw" in
+      https://*|http://*)
+        case "$raw" in
+          *zoom.us/j/*|*zoommtg://*) url="https://zoom.us/wc/join" ;;
+          *) url="$raw" ;;
+        esac
+        ;;
+      *) url="https://zoom.us/wc/join" ;;
+    esac
+  fi
+
+  # Refuse to hand the meeting to Zoom.app. /j/ and zoommtg:// are 1132.
+  case "$url" in
+    zoommtg://*|https://zoom.us/j/*|http://zoom.us/j/*)
+      log WARN "Refusing to open the Zoom app join link (that is error 1132)."
+      url="$(build_web_client_url "$url" || printf '%s' "https://zoom.us/wc/join")"
+      ;;
+  esac
+
   local opened=0
 
-  # Chromium family and Firefox can be told to open a private window straight
-  # from the command line. Safari cannot, so it is the last resort.
+  # Open a named browser so LaunchServices cannot give the URL to Zoom.app.
   if [ -d "/Applications/Google Chrome.app" ]; then
     log ACTION "Opening a private window in Google Chrome"
-    /usr/bin/open -na "Google Chrome" --args --incognito "$url" && opened=1
+    /usr/bin/open -na "Google Chrome" --args --incognito --new-window "$url" && opened=1
   elif [ -d "/Applications/Microsoft Edge.app" ]; then
     log ACTION "Opening a private window in Microsoft Edge"
-    /usr/bin/open -na "Microsoft Edge" --args --inprivate "$url" && opened=1
+    /usr/bin/open -na "Microsoft Edge" --args --inprivate --new-window "$url" && opened=1
   elif [ -d "/Applications/Brave Browser.app" ]; then
     log ACTION "Opening a private window in Brave"
-    /usr/bin/open -na "Brave Browser" --args --incognito "$url" && opened=1
+    /usr/bin/open -na "Brave Browser" --args --incognito --new-window "$url" && opened=1
   elif [ -d "/Applications/Firefox.app" ]; then
     log ACTION "Opening a private window in Firefox"
     /usr/bin/open -na "Firefox" --args -private-window "$url" && opened=1
+  elif [ -d "/Applications/Safari.app" ]; then
+    log ACTION "Opening Safari. Use File > New Private Window if you can."
+    /usr/bin/open -a "Safari" "$url" && opened=1
   fi
 
   if [ "$opened" -ne 1 ]; then
-    log WARN "No browser with a command-line private mode was found."
-    log INFO "Opening your default browser. Use File > New Private Window yourself."
-    /usr/bin/open "$url" || die "Could not open a browser."
+    die "Could not open a browser. Install Chrome or Firefox, then run this again."
   fi
 
-  log OK "Join in that window, and choose \"Join from your browser\"."
-  log DONE "Level 3 bypass ready."
+  prevent_zoom_handoff
+  log OK "Join in that window. Click Join from your browser. Do not open the Zoom app."
+  log DONE "1132 bypass ready. The Zoom app is what shows 1132 — leave it closed."
 }
 
 # ------------------------------------------------------------------ autostart
