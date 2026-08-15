@@ -11,7 +11,7 @@
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>wtf.fix1132.mac.25</string>
+	<string>wtf.fix1132.mac.26</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.25</string>
+	<string>1.0.26</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>25</string>
+	<string>26</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
@@ -35,6 +35,6 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>1132 FRESH</string>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>1132 FRESH 1.0.25 removes this Mac's Zoom machine token, then opens Zoom 6.3.11.</string>
+	<string>1132 FRESH 1.0.26 creates a login keychain for the throwaway Zoom user.</string>
 </dict>
 </plist>

@@ -245,43 +245,100 @@ as_temp() {
     "$@"
 }
 
+# security(1) without the Aqua bootstrap. Used to create the keychain file
+# when launchctl-asuser create-keychain writes it somewhere Zoom cannot see.
+sudo_temp() {
+  /usr/bin/sudo -u "$TEMP_USER" -H /usr/bin/env \
+    HOME="$TEMP_HOME" \
+    CFFIXED_USER_HOME="$TEMP_HOME" \
+    TMPDIR="$TEMP_HOME/tmp/" \
+    USER="$TEMP_USER" \
+    LOGNAME="$TEMP_USER" \
+    "$@"
+}
+
+register_temp_keychain() {
+  local kc="$1"
+  local pass="$2"
+  /usr/bin/security default-keychain -d user -s "$kc" >/dev/null 2>&1 || true
+  /usr/bin/security list-keychains -d user -s "$kc" /Library/Keychains/System.keychain >/dev/null 2>&1 || true
+  /usr/bin/security unlock-keychain -p "$pass" "$kc" >/dev/null 2>&1 || true
+  /usr/bin/security set-keychain-settings -u "$kc" >/dev/null 2>&1 || true
+}
+
+# Same registration, but as the throwaway uid (no Aqua). Zoom still needs
+# run_zoom_with_keychain.sh at launch; this just makes the file usable.
+register_temp_keychain_as_user() {
+  local kc="$1"
+  local pass="$2"
+  sudo_temp /usr/bin/security default-keychain -d user -s "$kc" >/dev/null 2>&1 || true
+  sudo_temp /usr/bin/security list-keychains -d user -s "$kc" /Library/Keychains/System.keychain >/dev/null 2>&1 || true
+  sudo_temp /usr/bin/security unlock-keychain -p "$pass" "$kc" >/dev/null 2>&1 || true
+  sudo_temp /usr/bin/security set-keychain-settings -u "$kc" >/dev/null 2>&1 || true
+}
+
 # Hidden users created with sysadminctl never get a login keychain until a
-# GUI login. Zoom then shows "A keychain cannot be found to store Zoom",
-# dies, and the regular profile reopens as the Mac login.
+# GUI login. Zoom then shows "A keychain cannot be found to store Zoom".
+# Create login.keychain-db (and the legacy login.keychain name) in the
+# throwaway home, put System.keychain on the search list, and leave it
+# unlocked. Zoom is started by run_zoom_with_keychain.sh so the unlock
+# happens in the same security session as Zoom.
 prepare_temp_keychain() {
   local kcdir="$TEMP_HOME/Library/Keychains"
   local kc="$kcdir/login.keychain-db"
   local kc_old="$kcdir/login.keychain"
-  local use=""
-  /bin/mkdir -p "$kcdir" "$TEMP_HOME/tmp"
-  /usr/sbin/chown -R "$TEMP_USER:staff" "$TEMP_HOME/Library" "$TEMP_HOME/tmp" >/dev/null 2>&1 || true
-  /bin/rm -f "$kc" "$kc_old" "$kcdir/metadata.keychain-db" 2>/dev/null || true
+  local meta="$kcdir/metadata.keychain-db"
+  local pass="$PASSWORD"
+  local listed=""
 
-  if as_temp /usr/bin/security create-keychain -p "$PASSWORD" "$kc" >/dev/null 2>&1; then
-    use="$kc"
-  elif as_temp /usr/bin/security create-keychain -p "$PASSWORD" "$kc_old" >/dev/null 2>&1; then
-    use="$kc_old"
-  elif as_temp /usr/bin/security create-keychain -p "$PASSWORD" login.keychain >/dev/null 2>&1; then
-    if [ -f "$kc" ]; then
-      use="$kc"
-    else
-      use="$kc_old"
-    fi
+  /bin/mkdir -p "$kcdir" "$TEMP_HOME/Library/Preferences" "$TEMP_HOME/tmp"
+  /bin/chmod 700 "$kcdir"
+  /usr/sbin/chown -R "$TEMP_USER:staff" "$TEMP_HOME/Library" "$TEMP_HOME/tmp" >/dev/null 2>&1 || true
+  /bin/rm -f "$kc" "$kc_old" 2>/dev/null || true
+
+  # File first, as root, at the exact path Zoom opens via HOME.
+  if ! /usr/bin/security create-keychain -p "$pass" "$kc" >/dev/null 2>&1; then
+    log_line "LAUNCH" "root create-keychain failed; trying throwaway uid"
+    sudo_temp /usr/bin/security create-keychain -p "$pass" "$kc" >/dev/null 2>&1 || true
   fi
-  if [ -z "$use" ] || [ ! -f "$use" ]; then
+  if [ ! -f "$kc" ]; then
+    /usr/bin/security create-keychain -p "$pass" "$kc_old" >/dev/null 2>&1 ||
+      sudo_temp /usr/bin/security create-keychain -p "$pass" "$kc_old" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$kc" ] && [ ! -f "$kc_old" ]; then
+    /bin/cp -p "$kc" "$kc_old" 2>/dev/null || true
+  elif [ -f "$kc_old" ] && [ ! -f "$kc" ]; then
+    /bin/cp -p "$kc_old" "$kc" 2>/dev/null || true
+  fi
+  if [ ! -f "$kc" ] && [ ! -f "$kc_old" ]; then
     log_line "LAUNCH" "WARNING could not create throwaway login keychain"
     return 1
   fi
+  [ -f "$kc" ] || kc="$kc_old"
 
-  as_temp /usr/bin/security default-keychain -d user -s "$use" >/dev/null 2>&1 || true
-  as_temp /usr/bin/security unlock-keychain -p "$PASSWORD" "$use" >/dev/null 2>&1 || true
-  as_temp /usr/bin/security set-keychain-settings "$use" >/dev/null 2>&1 || true
-  as_temp /usr/bin/security list-keychains -d user -s "$use" >/dev/null 2>&1 || true
-  as_temp /usr/bin/security set-key-partition-list -S "apple-tool:,apple:,codesign:" -s -k "$PASSWORD" "$use" >/dev/null 2>&1 || true
-  as_temp /usr/bin/security add-generic-password -a "$TEMP_USER" -s "us.zoom.xos" -w "none" -T "$ZOOM_BIN" -T "/usr/bin/security" "$use" >/dev/null 2>&1 || true
-  as_temp /usr/bin/security add-generic-password -a "Zoom" -s "Zoom" -w "none" -T "$ZOOM_BIN" "$use" >/dev/null 2>&1 || true
+  if [ ! -f "$meta" ]; then
+    /usr/bin/security create-keychain -p "$pass" "$meta" >/dev/null 2>&1 || true
+  fi
+
   /usr/sbin/chown -R "$TEMP_USER:staff" "$kcdir" >/dev/null 2>&1 || true
-  log_line "LAUNCH" "KEYCHAIN ready path=$use"
+  /bin/chmod 700 "$kcdir"
+  /bin/chmod 600 "$kc" 2>/dev/null || true
+  [ -f "$kc_old" ] && /bin/chmod 600 "$kc_old" 2>/dev/null || true
+  [ -f "$meta" ] && /bin/chmod 600 "$meta" 2>/dev/null || true
+
+  register_temp_keychain "$kc" "$pass"
+  register_temp_keychain_as_user "$kc" "$pass"
+  as_temp /usr/bin/security default-keychain -d user -s "$kc" >/dev/null 2>&1 || true
+  as_temp /usr/bin/security list-keychains -d user -s "$kc" /Library/Keychains/System.keychain >/dev/null 2>&1 || true
+  as_temp /usr/bin/security unlock-keychain -p "$pass" "$kc" >/dev/null 2>&1 || true
+  as_temp /usr/bin/security set-keychain-settings -u "$kc" >/dev/null 2>&1 || true
+  as_temp /usr/bin/security set-key-partition-list -S "apple-tool:,apple:,codesign:" -s -k "$pass" "$kc" >/dev/null 2>&1 || true
+
+  listed="$(sudo_temp /usr/bin/security list-keychains -d user 2>/dev/null || true)"
+  log_line "LAUNCH" "KEYCHAIN ready path=$kc list=$(printf '%s' "$listed" | /usr/bin/tr '\n' ' ')"
+  if [ ! -f "$kc" ]; then
+    return 1
+  fi
   return 0
 }
 
@@ -302,7 +359,7 @@ fail_throwaway_launch() {
   /bin/bash "$SCRIPT_DIR/restore_profile.sh" "$ACTIVE_STATE" "launch-failed" || true
   /bin/rmdir "$LOCK_DIR" 2>/dev/null || true
   hold_zoom_closed
-  show_dialog "1132.WTF" "Zoom did not stay open as the throwaway user (that is the keychain error). It was not left open as your Mac login. Regular Zoom was restored and kept closed. Run STEP 1 again." "stop"
+  show_dialog "1132.WTF" "Zoom did not stay open as the throwaway user. A new login keychain was created for that user; if Zoom still said none were found, run STEP 1 again. It was not left open as your Mac login. Regular Zoom was restored and kept closed." "stop"
   exit 72
 }
 
@@ -442,17 +499,25 @@ launch_as_temp() {
   as_temp "$@" >/dev/null 2>&1 &
 }
 
-launch_as_temp "$ZOOM_BIN"
+# Copy the unlock wrapper into the throwaway home so that user can exec it.
+ZOOM_KC_RUN="$TEMP_HOME/tmp/run_zoom_with_keychain.sh"
+/bin/cp "$SCRIPT_DIR/run_zoom_with_keychain.sh" "$ZOOM_KC_RUN"
+/usr/sbin/chown "$TEMP_USER:staff" "$ZOOM_KC_RUN" >/dev/null 2>&1 || true
+/bin/chmod 700 "$ZOOM_KC_RUN"
+
+# Unlock the new login keychain in the same process that execs Zoom.
+# Creating it earlier is not enough — Zoom said none were found.
+launch_as_temp /bin/bash "$ZOOM_KC_RUN" "$PASSWORD" "$ZOOM_BIN"
 
 if ! wait_for_uid_zoom "$TEMP_UID" 12; then
-  log_line "LAUNCH" "retry sudo -u with throwaway env"
+  log_line "LAUNCH" "retry sudo -u with throwaway env and keychain unlock"
   launch_as_temp /usr/bin/env \
     HOME="$TEMP_HOME" \
     CFFIXED_USER_HOME="$TEMP_HOME" \
     CFPREFERENCES_AVOID_DAEMON=1 \
     USER="$TEMP_USER" \
     LOGNAME="$TEMP_USER" \
-    "$ZOOM_BIN"
+    /bin/bash "$ZOOM_KC_RUN" "$PASSWORD" "$ZOOM_BIN"
   wait_for_uid_zoom "$TEMP_UID" 10 || true
 fi
 
@@ -486,7 +551,7 @@ show_dialog "1132.WTF" "Zoom 6.3.11 is open as:
 
 $DISPLAY_NAME
 
-This Mac's Zoom machine token is gone for this session (ZoomDaemon, /Library, /var/root, system keychain). Public IP changed. IPv6 is off.
+A new login keychain was created for this Zoom. This Mac's Zoom machine token is gone for this session. Public IP changed. IPv6 is off.
 
 Join in THIS window. Do not open the Zoom in Applications.
 

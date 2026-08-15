@@ -1,23 +1,17 @@
-1132 FRESH 1.0.25 — Mac only
+1132 FRESH 1.0.26 — Mac only
 ============================
 
-This Mac is the block. 1.0.25 is the workaround.
+Zoom said no keychain was found. 1.0.26 creates
+a login keychain for the throwaway user and
+unlocks it in the same process that opens Zoom.
 
-It unloads ZoomDaemon and hides every Zoom token
-in /Library and /var/root (the files that mark
-THIS Mac). Then Zoom 6.3.11 opens as a new name
-on a hotspot, IPv6 off.
-
-The lime banner must say 1132 FRESH 1.0.25.
-
-If Join still says 1132 after that, Zoom is using
-the logic-board serial. This app cannot change that.
+The lime banner must say 1132 FRESH 1.0.26.
 
 https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132-FRESH-macos.zip
 
 STEP 1 - Right-click "STEP 1 - OPEN FRESH ZOOM.command" → Open → Open
          When it shows the IP, connect ONLY a phone hotspot. Turn home Wi-Fi off.
 STEP 2 - Join only in the window it opened.
-LAUNCH - Banner must say 1132 FRESH 1.0.25.
+LAUNCH - Banner must say 1132 FRESH 1.0.26.
 
 sudo rm -rf /Applications/1132.WTF.app && sudo cp -R "$HOME/Downloads/1132-FRESH-macos/1132.WTF.app" /Applications/1132.WTF.app && sudo chown -R "$(whoami):staff" /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app
