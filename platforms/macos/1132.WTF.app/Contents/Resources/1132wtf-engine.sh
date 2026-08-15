@@ -14,8 +14,8 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.15"
-BUNDLE_ID="wtf.fix1132.mac.15"
+APP_VERSION="1.0.16"
+BUNDLE_ID="wtf.fix1132.mac.16"
 
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
 LOG_DIR="$HOME/Library/Logs/$APP_NAME"
@@ -330,6 +330,33 @@ urlencode() {
   fi
 }
 
+# New Zoom display name every launch. Hosts often block a name they have
+# already seen, so Guest / the Mac login / a reused name is a hole.
+random_display_name() {
+  local firsts=(Alex Sam Jordan Casey Riley Quinn Avery Morgan Taylor Jamie Drew Reese Kai Rowan Sky Finn)
+  local lasts=(Chen Patel Garcia Kim Novak Silva Haddad Okafor Ivanov Dubois Rossi Nakamura Andersson Costa Weber)
+  local first last num
+  first="${firsts[RANDOM % ${#firsts[@]}]}"
+  last="${lasts[RANDOM % ${#lasts[@]}]}"
+  num="$(printf '%03d' $((RANDOM % 1000)))"
+  printf '%s %s %s' "$first" "$last" "$num"
+}
+
+resolve_display_name() {
+  local given="${1:-}"
+  local me me_lc given_lc
+  me="$(id -un 2>/dev/null || true)"
+  given="$(printf '%s' "$given" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+  me_lc="$(printf '%s' "$me" | tr '[:upper:]' '[:lower:]')"
+  given_lc="$(printf '%s' "$given" | tr '[:upper:]' '[:lower:]')"
+  if [ -z "$given" ] || [ "$given_lc" = "guest" ] || [ "$given_lc" = "user" ] || \
+     { [ -n "$me_lc" ] && [ "$given_lc" = "$me_lc" ]; }; then
+    random_display_name
+    return
+  fi
+  printf '%s' "$given"
+}
+
 # Build a zoommtg join URL from WTF1132_MEETING / WTF1132_JOIN_URL and an
 # optional WTF1132_DISPLAY_NAME. Passing uname= stops Zoom prefilling the
 # Mac account name (the reason a clean profile still said "dustin").
@@ -511,6 +538,11 @@ do_fresh_session() {
   rm -rf "$session_dir"
   mkdir -p "$session_dir"
   : >"$LOG_DIR/session.log"
+  local name
+  name="$(resolve_display_name "${WTF1132_DISPLAY_NAME:-}")"
+  WTF1132_DISPLAY_NAME="$name"
+  export WTF1132_DISPLAY_NAME
+  printf '%s\n' "$name" >"$LOG_DIR/last_display_name.txt"
   local join_url=""
   join_url="$(build_join_url || true)"
   local meeting
@@ -522,10 +554,11 @@ do_fresh_session() {
   fi
   printf '%s\n' "$zoom" >"$session_dir/zoom.path"
   printf '%s\n' "$join_url" >"$session_dir/join.url"
-  printf '%s\n' "${WTF1132_DISPLAY_NAME:-Guest}" >"$session_dir/display.name"
+  printf '%s\n' "$name" >"$session_dir/display.name"
   printf '%s\n' "$LOG_DIR/session.log" >"$session_dir/session.log"
 
   log ACTION "macOS will ask for your password once. That creates a hidden temporary user."
+  log INFO "This Zoom name is '$name' (new random name every launch)."
   log INFO "Zoom then starts as that user (launchctl asuser + sudo -u), not as $(id -un)."
 
   if ! run_admin "/bin/bash '$helper' --start-from '$session_dir'" >>"$LOG_FILE" 2>&1; then
@@ -538,7 +571,7 @@ do_fresh_session() {
       die "Could not start the temporary Zoom user. See $LOG_DIR/session.log"
     fi
     if grep -q "Zoom is running as" "$LOG_DIR/session.log" 2>/dev/null; then
-      log OK "Zoom is running as the temporary user '${WTF1132_DISPLAY_NAME:-Guest}', not as $(id -un)."
+      log OK "Zoom is running as '$name', not as $(id -un)."
       log DONE "Click Join. When you quit Zoom, the temporary user is deleted."
       return 0
     fi
@@ -549,7 +582,7 @@ do_fresh_session() {
   if grep -q 'FATAL:' "$LOG_DIR/session.log" 2>/dev/null; then
     die "Could not start the temporary Zoom user. See $LOG_DIR/session.log"
   fi
-  log OK "Temporary user is starting Zoom as '${WTF1132_DISPLAY_NAME:-Guest}'."
+  log OK "Temporary user is starting Zoom as '$name'."
   log DONE "Click Join. When you quit Zoom, the temporary user is deleted."
 }
 

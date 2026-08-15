@@ -10,7 +10,7 @@ var retained = {}
 
 function run(argv) {
   var iconPath = argv.length ? argv[0] : ''
-  var version = argv.length > 1 ? argv[1] : '1.0.15'
+  var version = argv.length > 1 ? argv[1] : '1.0.16'
 
   var items = [
     'STEP 1 - Fix Zoom',
@@ -25,7 +25,7 @@ function run(argv) {
   $.NSApplication.sharedApplication.activateIgnoringOtherApps(true)
 
   var banner = $.NSTextField.alloc.initWithFrame($.NSMakeRect(0, 284, 448, 32))
-  banner.setStringValue('1132 FRESH 1.0.15   sudo-u Zoom   not your Mac login')
+  banner.setStringValue('1132 FRESH 1.0.16   new random Zoom name each launch')
   banner.setFont($.NSFont.boldSystemFontOfSize(16))
   banner.setDrawsBackground(true)
   banner.setBackgroundColor($.NSColor.colorWithCalibratedRedGreenBlueAlpha(0.78, 1.0, 0.0, 1.0))
@@ -36,7 +36,7 @@ function run(argv) {
   banner.setAlignment(1)
 
   var nameField = $.NSTextField.alloc.initWithFrame($.NSMakeRect(118, 252, 330, 24))
-  nameField.setStringValue('Guest')
+  nameField.setStringValue(randomDisplayName())
   nameField.setFont($.NSFont.systemFontOfSize(13))
 
   var meetField = $.NSTextField.alloc.initWithFrame($.NSMakeRect(118, 220, 330, 24))
@@ -80,7 +80,7 @@ function run(argv) {
   alert.setMessageText('1132 FRESH')
   alert.setInformativeText(
     'v' + version + '\n' +
-    'LAUNCH starts Zoom with launchctl asuser + sudo -u as a hidden user. The name in Zoom must not be your Mac login. That user is deleted when you quit Zoom.'
+    'Each LAUNCH picks a new random Zoom name so the last one cannot be reused. Change the box only if you want a different name.'
   )
   if (iconPath) {
     var icon = $.NSImage.alloc.initWithContentsOfFile(iconPath)
@@ -110,7 +110,7 @@ function run(argv) {
     }
   } catch (e) {}
 
-  var name = unwrap(nameField.stringValue) || 'Guest'
+  var name = unwrap(nameField.stringValue) || randomDisplayName()
   var meeting = unwrap(meetField.stringValue) || ''
 
   return 'CHOICE=' + choice + '\nNAME=' + name + '\nMEETING=' + meeting
@@ -133,6 +133,24 @@ function unwrap(value) {
   } catch (e) {
     return String(value || '')
   }
+}
+
+function randomDisplayName() {
+  var firsts = [
+    'Alex', 'Sam', 'Jordan', 'Casey', 'Riley', 'Quinn', 'Avery', 'Morgan',
+    'Taylor', 'Jamie', 'Drew', 'Reese', 'Kai', 'Rowan', 'Sky', 'Finn'
+  ]
+  var lasts = [
+    'Chen', 'Patel', 'Garcia', 'Kim', 'Novak', 'Silva', 'Haddad', 'Okafor',
+    'Ivanov', 'Dubois', 'Rossi', 'Nakamura', 'Andersson', 'Costa', 'Weber'
+  ]
+  var first = firsts[Math.floor(Math.random() * firsts.length)]
+  var last = lasts[Math.floor(Math.random() * lasts.length)]
+  var num = String(Math.floor(Math.random() * 1000))
+  while (num.length < 3) {
+    num = '0' + num
+  }
+  return first + ' ' + last + ' ' + num
 }
 
 function makeTable(items) {

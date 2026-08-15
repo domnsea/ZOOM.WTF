@@ -61,7 +61,8 @@ OLD_AGENT="$HOME/Library/LaunchAgents/wtf.fix1132.mac.plist"
 OLD12="$HOME/Library/LaunchAgents/wtf.fix1132.mac.12.plist"
 OLD13="$HOME/Library/LaunchAgents/wtf.fix1132.mac.13.plist"
 OLD14="$HOME/Library/LaunchAgents/wtf.fix1132.mac.14.plist"
-for agent in "$OLD_AGENT" "$OLD12" "$OLD13" "$OLD14"; do
+OLD15="$HOME/Library/LaunchAgents/wtf.fix1132.mac.15.plist"
+for agent in "$OLD_AGENT" "$OLD12" "$OLD13" "$OLD14" "$OLD15"; do
   /bin/launchctl bootout "gui/$(id -u)" "$agent" >/dev/null 2>&1 ||
     /bin/launchctl unload "$agent" >/dev/null 2>&1 || true
   rm -f "$agent"

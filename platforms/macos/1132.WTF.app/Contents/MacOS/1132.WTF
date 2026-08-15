@@ -10,7 +10,7 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.15"
+APP_VERSION="1.0.16"
 APP_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 export APP_ROOT
 ENGINE="$APP_ROOT/Contents/Resources/1132wtf-engine.sh"
@@ -27,7 +27,8 @@ OLD_AGENT="$HOME/Library/LaunchAgents/wtf.fix1132.mac.plist"
 OLD_AGENT12="$HOME/Library/LaunchAgents/wtf.fix1132.mac.12.plist"
 OLD_AGENT13="$HOME/Library/LaunchAgents/wtf.fix1132.mac.13.plist"
 OLD_AGENT14="$HOME/Library/LaunchAgents/wtf.fix1132.mac.14.plist"
-for agent in "$OLD_AGENT" "$OLD_AGENT12" "$OLD_AGENT13" "$OLD_AGENT14"; do
+OLD_AGENT15="$HOME/Library/LaunchAgents/wtf.fix1132.mac.15.plist"
+for agent in "$OLD_AGENT" "$OLD_AGENT12" "$OLD_AGENT13" "$OLD_AGENT14" "$OLD_AGENT15"; do
   /bin/launchctl bootout "gui/$(id -u)" "$agent" >/dev/null 2>&1 ||
     /bin/launchctl unload "$agent" >/dev/null 2>&1 || true
   rm -f "$agent"
@@ -89,13 +90,13 @@ pick_from_plain_list() {
 set choices to {"$OPT_FIX", "$OPT_DEEP", "$OPT_STATUS", "$OPT_UNDO", "$OPT_AUTO_ON", "$OPT_AUTO_OFF", "$OPT_LOGS"}
 set picked to choose from list choices with title "1132 FRESH $APP_VERSION" ¬
   with prompt "STEP 1 - click Fix Zoom" & return & ¬
-  "STEP 2 - type a name and the meeting #" & return & ¬
+  "STEP 2 - a new random name is picked each time" & return & ¬
   "LAUNCH creates a temporary user, then Zoom" ¬
   default items {"$OPT_FIX"} OK button name "LAUNCH" cancel button name "Close"
 if picked is false then
   return "cancelled"
 else
-  return "CHOICE=" & (item 1 of picked) & linefeed & "NAME=Guest" & linefeed & "MEETING="
+  return "CHOICE=" & (item 1 of picked) & linefeed & "NAME=" & linefeed & "MEETING="
 end if
 OSA
 }
@@ -116,7 +117,7 @@ CHOICE="$(printf '%s\n' "$GUI_OUT" | sed -n 's/^CHOICE=//p' | head -n 1)"
 DISPLAY_NAME="$(printf '%s\n' "$GUI_OUT" | sed -n 's/^NAME=//p' | head -n 1)"
 MEETING="$(printf '%s\n' "$GUI_OUT" | sed -n 's/^MEETING=//p' | head -n 1)"
 [ -n "$CHOICE" ] || CHOICE="$GUI_OUT"
-[ -n "$DISPLAY_NAME" ] || DISPLAY_NAME="Guest"
+# Guest / empty / the Mac login are replaced with a new random name.
 
 VERB=""
 NEEDS_REPORT=1
@@ -135,7 +136,7 @@ esac
 if [ "$VERB" = "fix" ] || [ "$VERB" = "deep-fix" ]; then
   /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
   /usr/bin/pkill -9 -f "/zoom.us.app/" >/dev/null 2>&1 || true
-  export WTF1132_DISPLAY_NAME="${DISPLAY_NAME:-Guest}"
+  export WTF1132_DISPLAY_NAME="${DISPLAY_NAME:-}"
   export WTF1132_MEETING="${MEETING:-}"
 fi
 if [ "$VERB" = "deep-fix" ]; then
@@ -148,16 +149,20 @@ STATUS=$?
 if [ "$NEEDS_REPORT" -eq 1 ]; then
   SUMMARY="$(printf '%s\n' "$OUTPUT" | tail -n 12)"
   if [ "$STATUS" -eq 0 ] && [ "$VERB" = "fix" ]; then
+    USED_NAME="$(tr -d '\r\n' <"$LOG_DIR/last_display_name.txt" 2>/dev/null || true)"
+    [ -n "$USED_NAME" ] || USED_NAME="a new random name"
     SUMMARY="Done.
+
+This Zoom name: $USED_NAME
+A new random name is picked every launch so the last one cannot be reused.
 
 LAUNCH - macOS will ask for your password once.
 That creates a hidden temporary user.
 Zoom is started with sudo -u as that user, not as your Mac login.
-The name in Zoom must not be your Mac login name.
 Click Join. Paste the meeting number.
 When you quit Zoom, that user is deleted.
 
-Window must say 1132 FRESH 1.0.15. If it does not, this is the old app."
+Window must say 1132 FRESH 1.0.16. If it does not, this is the old app."
     /usr/bin/osascript -e "display notification \"1132 FRESH is opening Zoom.\" with title \"1132 FRESH $APP_VERSION\"" >/dev/null 2>&1 || true
     /usr/bin/osascript -e "display dialog \"$(applescript_quote "$SUMMARY")\" \
       buttons {\"OK\"} default button \"OK\" with title \"1132 FRESH $APP_VERSION\"" >/dev/null 2>&1 || true

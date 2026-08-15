@@ -208,9 +208,12 @@ fi
 check_grep "macos loop-deletes keychain items" "delete-generic-password" "$MAC_ENGINE"
 check_grep "macos flushes cfprefsd" "cfprefsd" "$MAC_ENGINE"
 check_grep "macos can pass a guest display name" "uname=" "$MAC_ENGINE"
+check_grep "macos picks a new random Zoom name each launch" "random_display_name" "$MAC_ENGINE"
+check_grep "macos window generates a random display name" "randomDisplayName" \
+  platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa
 check_grep "macos session helper prepares a throwaway user" "--prepare" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
-check_grep "macos app shows version 1.0.15 so an old copy is obvious" "1.0.15" \
+check_grep "macos app shows version 1.0.16 so an old copy is obvious" "1.0.16" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
 check_grep "macos window title is 1132 FRESH" "1132 FRESH" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa
@@ -275,8 +278,12 @@ if "launch_zoom_temp_profile" in engine or "launch_zoom_clean" in engine:
     raise SystemExit("engine must not launch Zoom as the logged-in Mac user")
 if "launchctl asuser" not in helper or "sudo -u" not in helper:
     raise SystemExit("helper must launch Zoom as the temp user via launchctl asuser + sudo -u")
-if "osascript" in helper and "tell application" in helper:
-    raise SystemExit("helper must not start Zoom with osascript")
+if "resolve_display_name" not in engine or "random_display_name" not in engine:
+    raise SystemExit("engine must pick a new random Zoom name each launch")
+if "setStringValue('Guest')" in gui:
+    raise SystemExit("GUI must not default the Zoom name to Guest")
+if "randomDisplayName" not in gui:
+    raise SystemExit("GUI must generate a random Zoom name")
 for banned in ("Safari", "open_join_page", "fromPWA", "Google Chrome", "Firefox"):
     if banned in engine or banned in launcher or banned in gui:
         raise SystemExit(f"Mac app still contains {banned}")

@@ -57,8 +57,10 @@ DIR="${2:-}"
 
 ZOOM_APP="$(tr -d '\r' <"$DIR/zoom.path" 2>/dev/null || true)"
 JOIN_URL="$(tr -d '\r\n' <"$DIR/join.url" 2>/dev/null || true)"
-DISPLAY_NAME="$(tr -d '\r\n' <"$DIR/display.name" 2>/dev/null || printf 'Guest')"
-[ -n "$DISPLAY_NAME" ] || DISPLAY_NAME="Guest"
+DISPLAY_NAME="$(tr -d '\r\n' <"$DIR/display.name" 2>/dev/null || true)"
+if [ -z "$DISPLAY_NAME" ] || [ "$DISPLAY_NAME" = "Guest" ]; then
+  DISPLAY_NAME="Zoom $(/usr/bin/openssl rand -hex 2)"
+fi
 
 [ -d "$ZOOM_APP" ] || die "Zoom app not found: $ZOOM_APP"
 

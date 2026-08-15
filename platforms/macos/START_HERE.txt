@@ -1,33 +1,33 @@
-1132 FRESH 1.0.15 — Mac only
+1132 FRESH 1.0.16 — Mac only
 ============================
 
 This zip is named 1132-FRESH-macos.zip
 The icon is LIME GREEN, not cyan.
 The window title is 1132 FRESH.
-The lime banner says 1132 FRESH 1.0.15.
+The lime banner says 1132 FRESH 1.0.16.
 The Dock name is 1132 FRESH.
 
-If you do not see 1.0.15, you have the old app that launched Zoom
-as your Mac login. Trash it.
+If you do not see 1.0.16, you have the old app. Trash it.
 
-LAUNCH creates a hidden temporary Mac user, then starts Zoom with
-launchctl asuser + sudo -u as THAT user (not osascript). When you
-quit Zoom, that user is deleted.
+Each LAUNCH picks a new random Zoom name (for example Riley Kim 042)
+so the last name cannot be reused.
 
-The name in Zoom must not be your Mac login name.
+LAUNCH also creates a hidden temporary Mac user, then starts Zoom with
+launchctl asuser + sudo -u as THAT user. When you quit Zoom, that user
+is deleted.
 
 Download:
 
 https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132-FRESH-macos.zip
 
 Delete every old 1132 zip. Double-click 1132-FRESH-macos.zip.
-Double-click 1132.WTF.app. The window must say 1132 FRESH 1.0.15.
+Double-click 1132.WTF.app. The window must say 1132 FRESH 1.0.16.
 
 STEP 1 - Click STEP 1 - Fix Zoom
-STEP 2 - Type Guest (or any name that is not your Mac login). Type the meeting number.
+STEP 2 - A random name is already in the box. Type the meeting number.
 LAUNCH - Click LAUNCH. Type your Mac password when asked. Zoom opens as
-         the temporary user. Click Join. Paste the meeting number. When you
-         quit Zoom, that temporary user is deleted.
+         the temporary user with that new name. Click Join. Paste the
+         meeting number. When you quit Zoom, that temporary user is deleted.
 
 If macOS will not replace the old app in Applications, paste this in Terminal:
 
