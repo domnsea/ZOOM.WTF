@@ -1,0 +1,78 @@
+<script>
+  (() => {
+    const form = document.getElementById({{ form_id | json }});
+    if (!form) return;
+    const emailEl = document.getElementById({{ email_id | json }});
+    const vidEl = document.getElementById({{ vid_id | json }});
+    const platformEl = document.getElementById({{ platform_id | json }});
+    const attrEmail = document.getElementById({{ attr_email_id | default: '' | json }});
+    const attrPlatform = document.getElementById({{ attr_platform_id | default: '' | json }});
+    const errEl = document.getElementById({{ error_id | json }});
+    const checkoutFallback = {{ checkout_fallback | default: '/pages/zoom-wtf' | json }};
+    let pendingBtn = null;
+
+    function showError(msg) {
+      if (!errEl) return;
+      errEl.textContent = msg;
+      errEl.classList.add('is-visible');
+    }
+
+    form.querySelectorAll('[data-zoom-vid]').forEach((btn) => {
+      btn.addEventListener('click', () => { pendingBtn = btn; });
+    });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const email = (emailEl && emailEl.value || '').trim();
+      if (!email || !email.includes('@')) {
+        showError('Enter a valid email so we can send your installer automatically.');
+        if (emailEl) emailEl.focus();
+        return;
+      }
+
+      if (pendingBtn) {
+        if (vidEl) vidEl.value = pendingBtn.getAttribute('data-zoom-vid') || vidEl.value;
+        if (platformEl) platformEl.value = pendingBtn.getAttribute('data-zoom-platform') || platformEl.value;
+      }
+      if (attrEmail) attrEmail.value = email;
+      if (attrPlatform) attrPlatform.value = platformEl ? platformEl.value : '';
+
+      const buttons = form.querySelectorAll('button[type="submit"]');
+      buttons.forEach((b) => { b.disabled = true; });
+
+      try {
+        const addRes = await fetch('/cart/add.js', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            items: [{
+              id: Number(vidEl.value),
+              quantity: 1,
+              properties: {
+                'Delivery email': email,
+                'Platform': platformEl.value
+              }
+            }]
+          })
+        });
+        if (!addRes.ok) throw new Error('add_failed');
+
+        await fetch('/cart/update.js', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            attributes: {
+              '1132_delivery_email': email,
+              '1132_platform': platformEl.value
+            }
+          })
+        });
+
+        window.location.href = '/checkout?checkout[email]=' + encodeURIComponent(email);
+      } catch (err) {
+        showError('Could not start checkout. Try again, or open ' + checkoutFallback + '.');
+        buttons.forEach((b) => { b.disabled = false; });
+      }
+    });
+  })();
+</script>
