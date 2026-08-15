@@ -60,8 +60,9 @@ It also:
 - **loop-deletes** every keychain item labeled or serviced `zoom.us` /
   `us.zoom.xos` / `Zoom` (one `delete-generic-password` call only removes one
   item; leftovers are what signed people back in as the previous name)
-- launches a **new** Zoom instance (`open -n`) against an empty `--data=`
-  profile, so LaunchServices cannot reuse the old window
+- opens Zoom on this desktop with AppleScript `activate` and `open -a`
+  (not `open -n`, and not a custom data directory — both make Mac Zoom
+  exit or open with no window)
 
 Fix now also asks for the name you want Zoom to show, and an optional meeting
 ID. If you give both, Zoom is opened with `uname=` so it cannot prefill your

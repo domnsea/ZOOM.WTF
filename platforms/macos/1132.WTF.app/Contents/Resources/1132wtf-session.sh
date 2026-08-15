@@ -7,8 +7,8 @@
 # --watch        wait until Zoom quits, then delete wtf1132tmp.
 #
 # This script must not launch Zoom itself. A root/osascript process has no
-# desktop, so Zoom started from here never appears — and a later killall
-# was killing Zoom if the app did manage to open it.
+# desktop, so Zoom started from here never appears. It also must not force
+# quit Zoom — that is what made Zoom vanish after "launching".
 
 set -u
 
@@ -68,7 +68,7 @@ printf '%s\n' "[START] waiting for Zoom to appear, then for you to quit it"
 # Wait until Zoom is actually on screen. Do not treat "not running yet" as quit.
 appeared=0
 waited=0
-while [ "$waited" -lt 60 ]; do
+while [ "$waited" -lt 90 ]; do
   if /usr/bin/pgrep -ix "zoom.us" >/dev/null 2>&1 || \
      /usr/bin/pgrep -f "zoom.us.app/Contents/MacOS" >/dev/null 2>&1; then
     appeared=1

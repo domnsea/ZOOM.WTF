@@ -14,7 +14,7 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.2"
+APP_VERSION="1.0.8"
 BUNDLE_ID="wtf.fix1132.mac"
 
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
@@ -374,46 +374,106 @@ build_join_url() {
   printf '%s' "$url"
 }
 
-# Launch a NEW Zoom instance against an empty --data= directory. `open -a`
-# without -n reuses the running app and its old profile, which is why the
-# previous name and "Join new room?" survived a folder wipe.
+# Browser join page. Used when the zoommtg handler does not bring a window up.
+build_https_join_url() {
+  local raw="${WTF1132_JOIN_URL:-${WTF1132_MEETING:-${WTF1132_MEETING_ID:-}}}"
+  raw="$(printf '%s' "$raw" | tr -d '[:space:]')"
+  [ -z "$raw" ] && return 1
+  case "$raw" in
+    https://*|http://*) printf '%s' "$raw"; return 0 ;;
+  esac
+  local id pwd
+  id="$(printf '%s' "$raw" | sed -n 's|.*/j/\([0-9][0-9]*\).*|\1|p')"
+  [ -z "$id" ] && id="$(printf '%s' "$raw" | sed -n 's/.*confno=\([0-9][0-9]*\).*/\1/p')"
+  [ -z "$id" ] && id="$(printf '%s' "$raw" | tr -cd '0-9')"
+  [ -z "$id" ] && return 1
+  pwd="$(printf '%s' "$raw" | sed -n 's/.*[?&]pwd=\([^&]*\).*/\1/p')"
+  if [ -n "$pwd" ]; then
+    printf 'https://zoom.us/j/%s?pwd=%s' "$id" "$pwd"
+  else
+    printf 'https://zoom.us/j/%s' "$id"
+  fi
+}
+
+zoom_ui_running() {
+  # Only the real Zoom window process. Helpers and path matches are not a window.
+  /usr/bin/pgrep -x "zoom.us" >/dev/null 2>&1
+}
+
+activate_zoom() {
+  # AppleScript activate is what actually puts a window on this desktop.
+  # Timeout so a wedged Zoom cannot freeze this app the way "quit" used to.
+  local app="${1:-/Applications/zoom.us.app}"
+  /usr/bin/osascript \
+    -e 'with timeout of 8 seconds' \
+    -e "tell application \"$(applescript_quote "$app")\" to activate" \
+    -e 'end timeout' >>"$LOG_FILE" 2>&1 || true
+  /usr/bin/osascript \
+    -e 'with timeout of 8 seconds' \
+    -e 'tell application "zoom.us" to activate' \
+    -e 'end timeout' >>"$LOG_FILE" 2>&1 || true
+}
+
+# Open Zoom on THIS desktop. Do not hand Zoom a custom data directory (Mac
+# Zoom exits). Do not use open -n (a second instance often has no window).
+# Do not launch from a root helper (no WindowServer, so nothing appears).
 launch_zoom_isolated() {
   local zoom_app="$1"
   rm -rf "$CLEAN_PROFILE_DIR"
   mkdir -p "$CLEAN_PROFILE_DIR"
 
-  local join_url=""
+  local join_url="" https_url="" uid
   join_url="$(build_join_url || true)"
+  https_url="$(build_https_join_url || true)"
+  uid="$(id -u)"
 
-  local args=(--data="$CLEAN_PROFILE_DIR")
   if [ -n "$join_url" ]; then
-    args+=(--url="$join_url")
     log INFO "Joining with a guest name so Zoom cannot reuse a saved identity."
   elif [ -n "${WTF1132_DISPLAY_NAME:-}" ]; then
     log INFO "No meeting id given; type '${WTF1132_DISPLAY_NAME}' in Zoom's join box (not your Mac login name)."
   fi
 
-  # `open` from this process (your desktop). A root helper cannot put a
-  # window on screen — that is why Zoom said it was launching and never did.
-  # Do not pass --data= first: Mac Zoom often exits instead of opening.
-  log ACTION "Opening Zoom on this screen"
-  if [ -n "$join_url" ]; then
-    /usr/bin/open "$join_url" >/dev/null 2>&1 || true
+  try_open_zoom() {
+    log ACTION "Opening Zoom on this screen"
+    activate_zoom "$zoom_app"
+    /bin/launchctl asuser "$uid" /usr/bin/open -a "$zoom_app" >>"$LOG_FILE" 2>&1 || true
+    /usr/bin/open -a "$zoom_app" >>"$LOG_FILE" 2>&1 || true
+    if [ -n "$join_url" ]; then
+      /usr/bin/open -a "$zoom_app" "$join_url" >>"$LOG_FILE" 2>&1 || true
+      /bin/launchctl asuser "$uid" /usr/bin/open "$join_url" >>"$LOG_FILE" 2>&1 || true
+    fi
+  }
+
+  try_open_zoom
+
+  local waited=0
+  while [ "$waited" -lt 20 ]; do
+    if zoom_ui_running; then
+      activate_zoom "$zoom_app"
+      if [ -n "$join_url" ]; then
+        /usr/bin/open -a "$zoom_app" "$join_url" >>"$LOG_FILE" 2>&1 || true
+      fi
+      log OK "Zoom is open."
+      return 0
+    fi
+    sleep 1
+    waited=$((waited + 1))
+    if [ $((waited % 5)) -eq 0 ]; then
+      try_open_zoom
+    fi
+  done
+
+  if [ -n "$https_url" ]; then
+    log WARN "Zoom app did not stay open. Opening the join page so something appears."
+    /usr/bin/open "$https_url" >>"$LOG_FILE" 2>&1 || true
+    sleep 3
+    if zoom_ui_running; then
+      activate_zoom "$zoom_app"
+      log OK "Zoom is open."
+      return 0
+    fi
   fi
-  /usr/bin/open -na "$zoom_app" >/dev/null 2>&1 || true
-  sleep 2
-  if /usr/bin/pgrep -ix "zoom.us" >/dev/null 2>&1 || \
-     /usr/bin/pgrep -f "zoom.us.app/Contents/MacOS" >/dev/null 2>&1; then
-    log OK "Zoom is open."
-    return 0
-  fi
-  log WARN "First open missed. Trying the Zoom app again."
-  /usr/bin/open -a "$zoom_app" >/dev/null 2>&1 || true
-  sleep 2
-  if /usr/bin/pgrep -ix "zoom.us" >/dev/null 2>&1; then
-    log OK "Zoom is open."
-    return 0
-  fi
+
   log WARN "Could not open Zoom automatically. Open it from Applications."
   return 1
 }
@@ -559,17 +619,20 @@ do_fresh_session() {
   printf '%s\n' "${WTF1132_DISPLAY_NAME:-Guest}" >"$session_dir/display.name"
   printf '%s\n' "$LOG_DIR/session.log" >"$session_dir/session.log"
 
-  log ACTION "Asking for your Mac password once to create a hidden throwaway user."
-  log INFO "When you quit Zoom, that user is deleted. Nothing to write down. No profile switch."
-
-  if ! run_admin "/bin/bash '$helper' --prepare '$session_dir'" >>"$LOG_FILE" 2>&1; then
-    log WARN "Administrator rights were refused. Opening Zoom on this screen anyway."
-  fi
-
+  # Open Zoom first. The admin password dialog used to run before launch,
+  # and `open` after that dialog often never put a window on screen.
   if ! launch_zoom_isolated "$zoom"; then
     die "Zoom did not open. Open Zoom from Applications, then quit it when you are done so the temp user can be deleted."
   fi
 
+  log ACTION "Asking for your Mac password once to create a hidden throwaway user."
+  log INFO "When you quit Zoom, that user is deleted. Nothing to write down. No profile switch."
+
+  if ! run_admin "/bin/bash '$helper' --prepare '$session_dir'" >>"$LOG_FILE" 2>&1; then
+    log WARN "Administrator rights were refused. Zoom is already open on this screen."
+  fi
+
+  activate_zoom
   log DONE "Zoom is open. When you quit it, the temporary user is deleted."
 }
 

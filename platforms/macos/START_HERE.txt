@@ -1,16 +1,26 @@
-1132.WTF — Mac only
-===================
+1132.WTF 1.0.8 — Mac only
+=========================
+
+The first screen MUST say 1132.WTF 1.0.8.
+If it does not, you still have the old app. Zoom will never open.
+
+Delete the old zip first (same filename every time). Download:
+
+https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132.WTF-macos-1.0.0.zip
+
+Double-click the zip. Then:
 
 STEP 1 - Press Cmd + Space. Type Terminal. Press Return.
          Paste this one line. Type your Mac password. Press Return.
 
-sudo rm -rf /Applications/1132.WTF.app && sudo cp -R /Users/dustin/Downloads/ZOOM.WTF-1.0.4/platforms/macos/1132.WTF.app /Applications/1132.WTF.app && sudo chown -R dustin:staff /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app
+sudo rm -rf /Applications/1132.WTF.app && sudo cp -R "$HOME/Downloads/1132.WTF-macos-1.0.0/1132.WTF.app" /Applications/1132.WTF.app && sudo chown -R "$(whoami):staff" /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app
 
-STEP 2 - Click STEP 1 - Fix Zoom
+STEP 2 - The list title must say 1132.WTF 1.0.8.
+         Click STEP 1 - Fix Zoom.
          Type Guest. Type the meeting number. Click LAUNCH.
-         Type your Mac password when asked (once).
+         Type your Mac password when asked (once). That is for the hidden user, not for Zoom.
 
-LAUNCH - Zoom opens on THIS screen as a fresh hidden user.
+LAUNCH - Zoom comes to the front on THIS screen.
          Join. Do not sign in as the old account.
-         When you quit Zoom, that temporary user is deleted.
+         When you quit Zoom, the temporary user is deleted.
          Nothing to write down. No profile switch.

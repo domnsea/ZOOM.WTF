@@ -199,8 +199,6 @@ check_grep "macos wipes group containers" "Group Containers" "$MAC_ENGINE"
 check_grep "macos wipes hidden .zoomus dir" ".zoomus" "$MAC_ENGINE"
 check_grep "macos kills ZoomOpener" "ZoomOpener" "$MAC_ENGINE"
 check_grep "macos kills CptHost" "CptHost" "$MAC_ENGINE"
-check_grep "macos launches an isolated --data profile" "--data=" "$MAC_ENGINE"
-check_grep "macos forces a new Zoom instance" "open -na" "$MAC_ENGINE"
 check_grep "macos force-closes Zoom instead of waiting on quit" "Force-closing Zoom" "$MAC_ENGINE"
 if grep -q 'tell application "zoom.us" to quit' "$MAC_ENGINE"; then
   fail "macos does not wait on Zoom's quit dialog" "AppleScript quit is still there and will hang"
@@ -212,11 +210,48 @@ check_grep "macos flushes cfprefsd" "cfprefsd" "$MAC_ENGINE"
 check_grep "macos can pass a guest display name" "uname=" "$MAC_ENGINE"
 check_grep "macos session helper prepares a throwaway user" "--prepare" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
+check_grep "macos app shows version 1.0.8 so an old copy is obvious" "1.0.8" \
+  platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
 check_grep "macos opens Zoom from the logged-in desktop" "Opening Zoom on this screen" "$MAC_ENGINE"
+check_grep "macos activates Zoom through AppleScript" 'tell application "zoom.us" to activate' "$MAC_ENGINE"
+check_grep "macos opens Zoom with open -a" '/usr/bin/open -a' "$MAC_ENGINE"
+check_grep "macos falls back to the https join page" "build_https_join_url" "$MAC_ENGINE"
 check_grep "macos hides the throwaway user from the login list" "IsHidden" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
 check_grep "macos deletes the throwaway user after Zoom quits" "Zoom exited. Deleting" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
+if grep -E 'open -na.*[Zz]oom|open -na "\$zoom' "$MAC_ENGINE"; then
+  fail "macos does not start a second Zoom with open -n" \
+    "open -na starts a second instance that often has no window"
+else
+  pass "macos does not start a second Zoom with open -n"
+fi
+if grep -q -- '--data=' "$MAC_ENGINE"; then
+  fail "macos does not pass Zoom a custom data directory" \
+    "a custom data directory makes Mac Zoom exit instead of opening"
+else
+  pass "macos does not pass Zoom a custom data directory"
+fi
+if grep -vE '^[[:space:]]*#' platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh | grep -q 'killall'; then
+  fail "macos session helper does not kill Zoom" \
+    "the watcher used to force-quit zoom.us, which is why Zoom never stayed open"
+else
+  pass "macos session helper does not kill Zoom"
+fi
+# Launch must happen before the admin password dialog. After that dialog,
+# open often never puts a window on screen.
+python_check <<'PY'
+from pathlib import Path
+text = Path("platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-engine.sh").read_text()
+start = text.find("do_fresh_session()")
+end = text.find("\ndo_deep_fix()", start)
+block = text[start:end]
+launch = block.find("launch_zoom_isolated")
+admin = block.find("run_admin")
+if launch < 0 or admin < 0 or launch > admin:
+    raise SystemExit("do_fresh_session must open Zoom before the admin password dialog")
+print("  ok    macos opens Zoom before the admin password dialog")
+PY
 if grep -q "Switch now" "$MAC_ENGINE"; then
   fail "macos fix does not ask you to switch profiles" "Switch now is still in the engine"
 else

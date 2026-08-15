@@ -9,6 +9,7 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
+APP_VERSION="1.0.8"
 APP_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 export APP_ROOT
 ENGINE="$APP_ROOT/Contents/Resources/1132wtf-engine.sh"
@@ -72,11 +73,12 @@ OPT_LOGS="Open logs"
 
 CHOICE="$(/usr/bin/osascript <<OSA 2>/dev/null
 set choices to {"$OPT_FIX", "$OPT_DEEP", "$OPT_BROWSER", "$OPT_STATUS", "$OPT_UNDO", "$OPT_AUTO_ON", "$OPT_AUTO_OFF", "$OPT_LOGS"}
-set picked to choose from list choices with title "$APP_NAME" ¬
-  with prompt "STEP 1 - click Fix Zoom" & return & ¬
+set picked to choose from list choices with title "$APP_NAME $APP_VERSION" ¬
+  with prompt "This must say $APP_NAME $APP_VERSION. If it does not, you still have the old app." & return & return & ¬
+  "STEP 1 - click Fix Zoom" & return & ¬
   "STEP 2 - type a name and the meeting #" & return & ¬
-  "LAUNCH - Zoom opens on this screen as a fresh user." & return & ¬
-  "When you quit Zoom, that user is deleted." ¬
+  "LAUNCH - Zoom opens on this screen." & return & ¬
+  "When you quit Zoom, the temporary user is deleted." ¬
   default items {"$OPT_FIX"} OK button name "Run" cancel button name "Close"
 if picked is false then
   return "cancelled"
@@ -146,32 +148,46 @@ fi
 OUTPUT="$(run_engine "$VERB" ${EXTRA:+"$EXTRA"})"
 STATUS=$?
 
+bring_zoom_forward() {
+  /usr/bin/osascript \
+    -e 'with timeout of 8 seconds' \
+    -e 'tell application "zoom.us" to activate' \
+    -e 'end timeout' >/dev/null 2>&1 || true
+  /usr/bin/open -a "zoom.us" >/dev/null 2>&1 || true
+  if [ -n "${WTF1132_MEETING:-}" ]; then
+    local id
+    id="$(printf '%s' "$WTF1132_MEETING" | tr -cd '0-9')"
+    if [ -n "$id" ]; then
+      /usr/bin/open -a "zoom.us" "zoommtg://zoom.us/join?confno=${id}" >/dev/null 2>&1 || true
+    fi
+  fi
+}
+
 if [ "$NEEDS_REPORT" -eq 1 ]; then
   SUMMARY="$(printf '%s\n' "$OUTPUT" | tail -n 12)"
   if [ "$STATUS" -eq 0 ] && [ "$VERB" = "fix" ]; then
-    SUMMARY="Done.
-
-LAUNCH - Zoom is opening on this screen as a fresh user.
-Join. Do not sign in as the old account.
-
-When you quit that Zoom, the temporary user is deleted.
-Nothing to write down. No profile switch."
+    # Do not put a modal over Zoom. That is why it looked like Zoom never opened.
+    bring_zoom_forward
+    /usr/bin/osascript -e "display notification \"Zoom should be on this screen. Quit Zoom when you are done.\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true
   elif [ "$STATUS" -eq 0 ] && [ "$VERB" = "browser" ]; then
     SUMMARY="Done.
 
 LAUNCH - A private browser window is opening.
 Join from the browser.
 Do not sign in as the old account."
-  fi
-  if [ "$STATUS" -eq 0 ]; then
     /usr/bin/osascript -e "display dialog \"$(applescript_quote "$SUMMARY")\" \
-      buttons {\"OK\"} default button \"OK\" with title \"$APP_NAME\"" >/dev/null 2>&1 || true
+      buttons {\"OK\"} default button \"OK\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true
+  elif [ "$STATUS" -eq 0 ]; then
+    /usr/bin/osascript -e "display dialog \"$(applescript_quote "$SUMMARY")\" \
+      buttons {\"OK\"} default button \"OK\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true
   else
     BUTTON="$(/usr/bin/osascript -e "button returned of (display dialog \
-      \"$(applescript_quote "$SUMMARY")\" buttons {\"Open logs\", \"OK\"} \
-      default button \"OK\" with icon caution with title \"$APP_NAME\")" 2>/dev/null || printf 'OK')"
+      \"$(applescript_quote "$SUMMARY")\" buttons {\"Open Zoom\", \"Open logs\", \"OK\"} \
+      default button \"Open Zoom\" with icon caution with title \"$APP_NAME $APP_VERSION\")" 2>/dev/null || printf 'OK')"
     if [ "$BUTTON" = "Open logs" ]; then
       /usr/bin/open "$LOG_DIR" >/dev/null 2>&1 || true
+    elif [ "$BUTTON" = "Open Zoom" ]; then
+      bring_zoom_forward
     fi
   fi
 fi
