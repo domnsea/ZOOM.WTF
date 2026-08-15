@@ -158,3 +158,116 @@ kill_preferences_cache() {
   /usr/bin/killall cfprefsd >/dev/null 2>&1 || true
   /bin/sleep 1
 }
+
+net_iface() {
+  local d
+  d="$(/usr/sbin/route -n get default 2>/dev/null | /usr/bin/awk '/interface:/{print $2; exit}')"
+  if [ -z "$d" ]; then
+    d="$(/usr/sbin/networksetup -listallhardwareports 2>/dev/null | /usr/bin/awk '
+      /Hardware Port: Wi-Fi|Hardware Port: AirPort/ {want=1; next}
+      want && $1=="Device:" {print $2; exit}
+    ')"
+  fi
+  printf '%s' "$d"
+}
+
+net_wifi_iface() {
+  /usr/sbin/networksetup -listallhardwareports 2>/dev/null | /usr/bin/awk '
+    /Hardware Port: Wi-Fi|Hardware Port: AirPort/ {want=1; next}
+    want && $1=="Device:" {print $2; exit}
+  '
+}
+
+net_mac() {
+  /sbin/ifconfig "${1:-}" 2>/dev/null | /usr/bin/awk '/ether /{print $2; exit}'
+}
+
+# Locally administered unicast MAC. Restored when Zoom quits.
+net_random_mac() {
+  printf '02:%02x:%02x:%02x:%02x:%02x' \
+    $((RANDOM % 256)) $((RANDOM % 256)) $((RANDOM % 256)) $((RANDOM % 256)) $((RANDOM % 256))
+}
+
+net_is_wifi() {
+  local iface="$1"
+  /usr/sbin/networksetup -listallhardwareports 2>/dev/null | /usr/bin/awk -v d="$iface" '
+    /Hardware Port:/ {port=$0}
+    $1=="Device:" && $2==d { if (port ~ /Wi-Fi|AirPort/) found=1 }
+    END { exit(found ? 0 : 1) }
+  '
+}
+
+net_set_mac() {
+  local iface="$1" mac="$2"
+  [ -n "$iface" ] && [ -n "$mac" ] || return 1
+  if net_is_wifi "$iface"; then
+    /usr/sbin/networksetup -setairportpower "$iface" off >/dev/null 2>&1 || true
+    /bin/sleep 1
+  fi
+  /sbin/ifconfig "$iface" ether "$mac" >/dev/null 2>&1 ||
+    /sbin/ifconfig "$iface" lladdr "$mac" >/dev/null 2>&1 || true
+  if net_is_wifi "$iface"; then
+    /usr/sbin/networksetup -setairportpower "$iface" on >/dev/null 2>&1 || true
+    /bin/sleep 2
+  fi
+}
+
+# Rotate the live interface MAC and the Mac computer name for this Zoom
+# session. Does not rewrite the logic-board serial or hardware UUID.
+save_and_rotate_network() {
+  local state="$1"
+  local iface wifi mac new got host
+  : >"$state/net.ifaces"
+  iface="$(net_iface)"
+  wifi="$(net_wifi_iface)"
+  /usr/sbin/scutil --get ComputerName 2>/dev/null >"$state/net.computer" || true
+  /usr/sbin/scutil --get LocalHostName 2>/dev/null >"$state/net.localhost" || true
+  /usr/sbin/scutil --get HostName 2>/dev/null >"$state/net.hostname" || true
+
+  for iface in "$iface" "$wifi"; do
+    [ -n "$iface" ] || continue
+    mac="$(net_mac "$iface")"
+    [ -n "$mac" ] || continue
+    if /usr/bin/grep -q "^${iface}	" "$state/net.ifaces" 2>/dev/null; then
+      continue
+    fi
+    printf '%s\t%s\n' "$iface" "$mac" >>"$state/net.ifaces"
+    new="$(net_random_mac)"
+    net_set_mac "$iface" "$new"
+    got="$(net_mac "$iface")"
+    if [ "$got" = "$new" ]; then
+      log_line "NET" "MAC rotated iface=$iface from=$mac to=$new"
+    else
+      log_line "NET" "MAC unchanged iface=$iface hardware=$mac (this Mac locked the address)"
+    fi
+  done
+
+  host="mac$(printf '%04d' $((RANDOM % 10000)))"
+  /usr/sbin/scutil --set ComputerName "$host" >/dev/null 2>&1 || true
+  /usr/sbin/scutil --set LocalHostName "$host" >/dev/null 2>&1 || true
+  /usr/sbin/scutil --set HostName "$host" >/dev/null 2>&1 || true
+  printf '%s\n' "$host" >"$state/net.new_host"
+  log_line "NET" "hostname rotated to $host"
+}
+
+restore_network() {
+  local state="$1"
+  local iface mac computer localn host
+  [ -d "$state" ] || return 0
+  if [ -f "$state/net.ifaces" ]; then
+    while IFS="$(printf '\t')" read -r iface mac; do
+      [ -n "$iface" ] && [ -n "$mac" ] || continue
+      net_set_mac "$iface" "$mac"
+      log_line "NET" "MAC restored iface=$iface"
+    done <"$state/net.ifaces"
+  fi
+  computer="$(/usr/bin/tr -d '\r\n' <"$state/net.computer" 2>/dev/null || true)"
+  localn="$(/usr/bin/tr -d '\r\n' <"$state/net.localhost" 2>/dev/null || true)"
+  host="$(/usr/bin/tr -d '\r\n' <"$state/net.hostname" 2>/dev/null || true)"
+  [ -n "$computer" ] && /usr/sbin/scutil --set ComputerName "$computer" >/dev/null 2>&1 || true
+  [ -n "$localn" ] && /usr/sbin/scutil --set LocalHostName "$localn" >/dev/null 2>&1 || true
+  if [ -n "$host" ]; then
+    /usr/sbin/scutil --set HostName "$host" >/dev/null 2>&1 || true
+  fi
+  log_line "NET" "computer name restored"
+}

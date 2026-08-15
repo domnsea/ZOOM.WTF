@@ -47,6 +47,8 @@ esac
 /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
 /bin/sleep 1
 
+restore_network "$STATE_DIR"
+
 kill_preferences_cache
 mkdir -p "$QUARANTINE"
 

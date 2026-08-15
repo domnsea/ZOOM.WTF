@@ -217,8 +217,12 @@ check_grep "macos v9 launch uses a disposable runtime home" "runtime-home" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos v9 restores the regular Zoom profile" "restore_profile.sh" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos app shows version 1.0.20 so an old copy is obvious" "1.0.20" \
+check_grep "macos app shows version 1.0.21 so an old copy is obvious" "1.0.21" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
+check_grep "macos rotates a locally administered Wi-Fi MAC" "net_random_mac" \
+  platforms/macos/1132.WTF.app/Contents/Resources/common.sh
+check_grep "macos restores the original MAC when Zoom quits" "restore_network" \
+  platforms/macos/1132.WTF.app/Contents/Resources/restore_profile.sh
 check_grep "macos launch creates a throwaway login keychain" "create-keychain" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos launch unlocks the throwaway keychain" "unlock-keychain" \
@@ -302,6 +306,8 @@ if "create-keychain" not in helper or "unlock-keychain" not in helper:
     raise SystemExit("launch must create and unlock a throwaway login keychain")
 if "hold_zoom_closed" not in helper:
     raise SystemExit("launch must keep Zoom closed after a failed throwaway start")
+if "save_and_rotate_network" not in helper:
+    raise SystemExit("launch must rotate MAC and computer name for the session")
 if "sudo -u" not in helper or "launchctl asuser" not in helper:
     raise SystemExit("launch must use launchctl asuser + sudo -u so Zoom is not the login uid")
 if "pgrep -u" not in helper:

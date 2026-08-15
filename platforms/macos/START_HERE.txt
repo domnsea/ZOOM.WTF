@@ -1,17 +1,17 @@
-1132 FRESH 1.0.20 — Mac only
+1132 FRESH 1.0.21 — Mac only
 ============================
 
-1.0.19 opened Zoom as a throwaway user with no login
-keychain. Zoom then said "A keychain cannot be found to
-store Zoom", quit, and your regular dustin profile
-reopened.
+The new name worked. 1132 stayed because Zoom is still
+seeing this network (public IP) and this Mac.
 
-1.0.20 creates that keychain first, waits until throwaway
-Zoom stays up, and if it dies it restores your regular
-Zoom and keeps it closed so the login profile cannot pop
-back open.
+1.0.21 randomizes the Wi-Fi MAC and the computer name
+for this session, then puts them back when you quit Zoom.
 
-The lime banner must say 1132 FRESH 1.0.20.
+It cannot rewrite the logic-board serial. If 1132 stays,
+connect a phone hotspot or a VPN before you click Join.
+Same home/work IP = same 1132.
+
+The lime banner must say 1132 FRESH 1.0.21.
 If it does not, you have the old app. Trash it.
 
 Download:
@@ -19,9 +19,9 @@ Download:
 https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132-FRESH-macos.zip
 
 STEP 1 - Right-click "STEP 1 - OPEN FRESH ZOOM.command" → Open → Open
-         Type your Mac password when asked.
+         Type your Mac password. When it asks, switch to a hotspot or VPN.
 STEP 2 - Zoom Join must show the random name, not your Mac login.
-LAUNCH - Quit Zoom when done, or run STEP 2 - CLOSE AND CLEAN ZOOM.command
+LAUNCH - If you still get 1132, you are still on the blocked IP.
 
 If macOS will not replace the old app in Applications:
 

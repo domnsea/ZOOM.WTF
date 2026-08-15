@@ -102,7 +102,7 @@ Run **Status** first, then read this:
 |---|---|---|
 | Zoom still opens with your old name | Keychain / iCloud Keychain signed you back in, or Zoom used your **Mac login name** as the guest default | Run STEP 1 again, type a different name, do not sign into the blocked Zoom account. If iCloud Keychain is on, delete Zoom from Keychain Access |
 | "Join new room?" after typing a meeting ID | Meeting history was still on disk (helpers or Group Containers survived an older wipe) | This build wipes those. Re-download, run STEP 1, do not open Zoom from the Dock first |
-| 1132 comes back immediately | The block is on your **Zoom account** or this Mac's hardware id | Sign in as a different Zoom account, or join as Guest. A VPN if the block is on your IP |
+| 1132 comes back immediately | The block is on your **IP address** or this Mac's hardware id | Phone hotspot or VPN. This app randomizes Wi-Fi MAC and computer name; it cannot rewrite the logic-board serial |
 | No account on this Mac can join, but your phone can | The block is on your **IP address** | A VPN, or a phone hotspot |
 | "Zoom is not installed on this Mac" | The client is somewhere Spotlight cannot see | Install Zoom from zoom.us, then run STEP 1 again |
 | Zoom will not quit | Another app is holding a Zoom window | Force Quit Zoom, then run STEP 1 again |

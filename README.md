@@ -59,7 +59,7 @@ STEP 1 - Right-click `INSTALL_TO_APPLICATIONS.command` → Open → Open
 
 STEP 2 - Click **STEP 1 - Fix Zoom**
 
-LAUNCH - Window must say **1132 FRESH 1.0.20**. Use **STEP 1 - OPEN FRESH ZOOM.command**. Lime icon.
+LAUNCH - Window must say **1132 FRESH 1.0.21**. Use **STEP 1 - OPEN FRESH ZOOM.command**. Lime icon.
 
 ### Linux
 
@@ -99,7 +99,9 @@ whether anything on your computer can help**:
 | Zoom client device id | Zoom's data folder on your machine | **yes** |
 | Your operating-system user | your machine | **yes**, on desktop |
 | Your Zoom account | Zoom's servers | no, and neither can anything else you install |
+| Wi-Fi MAC / computer name | this Mac | **yes**, for this session on macOS |
 | Your IP address | your network | no, but a VPN or hotspot can |
+| Logic-board serial / hardware UUID | this Mac's firmware | no |
 
 The two rows it can reset are the two that are actually on your machine, and
 they are the most common cause. For the other two, the app tells you plainly

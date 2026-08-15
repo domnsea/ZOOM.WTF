@@ -350,6 +350,14 @@ if ! prepare_temp_keychain; then
   fail_throwaway_launch "throwaway keychain was not created"
 fi
 seed_zoom_prefs
+save_and_rotate_network "$ACTIVE_STATE"
+show_dialog "1132.WTF" "Name, MAC, and computer name are randomized for this session.
+
+Error 1132 after a new name is almost always this network's public IP, or this Mac's hardware id.
+
+Connect a phone hotspot or a VPN now, then click OK. The same home/work IP keeps 1132.
+
+This app cannot rewrite the logic-board serial." "note"
 
 # Aqua session of the logged-in desktop, process uid of the throwaway user.
 # Always pass the throwaway HOME. Never launch with the login account home.
@@ -402,5 +410,7 @@ show_dialog "1132.WTF" "Fresh Zoom is open as:
 
 $DISPLAY_NAME
 
-That must not be your Mac login name. Click Join. When you quit Zoom, this throwaway user is deleted and your regular Zoom is restored." "note"
+Wi-Fi MAC and computer name were randomized for this session. If Join still says 1132, this network's public IP is still blocked — use a phone hotspot or VPN.
+
+When you quit Zoom, the throwaway user, MAC, and computer name are put back." "note"
 exit 0
