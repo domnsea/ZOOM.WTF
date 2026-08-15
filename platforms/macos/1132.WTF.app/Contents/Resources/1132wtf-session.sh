@@ -2,13 +2,15 @@
 #
 # Throwaway-user helper. Runs as root.
 #
-# --prepare DIR  create the hidden wtf1132tmp user, make its home writable
-#                from the current desktop, start a watcher, then return.
-# --watch        wait until Zoom quits, then delete wtf1132tmp.
+# --start-from DIR  detach a watcher and return.
+# --prepare DIR     same as --start-from (kept for older callers / tests).
+# --watch DIR       create hidden wtf1132tmp, launch Zoom as THAT user on
+#                   this desktop with launchctl asuser + sudo -u (not
+#                   osascript), wait until Zoom quits, delete the user.
 #
-# This script must not launch Zoom itself. A root/osascript process has no
-# desktop, so Zoom started from here never appears. It also must not force
-# quit Zoom — that is what made Zoom vanish after "launching".
+# Zoom must run as wtf1132tmp. Running it as the logged-in user (even with
+# HOME pointed at the temp folder) still sends that login name — that is
+# why the name stayed the Mac account name.
 
 set -u
 
@@ -39,64 +41,121 @@ delete_temp_user() {
   /bin/rm -rf "/Users/$TEMP_USER" >/dev/null 2>&1 || true
 }
 
-if [ "${1:-}" = "--prepare" ]; then
+if [ "${1:-}" = "--start-from" ] || [ "${1:-}" = "--prepare" ]; then
   DIR="${2:-}"
   [ -d "$DIR" ] || die "session dir missing: $DIR"
   LOG="$(cat "$DIR/session.log" 2>/dev/null || printf '%s' "$DIR/session.log")"
   mkdir -p "$(dirname "$LOG")"
-
-  delete_temp_user
-
-  PASSWORD="$(/usr/bin/openssl rand -base64 24 | /usr/bin/tr -d '/+=' | /usr/bin/head -c 20)"
-  [ -n "$PASSWORD" ] || die "Could not generate a password."
-
-  if ! /usr/sbin/sysadminctl -addUser "$TEMP_USER" \
-    -fullName "$APP_NAME Guest" \
-    -password "$PASSWORD" >/dev/null 2>&1; then
-    die "sysadminctl could not create $TEMP_USER"
-  fi
-
-  /usr/bin/dscl . -create "/Users/$TEMP_USER" IsHidden 1 >/dev/null 2>&1 || true
-  /usr/sbin/createhomedir -c -u "$TEMP_USER" >/dev/null 2>&1 || true
-
-  HOME_DIR="/Users/$TEMP_USER"
-  if [ ! -d "$HOME_DIR" ]; then
-    /bin/mkdir -p "$HOME_DIR"
-    /usr/sbin/chown "$TEMP_USER:staff" "$HOME_DIR" 2>/dev/null || true
-  fi
-  /bin/mkdir -p \
-    "$HOME_DIR/tmp" \
-    "$HOME_DIR/Library/Application Support" \
-    "$HOME_DIR/Library/Preferences" \
-    "$HOME_DIR/Library/Caches" \
-    "$HOME_DIR/Library/Logs" \
-    "$HOME_DIR/Library/Saved Application State"
-
-  CONSOLE_USER="$(/usr/bin/stat -f %Su /dev/console 2>/dev/null || true)"
-  [ -n "$CONSOLE_USER" ] || CONSOLE_USER="$(/usr/bin/id -un)"
-  # Current desktop must be able to write Zoom's empty profile into this home.
-  /usr/sbin/chown -R "$CONSOLE_USER:staff" "$HOME_DIR" 2>/dev/null || true
-  /bin/chmod -R 777 "$HOME_DIR" 2>/dev/null || true
-
-  printf '%s\n' "$HOME_DIR" >"$DIR/temp.home"
-  /usr/bin/id -u "$TEMP_USER" >"$DIR/temp.uid" 2>/dev/null || true
-  printf '%s\n' "$TEMP_USER" >"$DIR/temp.user"
-  printf '%s\n' "[OK] created hidden user $TEMP_USER" >>"$LOG"
-
-  nohup /bin/bash "$0" --watch >>"$LOG" 2>&1 &
+  nohup /bin/bash "$0" --watch "$DIR" >>"$LOG" 2>&1 &
   printf '%s\n' "watcher pid $!"
   exit 0
 fi
 
-[ "${1:-}" = "--watch" ] || die "Usage: $0 --prepare <dir>"
+[ "${1:-}" = "--watch" ] || die "Usage: $0 --start-from <dir>"
+DIR="${2:-}"
+[ -d "$DIR" ] || die "session dir missing: $DIR"
 
-printf '%s\n' "[START] waiting for Zoom to appear, then for you to quit it"
+ZOOM_APP="$(tr -d '\r' <"$DIR/zoom.path" 2>/dev/null || true)"
+JOIN_URL="$(tr -d '\r\n' <"$DIR/join.url" 2>/dev/null || true)"
+DISPLAY_NAME="$(tr -d '\r\n' <"$DIR/display.name" 2>/dev/null || printf 'Guest')"
+[ -n "$DISPLAY_NAME" ] || DISPLAY_NAME="Guest"
+
+[ -d "$ZOOM_APP" ] || die "Zoom app not found: $ZOOM_APP"
+
+ZOOM_BIN=""
+for candidate in \
+  "$ZOOM_APP/Contents/MacOS/zoom.us" \
+  "$ZOOM_APP/Contents/MacOS/Zoom" \
+  "$ZOOM_APP/Contents/MacOS/zoom"
+do
+  if [ -x "$candidate" ]; then
+    ZOOM_BIN="$candidate"
+    break
+  fi
+done
+[ -n "$ZOOM_BIN" ] || die "No Zoom binary inside $ZOOM_APP"
+
+CONSOLE_USER="$(/usr/bin/stat -f %Su /dev/console 2>/dev/null || true)"
+CONSOLE_UID="$(/usr/bin/id -u "$CONSOLE_USER" 2>/dev/null || true)"
+[ -n "$CONSOLE_UID" ] || die "Could not find the logged-in console user."
+
+printf '%s\n' "[START] launching Zoom as $TEMP_USER on $CONSOLE_USER's desktop"
+printf '%s\n' "[INFO] display name=$DISPLAY_NAME console=$CONSOLE_USER/$CONSOLE_UID"
+
+delete_temp_user
+
+PASSWORD="$(/usr/bin/openssl rand -base64 24 | /usr/bin/tr -d '/+=' | /usr/bin/head -c 20)"
+[ -n "$PASSWORD" ] || die "Could not generate a password."
+
+# Full name from the window so Zoom cannot pick the Mac login name.
+if ! /usr/sbin/sysadminctl -addUser "$TEMP_USER" \
+  -fullName "$DISPLAY_NAME" \
+  -password "$PASSWORD" >/dev/null 2>&1; then
+  die "sysadminctl could not create $TEMP_USER"
+fi
+
+/usr/bin/dscl . -create "/Users/$TEMP_USER" IsHidden 1 >/dev/null 2>&1 || true
+/usr/bin/dscl . -create "/Users/$TEMP_USER" RealName "$DISPLAY_NAME" >/dev/null 2>&1 || true
+/usr/bin/dscl . -create "/Users/$TEMP_USER" UserShell /bin/bash >/dev/null 2>&1 || true
+/usr/sbin/createhomedir -c -u "$TEMP_USER" >/dev/null 2>&1 || true
+
+HOME_DIR="$(/usr/bin/dscl . -read "/Users/$TEMP_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
+[ -n "$HOME_DIR" ] || HOME_DIR="/Users/$TEMP_USER"
+/bin/mkdir -p \
+  "$HOME_DIR/Library/Application Support" \
+  "$HOME_DIR/Library/Preferences" \
+  "$HOME_DIR/Library/Caches" \
+  "$HOME_DIR/Library/Logs"
+/usr/sbin/chown -R "$TEMP_USER:staff" "$HOME_DIR" >/dev/null 2>&1 || true
+
+TEMP_UID="$(/usr/bin/id -u "$TEMP_USER")"
+printf '%s\n' "[OK] created hidden user $TEMP_USER uid=$TEMP_UID name=$DISPLAY_NAME home=$HOME_DIR"
+
+zoom_for_temp() {
+  /usr/bin/pgrep -u "$TEMP_UID" -x "zoom.us" >/dev/null 2>&1 && return 0
+  /usr/bin/pgrep -u "$TEMP_UID" -f "zoom.us.app/Contents/MacOS" >/dev/null 2>&1 && return 0
+  return 1
+}
+
+log_zoom_procs() {
+  printf '%s\n' "[INFO] zoom processes:"
+  /bin/ps -axo user,uid,pid,command | /usr/bin/awk 'tolower($0) ~ /zoom/ { print }' || true
+}
+
+# Original working launch: Aqua session of the logged-in desktop, process uid
+# of the throwaway user. Do not launch Zoom with osascript. Do not fall back
+# to the console user — that is how the Mac login name came back.
+launch_as_temp() {
+  printf '%s\n' "[ACTION] launchctl asuser $CONSOLE_UID sudo -u $TEMP_USER $*"
+  /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/sudo -u "$TEMP_USER" "$@" &
+}
+
+if [ -n "$JOIN_URL" ]; then
+  launch_as_temp "$ZOOM_BIN" --url="$JOIN_URL"
+else
+  launch_as_temp "$ZOOM_BIN"
+fi
+sleep 4
+log_zoom_procs
+
+if ! zoom_for_temp; then
+  printf '%s\n' "[INFO] retry sudo -u without --url"
+  launch_as_temp "$ZOOM_BIN"
+  sleep 3
+  log_zoom_procs
+fi
+
+if ! zoom_for_temp; then
+  printf '%s\n' "[INFO] retry sudo -u then asuser"
+  /usr/bin/sudo -u "$TEMP_USER" /bin/launchctl asuser "$CONSOLE_UID" "$ZOOM_BIN" &
+  sleep 3
+  log_zoom_procs
+fi
 
 appeared=0
 waited=0
 while [ "$waited" -lt 180 ]; do
-  if /usr/bin/pgrep -ix "zoom.us" >/dev/null 2>&1 || \
-     /usr/bin/pgrep -f "zoom.us.app/Contents/MacOS" >/dev/null 2>&1; then
+  if zoom_for_temp; then
     appeared=1
     break
   fi
@@ -105,11 +164,12 @@ while [ "$waited" -lt 180 ]; do
 done
 
 if [ "$appeared" -ne 1 ]; then
-  printf '%s\n' "[WARN] Zoom never appeared. Deleting $TEMP_USER."
+  printf '%s\n' "[WARN] Zoom as $TEMP_USER never appeared. Deleting $TEMP_USER."
+  log_zoom_procs
 else
-  printf '%s\n' "[OK] Zoom is running. Waiting until you quit it."
-  while /usr/bin/pgrep -ix "zoom.us" >/dev/null 2>&1 || \
-        /usr/bin/pgrep -f "zoom.us.app/Contents/MacOS" >/dev/null 2>&1; do
+  printf '%s\n' "[OK] Zoom is running as $TEMP_USER. Waiting until you quit it."
+  log_zoom_procs
+  while zoom_for_temp; do
     sleep 2
   done
   printf '%s\n' "[ACTION] Zoom exited. Deleting $TEMP_USER"

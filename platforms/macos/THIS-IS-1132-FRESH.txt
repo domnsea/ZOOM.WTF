@@ -1,8 +1,13 @@
-THIS IS 1132 FRESH
-==================
+THIS IS 1132 FRESH 1.0.15
+=========================
 
 Lime green icon.
 Window title: 1132 FRESH
+Banner: 1132 FRESH 1.0.15   sudo-u Zoom
 Zip name: 1132-FRESH-macos.zip
 
-If the icon is cyan / dark blue, that is the OLD app. Trash it.
+Zoom is launched with launchctl asuser + sudo -u as a hidden
+temporary user. The name in Zoom must not be your Mac login.
+
+If the icon is cyan / dark blue, or the banner does not say
+1.0.15, that is the OLD app. Trash it.

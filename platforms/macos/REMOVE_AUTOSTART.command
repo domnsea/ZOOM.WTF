@@ -2,7 +2,7 @@
 # Stop 1132.WTF from running at login.
 set -u
 
-for BUNDLE_ID in wtf.fix1132.mac.14 wtf.fix1132.mac.13 wtf.fix1132.mac.12 wtf.fix1132.mac; do
+for BUNDLE_ID in wtf.fix1132.mac.15 wtf.fix1132.mac.14 wtf.fix1132.mac.13 wtf.fix1132.mac.12 wtf.fix1132.mac; do
   PLIST="$HOME/Library/LaunchAgents/$BUNDLE_ID.plist"
   /bin/launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 ||
     /bin/launchctl unload "$PLIST" >/dev/null 2>&1 || true
