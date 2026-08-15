@@ -178,7 +178,8 @@ printf '\nsafety invariants hold on every desktop platform\n'
 # Rotation must never be able to delete a real user account. Each engine guards
 # on a reserved name prefix before deleting anything.
 check_grep "windows refuses accounts outside its prefix" "Refusing to delete" "$WIN_ENGINE"
-check_grep "macos refuses accounts outside its prefix" "Refusing to act on" "$MAC_ENGINE"
+check_grep "macos refuses accounts outside its prefix" "Refusing to act on" \
+  platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
 check_grep "linux refuses accounts outside its prefix" "Refusing to delete" "$LINUX_ENGINE"
 
 # Backups must exist before anything is deleted, and restore must be reachable.
@@ -209,6 +210,17 @@ fi
 check_grep "macos loop-deletes keychain items" "delete-generic-password" "$MAC_ENGINE"
 check_grep "macos flushes cfprefsd" "cfprefsd" "$MAC_ENGINE"
 check_grep "macos can pass a guest display name" "uname=" "$MAC_ENGINE"
+check_grep "macos launches Zoom as a throwaway user on this screen" "launchctl asuser" \
+  platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
+check_grep "macos hides the throwaway user from the login list" "IsHidden" \
+  platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
+check_grep "macos deletes the throwaway user after Zoom quits" "Zoom exited. Deleting" \
+  platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
+if grep -q "Switch now" "$MAC_ENGINE"; then
+  fail "macos fix does not ask you to switch profiles" "Switch now is still in the engine"
+else
+  pass "macos fix does not ask you to switch profiles"
+fi
 
 # No hardcoded passwords anywhere. The original Windows build shipped one.
 if grep -rniE "ZoomTemp123|password *= *['\"][A-Za-z0-9!@#]{6,}['\"]" \

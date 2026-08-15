@@ -74,8 +74,9 @@ CHOICE="$(/usr/bin/osascript <<OSA 2>/dev/null
 set choices to {"$OPT_FIX", "$OPT_DEEP", "$OPT_BROWSER", "$OPT_STATUS", "$OPT_UNDO", "$OPT_AUTO_ON", "$OPT_AUTO_OFF", "$OPT_LOGS"}
 set picked to choose from list choices with title "$APP_NAME" ¬
   with prompt "STEP 1 - click Fix Zoom" & return & ¬
-  "STEP 2 - type a new name and the meeting #" & return & ¬
-  "LAUNCH" ¬
+  "STEP 2 - type a name and the meeting #" & return & ¬
+  "LAUNCH - Zoom opens on this screen as a fresh user." & return & ¬
+  "When you quit Zoom, that user is deleted." ¬
   default items {"$OPT_FIX"} OK button name "Run" cancel button name "Close"
 if picked is false then
   return "cancelled"
@@ -137,14 +138,9 @@ if [ "$VERB" = "fix" ]; then
 fi
 
 if [ "$VERB" = "deep-fix" ]; then
-  CONFIRM="$(/usr/bin/osascript -e "button returned of (display dialog \
-    \"STEP 1 - Type your Mac password when asked.\" & return & return & \
-    \"STEP 2 - Write down the new account and password.\" & return & return & \
-    \"LAUNCH - Click Switch now. Log in as that new account. Open Zoom there.\" & return & return & \
-    \"Do not stay on this login. Deleting those accounts does nothing.\" \
-    with title \"$APP_NAME\" buttons {\"Cancel\", \"LAUNCH\"} \
-    default button \"LAUNCH\")" 2>/dev/null || printf 'Cancel')"
-  [ "$CONFIRM" != "LAUNCH" ] && exit 0
+  VERB="fix"
+  /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
+  export WTF1132_DISPLAY_NAME="${WTF1132_DISPLAY_NAME:-Guest}"
 fi
 
 OUTPUT="$(run_engine "$VERB" ${EXTRA:+"$EXTRA"})"
@@ -155,9 +151,11 @@ if [ "$NEEDS_REPORT" -eq 1 ]; then
   if [ "$STATUS" -eq 0 ] && [ "$VERB" = "fix" ]; then
     SUMMARY="Done.
 
-LAUNCH - Zoom is opening empty.
-Join with the name you typed.
-Do not sign in as the old account."
+LAUNCH - Zoom is opening on this screen as a fresh user.
+Join. Do not sign in as the old account.
+
+When you quit that Zoom, the temporary user is deleted.
+Nothing to write down. No profile switch."
   elif [ "$STATUS" -eq 0 ] && [ "$VERB" = "browser" ]; then
     SUMMARY="Done.
 

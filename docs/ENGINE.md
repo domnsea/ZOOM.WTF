@@ -51,6 +51,10 @@ Rotation order, where the slot about to run is `n`:
 Requires administrator / root. Desktop only — iOS and Android do not let one
 app create operating-system users.
 
+On macOS the throwaway user is hidden, Zoom is opened on the **current
+desktop** (no profile switch, no password to write down), and the user is
+deleted automatically when that Zoom instance quits.
+
 ### Level 3 — `browser` (bypass)
 
 Join the meeting in a fresh private browser session instead of the Zoom

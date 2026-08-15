@@ -444,11 +444,8 @@ do_fix() {
   fi
 
   if [ "${NO_LAUNCH:-${WTF1132_NO_LAUNCH:-0}}" != "1" ]; then
-    launch_zoom_isolated "$zoom"
+    do_fresh_session "$zoom"
   fi
-
-  log DONE "Level 1 reset complete. Zoom is empty — the old name and rooms are gone."
-  log INFO "Do not sign into the Zoom account that was blocked. Type a different name if the join box still shows your Mac login name."
 }
 
 list_backups() {
@@ -521,86 +518,48 @@ mac_user_exists() {
   /usr/bin/dscl . -read "/Users/$1" >/dev/null 2>&1
 }
 
+# Same-screen throwaway user: Zoom opens on THIS desktop as a hidden
+# wtf1132tmp account. When that Zoom exits, the account is deleted.
+# No password to write down. No profile switch.
+do_fresh_session() {
+  local zoom="${1:-}"
+  if [ -z "$zoom" ]; then
+    zoom="$(find_zoom_app || true)"
+  fi
+  [ -n "$zoom" ] || die "Zoom is not installed on this Mac. Install Zoom, or use the browser bypass."
+
+  local helper
+  helper="$(cd "$(dirname "$0")" && pwd)/1132wtf-session.sh"
+  [ -f "$helper" ] || die "Missing session helper: $helper"
+  chmod +x "$helper" 2>/dev/null || true
+
+  local session_dir="$SUPPORT_DIR/session"
+  rm -rf "$session_dir"
+  mkdir -p "$session_dir"
+  local join_url=""
+  join_url="$(build_join_url || true)"
+  printf '%s\n' "$zoom" >"$session_dir/zoom.path"
+  printf '%s\n' "$join_url" >"$session_dir/join.url"
+  printf '%s\n' "${WTF1132_DISPLAY_NAME:-Guest}" >"$session_dir/display.name"
+  printf '%s\n' "$LOG_DIR/session.log" >"$session_dir/session.log"
+
+  log ACTION "Asking for your Mac password once. Zoom will open as a fresh hidden user on this screen."
+  log INFO "When you quit Zoom, that temporary user is deleted. Nothing to write down. No profile switch."
+
+  if ! run_admin "/bin/bash '$helper' --start-from '$session_dir'" >>"$LOG_FILE" 2>&1; then
+    die "Administrator rights were refused. The fresh Zoom user was not created."
+  fi
+
+  log OK "Zoom is opening as a throwaway user on this screen."
+  log DONE "Join the meeting. When you quit Zoom, the temporary user is deleted."
+}
+
 do_deep_fix() {
-  local slot remove_slot active remove password
-  slot="$(next_slot)"
-  remove_slot="$(slot_to_remove "$slot")"
-  active="${SLOT_NAMES[$((slot - 1))]}"
-  remove="${SLOT_NAMES[$((remove_slot - 1))]}"
-
-  case "$active" in
-    "$SLOT_PREFIX"*) : ;;
-    *) die "Refusing to act on '$active': not a $APP_NAME rotation account." ;;
-  esac
-
-  log INFO "Rotation: preparing slot $slot ($active), destroying slot $remove_slot ($remove)"
-
-  password="$(random_password)"
-  [ -n "$password" ] || die "Could not generate a password."
-
-  # One authentication prompt covers both the delete and the create.
-  local script=""
-  if mac_user_exists "$remove"; then
-    script="/usr/sbin/sysadminctl -deleteUser $remove; "
-  fi
-  if mac_user_exists "$active"; then
-    script="${script}/usr/bin/dscl . -passwd /Users/$active '$password'"
-  else
-    script="${script}/usr/sbin/sysadminctl -addUser $active -fullName '$APP_NAME Guest' -password '$password'"
-  fi
-
-  log ACTION "Asking for administrator rights to rotate the throwaway account"
-  if ! run_admin "$script" >>"$LOG_FILE" 2>&1; then
-    die "Administrator rights were refused, so the throwaway account was not created."
-  fi
-
-  if mac_user_exists "$active"; then
-    log OK "Throwaway account ready: $active"
-  else
-    die "The throwaway account was not created. See $LOG_FILE"
-  fi
-
-  local following
-  following=$((slot + 1))
-  [ "$following" -gt 3 ] && following=1
-  printf '%s\n' "$following" >"$SLOT_FILE"
-  log STATE "Next deep-fix will use slot $following"
-
-  # macOS will not run a GUI app as another user on this desktop, so the
-  # remaining step is a genuine user switch. Show the credentials and offer it.
-  log INFO "Account: $active"
-  log INFO "Password: (shown in the dialog, not written to this log)"
-
-  local message="A clean macOS account is ready.
-
-    Account:   $active
-    Password:  $password
-
-Zoom sees this as a completely different machine-local identity.
-
-Next: switch to that account, open Zoom, and join the meeting.
-Staying on this login and deleting wtf1132 users does nothing —
-Zoom still sees this Mac user. Your own files are untouched.
-
-This account is deleted automatically the next time the rotation reaches it."
-
-  local choice
-  choice="$(/usr/bin/osascript \
-    -e "display dialog \"$(applescript_quote "$message")\" \
-        buttons {\"Later\", \"Switch now\"} default button \"Switch now\" \
-        with title \"$APP_NAME\"" 2>/dev/null || true)"
-
-  if printf '%s' "$choice" | grep -q "Switch now"; then
-    local cgsession="/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/CGSession"
-    if [ -x "$cgsession" ]; then
-      log ACTION "Opening the login window for the account switch"
-      "$cgsession" -suspend >/dev/null 2>&1 || log WARN "Could not open the login window."
-    else
-      log WARN "Fast user switching helper not found. Switch from the Apple menu."
-    fi
-  fi
-
-  log DONE "Level 2 rotation complete."
+  local zoom
+  zoom="$(find_zoom_app || true)"
+  [ -n "$zoom" ] || die "Zoom is not installed on this Mac. Install Zoom, or use the browser bypass."
+  stop_zoom
+  do_fresh_session "$zoom"
 }
 
 # ----------------------------------------------------- level 3: browser join

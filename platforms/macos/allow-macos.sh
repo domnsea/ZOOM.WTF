@@ -23,6 +23,7 @@ allow_target() {
   if [ -d "$target/Contents/MacOS" ]; then
     chmod +x "$target/Contents/MacOS/$APP_NAME" 2>/dev/null || true
     chmod +x "$target/Contents/Resources/1132wtf-engine.sh" 2>/dev/null || true
+    chmod +x "$target/Contents/Resources/1132wtf-session.sh" 2>/dev/null || true
     if command -v codesign >/dev/null 2>&1; then
       # Ad-hoc signature (the "-" identity). Not notarized, but combined with
       # a cleared quarantine it is enough for Gatekeeper to allow a local open.

@@ -1,44 +1,16 @@
 1132.WTF — Mac only
 ===================
 
-If the installer says Permission denied
----------------------------------------
+STEP 1 - Press Cmd + Space. Type Terminal. Press Return.
+         Paste this one line. Type your Mac password. Press Return.
 
-Force Quit does not fix this. The old app is locked by admin.
+sudo rm -rf /Applications/1132.WTF.app && sudo cp -R /Users/dustin/Downloads/ZOOM.WTF-1.0.4/platforms/macos/1132.WTF.app /Applications/1132.WTF.app && sudo chown -R dustin:staff /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app
 
-STEP 1 - Paste these lines in Terminal. Press Return.
+STEP 2 - Click STEP 1 - Fix Zoom
+         Type Guest. Type the meeting number. Click LAUNCH.
+         Type your Mac password when asked (once).
 
-sudo rm -rf /Applications/1132.WTF.app
-sudo cp -R ~/Downloads/ZOOM.WTF-1.0.4/platforms/macos/1132.WTF.app /Applications/1132.WTF.app
-sudo chown -R "$(whoami)":staff /Applications/1132.WTF.app
-xattr -cr /Applications/1132.WTF.app
-open /Applications/1132.WTF.app
-
-STEP 2 - Type your Mac password. Nothing shows as you type. Press Return.
-
-LAUNCH - In 1132.WTF click STEP 1 - Fix Zoom.
-
-
-If Zoom or 1132.WTF is stuck on screen right now:
-
-STEP 1 - Press Cmd + Option + Esc
-STEP 2 - Force Quit Zoom. Force Quit 1132.WTF.
-LAUNCH - Then do the three steps below.
-
-
-Download this file only (not the other platforms):
-
-https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132.WTF-macos-1.0.0.zip
-
-
-STEP 1 - Unzip. Right-click INSTALL_TO_APPLICATIONS.command
-         Click Open. Click Open again.
-
-STEP 2 - Click STEP 1 - Fix Zoom. Click Run.
-
-LAUNCH - Type Guest (not your old name).
-         Type the meeting number.
-         Click LAUNCH.
-
-Zoom is force-closed. A new empty Zoom opens. Join.
-Do not sign in as the old account.
+LAUNCH - Zoom opens on THIS screen as a fresh hidden user.
+         Join. Do not sign in as the old account.
+         When you quit Zoom, that temporary user is deleted.
+         Nothing to write down. No profile switch.
