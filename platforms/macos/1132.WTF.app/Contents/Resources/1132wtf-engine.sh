@@ -14,7 +14,7 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.9"
+APP_VERSION="1.0.10"
 BUNDLE_ID="wtf.fix1132.mac"
 
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
@@ -418,16 +418,61 @@ build_web_client_url() {
   printf '%s' "$url"
 }
 
-# Stop Zoom.app from stealing the join via zoommtg:// (that is error 1132).
-prevent_zoom_handoff() {
-  /bin/bash -c '
-    n=0
-    while [ "$n" -lt 30 ]; do
-      /usr/bin/killall -9 zoom.us ZoomOpener CptHost aomhost >/dev/null 2>&1 || true
-      sleep 1
-      n=$((n + 1))
-    done
-  ' >/dev/null 2>&1 &
+# Put the join page on THIS desktop. `open -n` starts a second Chrome with no
+# window. `open https://zoom.us/...` is stolen by Zoom.app, which we then
+# kill — that is why LAUNCH looked like nothing opened.
+open_join_page() {
+  local url="$1"
+  local opened=0 q app bin
+
+  printf '%s\n' "$url" >"$LOG_DIR/last_join_url.txt"
+  printf '%s' "$url" | /usr/bin/pbcopy >/dev/null 2>&1 || true
+  log INFO "Join URL (also on the clipboard): $url"
+  q="$(applescript_quote "$url")"
+
+  # Safari is on every Mac. AppleScript loads the URL inside Safari so
+  # LaunchServices cannot hand it to Zoom.app.
+  log ACTION "Opening Safari"
+  if /usr/bin/osascript >>"$LOG_FILE" 2>&1 <<OSA
+with timeout of 15 seconds
+  tell application "Safari"
+    activate
+    make new document with properties {URL:"$q"}
+  end tell
+end timeout
+OSA
+  then
+    opened=1
+    log OK "Safari is opening the join page."
+  else
+    log WARN "Safari AppleScript failed. Trying open -a Safari."
+    /usr/bin/open -a "Safari" "$url" >>"$LOG_FILE" 2>&1 && opened=1
+  fi
+
+  for app in \
+    "/Applications/Google Chrome.app" \
+    "$HOME/Applications/Google Chrome.app" \
+    "/Applications/Microsoft Edge.app" \
+    "/Applications/Brave Browser.app"
+  do
+    [ -d "$app" ] || continue
+    bin=""
+    [ -x "$app/Contents/MacOS/Google Chrome" ] && bin="$app/Contents/MacOS/Google Chrome"
+    [ -z "$bin" ] && [ -x "$app/Contents/MacOS/Microsoft Edge" ] && bin="$app/Contents/MacOS/Microsoft Edge"
+    [ -z "$bin" ] && [ -x "$app/Contents/MacOS/Brave Browser" ] && bin="$app/Contents/MacOS/Brave Browser"
+    [ -n "$bin" ] || continue
+    log ACTION "Opening $app"
+    # Launch the browser binary from this desktop process. Do not use open -n.
+    "$bin" --incognito --new-window -- "$url" >>"$LOG_FILE" 2>&1 &
+    opened=1
+  done
+
+  if [ -d "/Applications/Firefox.app" ]; then
+    log ACTION "Opening Firefox"
+    /usr/bin/open -a "Firefox" --args -private-window "$url" >>"$LOG_FILE" 2>&1 && opened=1
+  fi
+
+  [ "$opened" -eq 1 ]
 }
 
 zoom_ui_running() {
@@ -457,9 +502,8 @@ launch_zoom_isolated() {
   rm -rf "$CLEAN_PROFILE_DIR"
   mkdir -p "$CLEAN_PROFILE_DIR"
 
-  local join_url="" https_url="" uid
+  local join_url="" uid
   join_url="$(build_join_url || true)"
-  https_url="$(build_https_join_url || true)"
   uid="$(id -u)"
 
   if [ -n "$join_url" ]; then
@@ -498,29 +542,29 @@ launch_zoom_isolated() {
     fi
   done
 
-  if [ -n "$https_url" ]; then
-    log WARN "Zoom app did not stay open. Opening the join page so something appears."
-    /usr/bin/open "$https_url" >>"$LOG_FILE" 2>&1 || true
-    sleep 3
-    if zoom_ui_running; then
-      activate_zoom "$zoom_app"
-      log OK "Zoom is open."
-      return 0
-    fi
-  fi
-
   log WARN "Could not open Zoom automatically. Open it from Applications."
   return 1
 }
 
 do_fix() {
+  local join=""
+  join="$(build_web_client_url || true)"
+  [ -z "$join" ] && join="https://zoom.us/wc/join"
+
+  # Open the join page FIRST so LAUNCH is not a blank wait while folders move.
+  if [ "${NO_LAUNCH:-${WTF1132_NO_LAUNCH:-0}}" != "1" ]; then
+    if ! open_join_page "$join"; then
+      log WARN "Browser did not confirm. The join link is on the clipboard."
+    fi
+  fi
+
   local zoom
   zoom="$(find_zoom_app || true)"
   if [ -n "$zoom" ]; then
     log OK "Zoom: $zoom"
     stop_zoom
   else
-    log INFO "Zoom app is not installed. Joining in the browser, which is the 1132 fix."
+    log INFO "Zoom app is not installed. The browser join is the 1132 fix."
   fi
 
   local backup moved manifest
@@ -555,12 +599,8 @@ do_fix() {
   fi
 
   if [ "${NO_LAUNCH:-${WTF1132_NO_LAUNCH:-0}}" != "1" ]; then
-    # Never open Zoom.app or zoommtg:// after a wipe. That client is what
-    # shows 1132. The web client in a private window is a new guest.
-    local join
-    join="$(build_web_client_url || true)"
-    [ -z "$join" ] && join="https://zoom.us/wc/join"
-    do_browser "$join"
+    log OK "Join in Safari. Click Join from your browser. Do not open the Zoom app."
+    log DONE "1132 bypass ready. The Zoom app is what shows 1132 — leave it closed."
   fi
 }
 
@@ -698,7 +738,6 @@ do_browser() {
     esac
   fi
 
-  # Refuse to hand the meeting to Zoom.app. /j/ and zoommtg:// are 1132.
   case "$url" in
     zoommtg://*|https://zoom.us/j/*|http://zoom.us/j/*)
       log WARN "Refusing to open the Zoom app join link (that is error 1132)."
@@ -706,32 +745,11 @@ do_browser() {
       ;;
   esac
 
-  local opened=0
-
-  # Open a named browser so LaunchServices cannot give the URL to Zoom.app.
-  if [ -d "/Applications/Google Chrome.app" ]; then
-    log ACTION "Opening a private window in Google Chrome"
-    /usr/bin/open -na "Google Chrome" --args --incognito --new-window "$url" && opened=1
-  elif [ -d "/Applications/Microsoft Edge.app" ]; then
-    log ACTION "Opening a private window in Microsoft Edge"
-    /usr/bin/open -na "Microsoft Edge" --args --inprivate --new-window "$url" && opened=1
-  elif [ -d "/Applications/Brave Browser.app" ]; then
-    log ACTION "Opening a private window in Brave"
-    /usr/bin/open -na "Brave Browser" --args --incognito --new-window "$url" && opened=1
-  elif [ -d "/Applications/Firefox.app" ]; then
-    log ACTION "Opening a private window in Firefox"
-    /usr/bin/open -na "Firefox" --args -private-window "$url" && opened=1
-  elif [ -d "/Applications/Safari.app" ]; then
-    log ACTION "Opening Safari. Use File > New Private Window if you can."
-    /usr/bin/open -a "Safari" "$url" && opened=1
+  if ! open_join_page "$url"; then
+    die "Could not open Safari. The join link is on the clipboard: $url"
   fi
 
-  if [ "$opened" -ne 1 ]; then
-    die "Could not open a browser. Install Chrome or Firefox, then run this again."
-  fi
-
-  prevent_zoom_handoff
-  log OK "Join in that window. Click Join from your browser. Do not open the Zoom app."
+  log OK "Join in Safari. Click Join from your browser. Do not open the Zoom app."
   log DONE "1132 bypass ready. The Zoom app is what shows 1132 — leave it closed."
 }
 
@@ -865,11 +883,11 @@ case "$VERB" in
   autostart-on) autostart_on ;;
   autostart-off) autostart_off ;;
   fix)
-    acquire_lock || exit 0
+    acquire_lock || die "Another $APP_NAME run is already active. Wait, or delete ~/Library/Application Support/$APP_NAME/run.lock"
     do_fix
     ;;
   deep-fix)
-    acquire_lock || exit 0
+    acquire_lock || die "Another $APP_NAME run is already active. Wait, or delete ~/Library/Application Support/$APP_NAME/run.lock"
     do_deep_fix
     ;;
   restore)

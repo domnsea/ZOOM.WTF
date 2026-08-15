@@ -210,11 +210,17 @@ check_grep "macos flushes cfprefsd" "cfprefsd" "$MAC_ENGINE"
 check_grep "macos can pass a guest display name" "uname=" "$MAC_ENGINE"
 check_grep "macos session helper prepares a throwaway user" "--prepare" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
-check_grep "macos app shows version 1.0.9 so an old copy is obvious" "1.0.9" \
+check_grep "macos app shows version 1.0.10 so an old copy is obvious" "1.0.10" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
 check_grep "macos joins through the Zoom web client" "zoom.us/wc/join" "$MAC_ENGINE"
 check_grep "macos builds a web client URL" "build_web_client_url" "$MAC_ENGINE"
-check_grep "macos stops Zoom.app from stealing the join" "prevent_zoom_handoff" "$MAC_ENGINE"
+check_grep "macos opens the join page in Safari" "open_join_page" "$MAC_ENGINE"
+check_grep "macos GUI is a branded window" "1132wtf-gui.jxa" \
+  platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
+check_grep "macos GUI shows the 1132 logo" "setIcon" \
+  platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa
+check_grep "macos GUI lists STEP 1 - Fix Zoom" "STEP 1 - Fix Zoom" \
+  platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa
 check_grep "macos hides the throwaway user from the login list" "IsHidden" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
 check_grep "macos deletes the throwaway user after Zoom quits" "Zoom exited. Deleting" \
@@ -244,7 +250,7 @@ text = Path("platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-engine.sh")
 start = text.find("do_fix()")
 end = text.find("\nlist_backups()", start)
 block = text[start:end]
-if "do_browser" not in block or "build_web_client_url" not in block:
+if "open_join_page" not in block or "build_web_client_url" not in block:
     raise SystemExit("do_fix must join through the web client")
 if "do_fresh_session" in block or "launch_zoom_isolated" in block:
     raise SystemExit("do_fix must not open Zoom.app — that is error 1132")

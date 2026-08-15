@@ -12,10 +12,10 @@ Open `START_HERE.txt`. Short version:
 
 STEP 1 - Right-click **`INSTALL_TO_APPLICATIONS.command`** → Open → Open
 
-STEP 2 - Click **STEP 1 - Fix Zoom**
+STEP 2 - You should see the **1132 logo** and the action list. Click **STEP 1 - Fix Zoom**
 
 LAUNCH - Type a name that is not your old name. Type the meeting #. Click LAUNCH.
-A private window joins as a new guest. Do not open the Zoom app (that is 1132).
+Safari opens the join page as a new guest. Do not open the Zoom app (that is 1132).
 
 If macOS says the author cannot be verified, that is normal. Click Done, then
 System Settings → Privacy & Security → Open Anyway. Or open `OPEN_ME_FIRST.txt`.

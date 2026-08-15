@@ -2,17 +2,20 @@
 #
 # 1132.WTF app entry point for macOS.
 #
-# Double-clicked, it shows a native chooser and runs the picked action.
-# Started by the login item, it runs a level 1 reset with no interface.
+# Double-clicked, it shows a branded window (logo + the action list) and
+# runs the picked action. Started by the login item, it runs a level 1
+# reset with no interface.
 
 set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.9"
+APP_VERSION="1.0.10"
 APP_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 export APP_ROOT
 ENGINE="$APP_ROOT/Contents/Resources/1132wtf-engine.sh"
+GUI="$APP_ROOT/Contents/Resources/1132wtf-gui.jxa"
+ICON="$APP_ROOT/Contents/Resources/AppIcon.icns"
 LOG_DIR="$HOME/Library/Logs/$APP_NAME"
 
 mkdir -p "$LOG_DIR"
@@ -42,7 +45,6 @@ fi
 chmod +x "$ENGINE" 2>/dev/null || true
 
 run_engine() {
-  # Engine output goes to the terminal, its own log file, and back to us.
   "$ENGINE" "$@" 2>&1
 }
 
@@ -53,14 +55,12 @@ if [ "${1:-}" = "--background" ]; then
   exit $?
 fi
 
-# Allow the bundle to be driven directly for scripting or troubleshooting:
-#   1132.WTF.app/Contents/MacOS/1132.WTF status
 if [ $# -gt 0 ]; then
   run_engine "$@"
   exit $?
 fi
 
-# ------------------------------------------------------------ chooser mode
+# ------------------------------------------------------------ branded window
 
 OPT_FIX="STEP 1 - Fix Zoom"
 OPT_DEEP="STEP 2 - Deep fix (only if STEP 1 still fails)"
@@ -71,78 +71,95 @@ OPT_AUTO_ON="Turn on autostart"
 OPT_AUTO_OFF="Turn off autostart"
 OPT_LOGS="Open logs"
 
-CHOICE="$(/usr/bin/osascript <<OSA 2>/dev/null
+pick_from_plain_list() {
+  /usr/bin/osascript <<OSA 2>/dev/null
 set choices to {"$OPT_FIX", "$OPT_DEEP", "$OPT_BROWSER", "$OPT_STATUS", "$OPT_UNDO", "$OPT_AUTO_ON", "$OPT_AUTO_OFF", "$OPT_LOGS"}
 set picked to choose from list choices with title "$APP_NAME $APP_VERSION" ¬
-  with prompt "This must say $APP_NAME $APP_VERSION. If it does not, you still have the old app." & return & return & ¬
-  "STEP 1 - click Fix Zoom" & return & ¬
+  with prompt "STEP 1 - click Fix Zoom" & return & ¬
   "STEP 2 - type a name and the meeting #" & return & ¬
-  "LAUNCH - a private window joins as a new guest." & return & ¬
-  "Do not open the Zoom app. That app is what shows 1132." ¬
-  default items {"$OPT_FIX"} OK button name "Run" cancel button name "Close"
+  "LAUNCH" ¬
+  default items {"$OPT_FIX"} OK button name "LAUNCH" cancel button name "Close"
 if picked is false then
   return "cancelled"
 else
-  return item 1 of picked
+  return "CHOICE=" & (item 1 of picked) & linefeed & "NAME=Guest" & linefeed & "MEETING="
 end if
 OSA
-)"
+}
 
-if [ -z "$CHOICE" ] || [ "$CHOICE" = "cancelled" ]; then
+GUI_OUT=""
+if [ -f "$GUI" ]; then
+  GUI_OUT="$(/usr/bin/osascript -l JavaScript "$GUI" "$ICON" "$APP_VERSION" 2>/dev/null || true)"
+fi
+if [ -z "$GUI_OUT" ]; then
+  GUI_OUT="$(pick_from_plain_list || true)"
+fi
+
+if [ -z "$GUI_OUT" ] || [ "$GUI_OUT" = "cancelled" ]; then
   exit 0
 fi
+
+CHOICE="$(printf '%s\n' "$GUI_OUT" | sed -n 's/^CHOICE=//p' | head -n 1)"
+DISPLAY_NAME="$(printf '%s\n' "$GUI_OUT" | sed -n 's/^NAME=//p' | head -n 1)"
+MEETING="$(printf '%s\n' "$GUI_OUT" | sed -n 's/^MEETING=//p' | head -n 1)"
+[ -n "$CHOICE" ] || CHOICE="$GUI_OUT"
+[ -n "$DISPLAY_NAME" ] || DISPLAY_NAME="Guest"
 
 VERB=""
 NEEDS_REPORT=1
 case "$CHOICE" in
   "$OPT_FIX") VERB="fix" ;;
-  "$OPT_DEEP") VERB="deep-fix"; NEEDS_REPORT=0 ;;
+  "$OPT_DEEP") VERB="deep-fix"; NEEDS_REPORT=1 ;;
   "$OPT_BROWSER") VERB="browser" ;;
   "$OPT_STATUS") VERB="status" ;;
   "$OPT_UNDO") VERB="restore" ;;
   "$OPT_AUTO_ON") VERB="autostart-on" ;;
   "$OPT_AUTO_OFF") VERB="autostart-off" ;;
   "$OPT_LOGS") VERB="logs"; NEEDS_REPORT=0 ;;
+  cancelled) exit 0 ;;
   *) exit 0 ;;
 esac
 
-# Level 3 asks for the meeting link first.
+open_safari_join() {
+  local id url q
+  id="$(printf '%s' "${WTF1132_MEETING:-}" | tr -cd '0-9')"
+  if [ -z "$id" ]; then
+    url="https://zoom.us/wc/join"
+  else
+    url="https://zoom.us/wc/join/${id}?fromPWA=1"
+  fi
+  printf '%s' "$url" | /usr/bin/pbcopy >/dev/null 2>&1 || true
+  q="$(applescript_quote "$url")"
+  /usr/bin/osascript >/dev/null 2>&1 <<OSA || true
+with timeout of 15 seconds
+  tell application "Safari"
+    activate
+    make new document with properties {URL:"$q"}
+  end tell
+end timeout
+OSA
+  printf '%s' "$url"
+}
+
 EXTRA=""
 if [ "$VERB" = "browser" ]; then
-  EXTRA="$(/usr/bin/osascript -e "text returned of (display dialog \
-    \"STEP 1 - Paste the meeting link.\" & return & return & \
-    \"STEP 2 - Leave empty if you just want the join page.\" & return & return & \
-    \"LAUNCH\" \
-    default answer \"\" with title \"$APP_NAME\" buttons {\"Cancel\", \"LAUNCH\"} \
-    default button \"LAUNCH\")" 2>/dev/null || printf '__cancelled__')"
-  [ "$EXTRA" = "__cancelled__" ] && exit 0
+  EXTRA="$MEETING"
 fi
 
 if [ "$VERB" = "fix" ]; then
-  # Kill Zoom before any more dialogs so a live meeting cannot freeze this app.
   /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
   /usr/bin/pkill -9 -f "/zoom.us.app/" >/dev/null 2>&1 || true
-  DISPLAY_NAME="$(/usr/bin/osascript -e "text returned of (display dialog \
-    \"STEP 1 - Type the name Zoom should show.\" & return & return & \
-    \"Do not type your old name.\" \
-    default answer \"Guest\" with title \"$APP_NAME\" buttons {\"Cancel\", \"STEP 2\"} \
-    default button \"STEP 2\")" 2>/dev/null || printf '__cancelled__')"
-  [ "$DISPLAY_NAME" = "__cancelled__" ] && exit 0
-  MEETING="$(/usr/bin/osascript -e "text returned of (display dialog \
-    \"STEP 2 - Type the meeting number.\" & return & return & \
-    \"Leave blank if you will type it in Zoom.\" & return & return & \
-    \"LAUNCH\" \
-    default answer \"\" with title \"$APP_NAME\" buttons {\"Cancel\", \"LAUNCH\"} \
-    default button \"LAUNCH\")" 2>/dev/null || printf '__cancelled__')"
-  [ "$MEETING" = "__cancelled__" ] && exit 0
   export WTF1132_DISPLAY_NAME="$DISPLAY_NAME"
   export WTF1132_MEETING="$MEETING"
+  open_safari_join >/dev/null
 fi
 
 if [ "$VERB" = "deep-fix" ]; then
   VERB="fix"
   /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
-  export WTF1132_DISPLAY_NAME="${WTF1132_DISPLAY_NAME:-Guest}"
+  export WTF1132_DISPLAY_NAME="${DISPLAY_NAME:-Guest}"
+  export WTF1132_MEETING="${MEETING:-}"
+  open_safari_join >/dev/null
 fi
 
 OUTPUT="$(run_engine "$VERB" ${EXTRA:+"$EXTRA"})"
@@ -151,15 +168,24 @@ STATUS=$?
 if [ "$NEEDS_REPORT" -eq 1 ]; then
   SUMMARY="$(printf '%s\n' "$OUTPUT" | tail -n 12)"
   if [ "$STATUS" -eq 0 ] && { [ "$VERB" = "fix" ] || [ "$VERB" = "browser" ]; }; then
+    JOIN_LINE=""
+    [ -f "$LOG_DIR/last_join_url.txt" ] && JOIN_LINE="$(cat "$LOG_DIR/last_join_url.txt" 2>/dev/null || true)"
     SUMMARY="Done.
 
-LAUNCH - A private window is joining as a new guest.
+LAUNCH - Safari is opening the join page as a new guest.
 Click Join from your browser.
 Do not click Open Zoom app. That app is what shows 1132.
 Do not sign in as the old account."
-    /usr/bin/osascript -e "display notification \"Private window is joining as a new guest. Do not open the Zoom app.\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true
-    /usr/bin/osascript -e "display dialog \"$(applescript_quote "$SUMMARY")\" \
-      buttons {\"OK\"} default button \"OK\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true
+    [ -n "$JOIN_LINE" ] && SUMMARY="$SUMMARY
+
+$JOIN_LINE"
+    /usr/bin/osascript -e "display notification \"Safari is opening the join page. Do not open the Zoom app.\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true
+    BUTTON="$(/usr/bin/osascript -e "button returned of (display dialog \
+      \"$(applescript_quote "$SUMMARY")\" buttons {\"Open again\", \"OK\"} \
+      default button \"OK\" with title \"$APP_NAME $APP_VERSION\")" 2>/dev/null || printf 'OK')"
+    if [ "$BUTTON" = "Open again" ]; then
+      open_safari_join >/dev/null
+    fi
   elif [ "$STATUS" -eq 0 ]; then
     /usr/bin/osascript -e "display dialog \"$(applescript_quote "$SUMMARY")\" \
       buttons {\"OK\"} default button \"OK\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true

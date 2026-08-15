@@ -1,11 +1,8 @@
-1132.WTF 1.0.9 — Mac only
-=========================
+1132.WTF 1.0.10 — Mac only
+==========================
 
-The Zoom app on this Mac is what shows error 1132.
-LAUNCH joins as a new guest in a private browser window instead.
-
-The first screen MUST say 1132.WTF 1.0.9.
-If it does not, you still have the old app.
+You get a window with the 1132 logo and the action list.
+The first screen MUST say v1.0.10. If it does not, you still have the old app.
 
 Delete the old zip first (same filename every time). Download:
 
@@ -18,10 +15,11 @@ STEP 1 - Press Cmd + Space. Type Terminal. Press Return.
 
 sudo rm -rf /Applications/1132.WTF.app && sudo cp -R "$HOME/Downloads/1132.WTF-macos-1.0.0/1132.WTF.app" /Applications/1132.WTF.app && sudo chown -R "$(whoami):staff" /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app
 
-STEP 2 - The list title must say 1132.WTF 1.0.9.
+STEP 2 - You should see the 1132 logo and the list.
          Click STEP 1 - Fix Zoom.
          Type Guest. Type the meeting number. Click LAUNCH.
 
-LAUNCH - A private window opens. Click Join from your browser.
+LAUNCH - Safari opens the join page as a new guest.
+         Click Join from your browser.
          Do not click Open Zoom app. Do not sign in as the old account.
          Nothing to write down. No profile switch.
