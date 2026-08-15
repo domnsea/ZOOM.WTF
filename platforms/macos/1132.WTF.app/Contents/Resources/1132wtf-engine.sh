@@ -14,7 +14,7 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.10"
+APP_VERSION="1.0.11"
 BUNDLE_ID="wtf.fix1132.mac"
 
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
@@ -494,78 +494,57 @@ activate_zoom() {
     -e 'end timeout' >>"$LOG_FILE" 2>&1 || true
 }
 
-# Open Zoom on THIS desktop. Do not hand Zoom a custom data directory (Mac
-# Zoom exits). Do not use open -n (a second instance often has no window).
-# Do not launch from a root helper (no WindowServer, so nothing appears).
-launch_zoom_isolated() {
+# Open Zoom.app on this desktop. Never fall back to Safari or any browser.
+# Wipe already ran, so Zoom builds a new local profile. Open Zoom first;
+# join with zoommtg:// only after zoom.us is actually running.
+launch_zoom_clean() {
   local zoom_app="$1"
-  rm -rf "$CLEAN_PROFILE_DIR"
-  mkdir -p "$CLEAN_PROFILE_DIR"
-
   local join_url="" uid
   join_url="$(build_join_url || true)"
   uid="$(id -u)"
 
   if [ -n "$join_url" ]; then
-    log INFO "Joining with a guest name so Zoom cannot reuse a saved identity."
+    log INFO "Will join as '${WTF1132_DISPLAY_NAME:-Guest}' after Zoom is up."
   elif [ -n "${WTF1132_DISPLAY_NAME:-}" ]; then
-    log INFO "No meeting id given; type '${WTF1132_DISPLAY_NAME}' in Zoom's join box (not your Mac login name)."
+    log INFO "Type '${WTF1132_DISPLAY_NAME}' in Zoom. Do not sign in as the old account."
   fi
 
-  try_open_zoom() {
-    log ACTION "Opening Zoom on this screen"
-    activate_zoom "$zoom_app"
-    /bin/launchctl asuser "$uid" /usr/bin/open -a "$zoom_app" >>"$LOG_FILE" 2>&1 || true
-    /usr/bin/open -a "$zoom_app" >>"$LOG_FILE" 2>&1 || true
-    if [ -n "$join_url" ]; then
-      /usr/bin/open -a "$zoom_app" "$join_url" >>"$LOG_FILE" 2>&1 || true
-      /bin/launchctl asuser "$uid" /usr/bin/open "$join_url" >>"$LOG_FILE" 2>&1 || true
-    fi
-  }
-
-  try_open_zoom
+  log ACTION "Opening a clean Zoom"
+  activate_zoom "$zoom_app"
+  /bin/launchctl asuser "$uid" /usr/bin/open -a "$zoom_app" >>"$LOG_FILE" 2>&1 || true
+  /usr/bin/open -a "$zoom_app" >>"$LOG_FILE" 2>&1 || true
 
   local waited=0
-  while [ "$waited" -lt 20 ]; do
+  while [ "$waited" -lt 25 ]; do
     if zoom_ui_running; then
       activate_zoom "$zoom_app"
       if [ -n "$join_url" ]; then
+        sleep 2
+        log ACTION "Joining the meeting as a new guest"
         /usr/bin/open -a "$zoom_app" "$join_url" >>"$LOG_FILE" 2>&1 || true
       fi
-      log OK "Zoom is open."
+      log OK "Clean Zoom is open."
+      log DONE "Join. Do not sign in as the old account."
       return 0
     fi
     sleep 1
     waited=$((waited + 1))
     if [ $((waited % 5)) -eq 0 ]; then
-      try_open_zoom
+      /usr/bin/open -a "$zoom_app" >>"$LOG_FILE" 2>&1 || true
+      activate_zoom "$zoom_app"
     fi
   done
 
-  log WARN "Could not open Zoom automatically. Open it from Applications."
-  return 1
+  die "Zoom did not open. Open Zoom from Applications after this reset."
 }
 
 do_fix() {
-  local join=""
-  join="$(build_web_client_url || true)"
-  [ -z "$join" ] && join="https://zoom.us/wc/join"
-
-  # Open the join page FIRST so LAUNCH is not a blank wait while folders move.
-  if [ "${NO_LAUNCH:-${WTF1132_NO_LAUNCH:-0}}" != "1" ]; then
-    if ! open_join_page "$join"; then
-      log WARN "Browser did not confirm. The join link is on the clipboard."
-    fi
-  fi
-
   local zoom
   zoom="$(find_zoom_app || true)"
-  if [ -n "$zoom" ]; then
-    log OK "Zoom: $zoom"
-    stop_zoom
-  else
-    log INFO "Zoom app is not installed. The browser join is the 1132 fix."
-  fi
+  [ -n "$zoom" ] || die "Zoom is not installed. Install Zoom from zoom.us, then run this again."
+  log OK "Zoom: $zoom"
+
+  stop_zoom
 
   local backup moved manifest
   backup="$(new_backup_dir)" ||
@@ -599,8 +578,7 @@ do_fix() {
   fi
 
   if [ "${NO_LAUNCH:-${WTF1132_NO_LAUNCH:-0}}" != "1" ]; then
-    log OK "Join in Safari. Click Join from your browser. Do not open the Zoom app."
-    log DONE "1132 bypass ready. The Zoom app is what shows 1132 — leave it closed."
+    launch_zoom_clean "$zoom"
   fi
 }
 
@@ -682,7 +660,7 @@ do_fresh_session() {
   if [ -z "$zoom" ]; then
     zoom="$(find_zoom_app || true)"
   fi
-  [ -n "$zoom" ] || die "Zoom is not installed on this Mac. Install Zoom, or use the browser bypass."
+  [ -n "$zoom" ] || die "Zoom is not installed on this Mac. Install Zoom from zoom.us, then run this again."
 
   local helper
   helper="$(cd "$(dirname "$0")" && pwd)/1132wtf-session.sh"
@@ -701,8 +679,8 @@ do_fresh_session() {
 
   # Open Zoom first. The admin password dialog used to run before launch,
   # and `open` after that dialog often never put a window on screen.
-  if ! launch_zoom_isolated "$zoom"; then
-    die "Zoom did not open. Open Zoom from Applications, then quit it when you are done so the temp user can be deleted."
+  if ! launch_zoom_clean "$zoom"; then
+    die "Zoom did not open. Open Zoom from Applications."
   fi
 
   log ACTION "Asking for your Mac password once to create a hidden throwaway user."

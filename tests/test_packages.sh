@@ -210,17 +210,27 @@ check_grep "macos flushes cfprefsd" "cfprefsd" "$MAC_ENGINE"
 check_grep "macos can pass a guest display name" "uname=" "$MAC_ENGINE"
 check_grep "macos session helper prepares a throwaway user" "--prepare" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
-check_grep "macos app shows version 1.0.10 so an old copy is obvious" "1.0.10" \
+check_grep "macos app shows version 1.0.11 so an old copy is obvious" "1.0.11" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
-check_grep "macos joins through the Zoom web client" "zoom.us/wc/join" "$MAC_ENGINE"
-check_grep "macos builds a web client URL" "build_web_client_url" "$MAC_ENGINE"
-check_grep "macos opens the join page in Safari" "open_join_page" "$MAC_ENGINE"
+check_grep "macos opens a clean Zoom app" "launch_zoom_clean" "$MAC_ENGINE"
 check_grep "macos GUI is a branded window" "1132wtf-gui.jxa" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
 check_grep "macos GUI shows the 1132 logo" "setIcon" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa
 check_grep "macos GUI lists STEP 1 - Fix Zoom" "STEP 1 - Fix Zoom" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa
+if grep -q "Join in browser" platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa \
+  platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF; then
+  fail "macos window does not offer browser join" "the window still has Join in browser"
+else
+  pass "macos window does not offer browser join"
+fi
+if grep -qi safari platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa \
+  platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF; then
+  fail "macos window does not mention Safari" "the window still talks about Safari"
+else
+  pass "macos window does not mention Safari"
+fi
 check_grep "macos hides the throwaway user from the login list" "IsHidden" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
 check_grep "macos deletes the throwaway user after Zoom quits" "Zoom exited. Deleting" \
@@ -243,21 +253,18 @@ if grep -vE '^[[:space:]]*#' platforms/macos/1132.WTF.app/Contents/Resources/113
 else
   pass "macos session helper does not kill Zoom"
 fi
-# Opening Zoom.app or zoommtg:// is what shows 1132 on a blocked Mac.
+# STEP 1 / STEP 2 wipe identity, then open Zoom.app. Never Safari.
 python_check <<'PY'
 from pathlib import Path
 text = Path("platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-engine.sh").read_text()
 start = text.find("do_fix()")
 end = text.find("\nlist_backups()", start)
 block = text[start:end]
-if "open_join_page" not in block or "build_web_client_url" not in block:
-    raise SystemExit("do_fix must join through the web client")
-if "do_fresh_session" in block or "launch_zoom_isolated" in block:
-    raise SystemExit("do_fix must not open Zoom.app — that is error 1132")
-ui = Path("platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF").read_text()
-if "zoommtg://" in ui:
-    raise SystemExit("the Mac app must not reopen Zoom.app via zoommtg://")
-print("  ok    macos fix joins in the browser instead of Zoom.app")
+if "launch_zoom_clean" not in block:
+    raise SystemExit("do_fix must open a clean Zoom.app")
+if "open_join_page" in block:
+    raise SystemExit("do_fix must not open Safari; the user wants the Zoom app")
+print("  ok    macos fix opens a clean Zoom.app")
 PY
 if grep -q "Switch now" "$MAC_ENGINE"; then
   fail "macos fix does not ask you to switch profiles" "Switch now is still in the engine"

@@ -15,18 +15,17 @@ STEP 1 - Right-click **`INSTALL_TO_APPLICATIONS.command`** → Open → Open
 STEP 2 - You should see the **1132 logo** and the action list. Click **STEP 1 - Fix Zoom**
 
 LAUNCH - Type a name that is not your old name. Type the meeting #. Click LAUNCH.
-Safari opens the join page as a new guest. Do not open the Zoom app (that is 1132).
+**Zoom.app** opens. Join. Do not sign in as the old account. This does not open a browser.
 
 If macOS says the author cannot be verified, that is normal. Click Done, then
 System Settings → Privacy & Security → Open Anyway. Or open `OPEN_ME_FIRST.txt`.
 
-## The three levels
+## The two steps in the window
 
-| Level | What it does | Admin password |
+| Step | What it does | Admin password |
 |---|---|---|
-| **1 Fix now** | Quits Zoom **and its helpers**, backs up and erases every Zoom identity path, wipes keychain login, reopens Zoom in an empty isolated profile | no |
-| **2 Deep fix** | Creates a clean throwaway macOS account. You must **switch** to it — deleting those accounts while staying on this login does nothing | yes |
-| **3 Join in browser** | Opens a fresh private browser window so you skip the client entirely | no |
+| **STEP 1 Fix Zoom** | Quits Zoom **and its helpers**, backs up and erases every Zoom identity path, wipes keychain login, opens a clean **Zoom.app** | no |
+| **STEP 2 Deep fix** | Same wipe again, then opens **Zoom.app** again | no |
 
 ### What level 1 erases
 
@@ -72,18 +71,6 @@ Mac login name.
 **Undo last fix** puts the most recent backup back. Backups are in
 `~/Library/Application Support/1132.WTF/backups`.
 
-### Why level 2 works differently here than on Windows
-
-On Windows the fixer can launch Zoom as another user on your current desktop.
-macOS does not allow that: a GUI app only runs in its own user's session. So
-level 2 creates the throwaway account, shows you its password, and offers to
-open the login window so you can switch to it with fast user switching.
-
-The accounts are named `wtf1132a`, `wtf1132b`, and `wtf1132c`, used in
-rotation. Before reusing a slot the engine deletes the oldest, so at most two
-exist at a time, and it refuses to act on any account whose name does not
-start with `wtf1132`. Your own account is never touched.
-
 ## Files in this package
 
 | File | Role |
@@ -102,7 +89,6 @@ The app bundle is also its own CLI:
 ```bash
 /Applications/1132.WTF.app/Contents/MacOS/1132.WTF status
 /Applications/1132.WTF.app/Contents/MacOS/1132.WTF fix
-/Applications/1132.WTF.app/Contents/MacOS/1132.WTF browser "https://zoom.us/j/1234567890"
 /Applications/1132.WTF.app/Contents/MacOS/1132.WTF restore
 ```
 
@@ -115,14 +101,12 @@ Run **Status** first, then read this:
 
 | Symptom | What is really happening | What helps |
 |---|---|---|
-| Zoom still opens with your old name | Keychain / iCloud Keychain signed you back in, or Zoom used your **Mac login name** as the guest default | Run Fix now, type a different name, do not sign into the blocked Zoom account. If iCloud Keychain is on, delete Zoom from Keychain Access |
-| "Join new room?" after typing a meeting ID | Meeting history was still on disk (helpers or Group Containers survived an older wipe) | This build wipes those. Re-download, run Fix now, do not open Zoom from the Dock first |
-| Deleting wtf1132 accounts changed nothing | Those accounts only matter if you **switch** to them. Staying on this Mac login keeps the same identity | Use Fix now on this login, or Deep fix and actually switch users |
-| 1132 returns immediately, on the throwaway account too | The block is on your **Zoom account**, server side | A different Zoom account, or join as a guest from the browser |
-| Level 1 does nothing but level 2 works | Zoom is fingerprinting something outside its data folder | Keep using level 2, or use the browser |
+| Zoom still opens with your old name | Keychain / iCloud Keychain signed you back in, or Zoom used your **Mac login name** as the guest default | Run STEP 1 again, type a different name, do not sign into the blocked Zoom account. If iCloud Keychain is on, delete Zoom from Keychain Access |
+| "Join new room?" after typing a meeting ID | Meeting history was still on disk (helpers or Group Containers survived an older wipe) | This build wipes those. Re-download, run STEP 1, do not open Zoom from the Dock first |
+| 1132 comes back immediately | The block is on your **Zoom account** or this Mac's hardware id | Sign in as a different Zoom account, or join as Guest. A VPN if the block is on your IP |
 | No account on this Mac can join, but your phone can | The block is on your **IP address** | A VPN, or a phone hotspot |
-| "Zoom is not installed on this Mac" | The client is somewhere Spotlight cannot see | Reinstall Zoom, or just use level 3 |
-| Zoom will not quit | Another app is holding a Zoom window | Quit Zoom yourself, then run level 1 again |
+| "Zoom is not installed on this Mac" | The client is somewhere Spotlight cannot see | Install Zoom from zoom.us, then run STEP 1 again |
+| Zoom will not quit | Another app is holding a Zoom window | Force Quit Zoom, then run STEP 1 again |
 
 No app running on your Mac can un-ban a server-side Zoom account. When that is
 what is happening, Status says so rather than pretending otherwise.

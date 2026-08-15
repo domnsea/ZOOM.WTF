@@ -10,7 +10,7 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.10"
+APP_VERSION="1.0.11"
 APP_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 export APP_ROOT
 ENGINE="$APP_ROOT/Contents/Resources/1132wtf-engine.sh"
@@ -64,7 +64,6 @@ fi
 
 OPT_FIX="STEP 1 - Fix Zoom"
 OPT_DEEP="STEP 2 - Deep fix (only if STEP 1 still fails)"
-OPT_BROWSER="STEP 3 - Join in browser"
 OPT_STATUS="Status"
 OPT_UNDO="Undo last fix"
 OPT_AUTO_ON="Turn on autostart"
@@ -73,11 +72,11 @@ OPT_LOGS="Open logs"
 
 pick_from_plain_list() {
   /usr/bin/osascript <<OSA 2>/dev/null
-set choices to {"$OPT_FIX", "$OPT_DEEP", "$OPT_BROWSER", "$OPT_STATUS", "$OPT_UNDO", "$OPT_AUTO_ON", "$OPT_AUTO_OFF", "$OPT_LOGS"}
+set choices to {"$OPT_FIX", "$OPT_DEEP", "$OPT_STATUS", "$OPT_UNDO", "$OPT_AUTO_ON", "$OPT_AUTO_OFF", "$OPT_LOGS"}
 set picked to choose from list choices with title "$APP_NAME $APP_VERSION" ¬
   with prompt "STEP 1 - click Fix Zoom" & return & ¬
   "STEP 2 - type a name and the meeting #" & return & ¬
-  "LAUNCH" ¬
+  "LAUNCH opens Zoom, not a browser" ¬
   default items {"$OPT_FIX"} OK button name "LAUNCH" cancel button name "Close"
 if picked is false then
   return "cancelled"
@@ -110,7 +109,6 @@ NEEDS_REPORT=1
 case "$CHOICE" in
   "$OPT_FIX") VERB="fix" ;;
   "$OPT_DEEP") VERB="deep-fix"; NEEDS_REPORT=1 ;;
-  "$OPT_BROWSER") VERB="browser" ;;
   "$OPT_STATUS") VERB="status" ;;
   "$OPT_UNDO") VERB="restore" ;;
   "$OPT_AUTO_ON") VERB="autostart-on" ;;
@@ -120,72 +118,30 @@ case "$CHOICE" in
   *) exit 0 ;;
 esac
 
-open_safari_join() {
-  local id url q
-  id="$(printf '%s' "${WTF1132_MEETING:-}" | tr -cd '0-9')"
-  if [ -z "$id" ]; then
-    url="https://zoom.us/wc/join"
-  else
-    url="https://zoom.us/wc/join/${id}?fromPWA=1"
-  fi
-  printf '%s' "$url" | /usr/bin/pbcopy >/dev/null 2>&1 || true
-  q="$(applescript_quote "$url")"
-  /usr/bin/osascript >/dev/null 2>&1 <<OSA || true
-with timeout of 15 seconds
-  tell application "Safari"
-    activate
-    make new document with properties {URL:"$q"}
-  end tell
-end timeout
-OSA
-  printf '%s' "$url"
-}
-
-EXTRA=""
-if [ "$VERB" = "browser" ]; then
-  EXTRA="$MEETING"
-fi
-
-if [ "$VERB" = "fix" ]; then
+if [ "$VERB" = "fix" ] || [ "$VERB" = "deep-fix" ]; then
   /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
   /usr/bin/pkill -9 -f "/zoom.us.app/" >/dev/null 2>&1 || true
-  export WTF1132_DISPLAY_NAME="$DISPLAY_NAME"
-  export WTF1132_MEETING="$MEETING"
-  open_safari_join >/dev/null
-fi
-
-if [ "$VERB" = "deep-fix" ]; then
-  VERB="fix"
-  /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
   export WTF1132_DISPLAY_NAME="${DISPLAY_NAME:-Guest}"
   export WTF1132_MEETING="${MEETING:-}"
-  open_safari_join >/dev/null
+fi
+if [ "$VERB" = "deep-fix" ]; then
+  VERB="fix"
 fi
 
-OUTPUT="$(run_engine "$VERB" ${EXTRA:+"$EXTRA"})"
+OUTPUT="$(run_engine "$VERB")"
 STATUS=$?
 
 if [ "$NEEDS_REPORT" -eq 1 ]; then
   SUMMARY="$(printf '%s\n' "$OUTPUT" | tail -n 12)"
-  if [ "$STATUS" -eq 0 ] && { [ "$VERB" = "fix" ] || [ "$VERB" = "browser" ]; }; then
-    JOIN_LINE=""
-    [ -f "$LOG_DIR/last_join_url.txt" ] && JOIN_LINE="$(cat "$LOG_DIR/last_join_url.txt" 2>/dev/null || true)"
+  if [ "$STATUS" -eq 0 ] && [ "$VERB" = "fix" ]; then
     SUMMARY="Done.
 
-LAUNCH - Safari is opening the join page as a new guest.
-Click Join from your browser.
-Do not click Open Zoom app. That app is what shows 1132.
+LAUNCH - A clean Zoom is opening.
+Join as ${DISPLAY_NAME:-Guest}.
 Do not sign in as the old account."
-    [ -n "$JOIN_LINE" ] && SUMMARY="$SUMMARY
-
-$JOIN_LINE"
-    /usr/bin/osascript -e "display notification \"Safari is opening the join page. Do not open the Zoom app.\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true
-    BUTTON="$(/usr/bin/osascript -e "button returned of (display dialog \
-      \"$(applescript_quote "$SUMMARY")\" buttons {\"Open again\", \"OK\"} \
-      default button \"OK\" with title \"$APP_NAME $APP_VERSION\")" 2>/dev/null || printf 'OK')"
-    if [ "$BUTTON" = "Open again" ]; then
-      open_safari_join >/dev/null
-    fi
+    /usr/bin/osascript -e "display notification \"Clean Zoom is opening.\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true
+    /usr/bin/osascript -e "display dialog \"$(applescript_quote "$SUMMARY")\" \
+      buttons {\"OK\"} default button \"OK\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true
   elif [ "$STATUS" -eq 0 ]; then
     /usr/bin/osascript -e "display dialog \"$(applescript_quote "$SUMMARY")\" \
       buttons {\"OK\"} default button \"OK\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true
