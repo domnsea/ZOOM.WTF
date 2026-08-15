@@ -210,9 +210,9 @@ check_grep "macos flushes cfprefsd" "cfprefsd" "$MAC_ENGINE"
 check_grep "macos can pass a guest display name" "uname=" "$MAC_ENGINE"
 check_grep "macos session helper prepares a throwaway user" "--prepare" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
-check_grep "macos app shows version 1.0.12 so an old copy is obvious" "1.0.12" \
+check_grep "macos app shows version 1.0.13 so an old copy is obvious" "1.0.13" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
-check_grep "macos opens a clean Zoom app" "launch_zoom_clean" "$MAC_ENGINE"
+check_grep "macos opens a clean Zoom app" "launch_zoom_temp_profile" "$MAC_ENGINE"
 check_grep "macos GUI is a branded window" "1132wtf-gui.jxa" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
 check_grep "macos GUI shows the 1132 logo" "setIcon" \
@@ -253,7 +253,8 @@ if grep -vE '^[[:space:]]*#' platforms/macos/1132.WTF.app/Contents/Resources/113
 else
   pass "macos session helper does not kill Zoom"
 fi
-# STEP 1 / STEP 2 wipe identity, then open Zoom.app. Never a web page.
+# STEP 1 / STEP 2 create a temporary Mac user, open Zoom on that empty
+# profile, then delete the user when Zoom quits. Never a web page.
 python_check <<'PY'
 from pathlib import Path
 engine = Path("platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-engine.sh").read_text()
@@ -262,14 +263,16 @@ gui = Path("platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa").re
 start = engine.find("do_fix()")
 end = engine.find("\nlist_backups()", start)
 block = engine[start:end]
-if "launch_zoom_clean" not in block:
-    raise SystemExit("do_fix must open Zoom.app")
+if "do_fresh_session" not in block:
+    raise SystemExit("do_fix must create a temporary user and open Zoom")
+if "launch_zoom_temp_profile" not in engine:
+    raise SystemExit("engine must open Zoom on the temporary profile")
 for banned in ("Safari", "open_join_page", "fromPWA", "Google Chrome", "Firefox"):
     if banned in engine or banned in launcher or banned in gui:
         raise SystemExit(f"Mac app still contains {banned}")
-if "open -a" in engine and "$join_url" in engine[engine.find("launch_zoom_clean()"):engine.find("do_fix()")]:
-    raise SystemExit("launch_zoom_clean must not open a join URL")
-print("  ok    macos fix opens Zoom.app and never a web page")
+if "$join_url" in engine[engine.find("launch_zoom_temp_profile()"):engine.find("do_wipe_identity()")]:
+    raise SystemExit("temp-profile launch must not open a join URL")
+print("  ok    macos fix opens Zoom on a temporary user profile")
 PY
 if grep -q "Switch now" "$MAC_ENGINE"; then
   fail "macos fix does not ask you to switch profiles" "Switch now is still in the engine"

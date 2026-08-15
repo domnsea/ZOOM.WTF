@@ -1,8 +1,8 @@
-1132.WTF 1.0.12 — Mac only
+1132.WTF 1.0.13 — Mac only
 ==========================
 
-This app wipes the old Zoom identity, then opens Zoom.app.
-It does not open a web page.
+LAUNCH creates a hidden temporary Mac user, opens Zoom on that empty
+profile, then deletes the user when you quit Zoom.
 
 Download the zip:
 
@@ -10,11 +10,13 @@ https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132.WTF-macos-1.0.
 
 Delete the old zip first. Double-click the new zip. Double-click 1132.WTF.app.
 
-The window title must say 1132.WTF 1.0.12. If it does not, you still have the old app.
+The window title must say 1132.WTF 1.0.13. If it does not, you still have the old app.
 
 STEP 1 - Click STEP 1 - Fix Zoom
 STEP 2 - Type Guest. Type the meeting number.
-LAUNCH - Click LAUNCH. Zoom.app opens. Click Join. Paste the meeting number.
+LAUNCH - Click LAUNCH. Type your Mac password when asked. Zoom opens on a
+         fresh profile. Click Join. Paste the meeting number. When you quit
+         Zoom, that temporary user is deleted.
 
 If macOS will not replace the old app in Applications, paste this in Terminal:
 

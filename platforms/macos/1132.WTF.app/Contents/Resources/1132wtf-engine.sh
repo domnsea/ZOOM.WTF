@@ -14,8 +14,8 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.12"
-BUNDLE_ID="wtf.fix1132.mac.12"
+APP_VERSION="1.0.13"
+BUNDLE_ID="wtf.fix1132.mac.13"
 
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
 LOG_DIR="$HOME/Library/Logs/$APP_NAME"
@@ -435,14 +435,64 @@ launch_zoom_clean() {
   die "Zoom did not open. Open Zoom from Applications after this reset."
 }
 
-do_fix() {
-  local zoom
-  zoom="$(find_zoom_app || true)"
-  [ -n "$zoom" ] || die "Zoom is not installed. Install Zoom from zoom.us, then run this again."
-  log OK "Zoom: $zoom"
 
-  stop_zoom
+# Open Zoom against the throwaway user's empty home, from THIS desktop
+# process so the window actually appears. Never pass a URL to `open`.
+# Never `open -a Zoom` here: that relaunches Zoom under the old login.
+launch_zoom_temp_profile() {
+  local zoom_app="$1"
+  local temp_home="$2"
+  local temp_user="${3:-wtf1132tmp}"
+  local bin="$zoom_app/Contents/MacOS/zoom.us"
+  local meeting waited
+  meeting="$(printf '%s' "${WTF1132_MEETING:-${WTF1132_JOIN_URL:-}}" | tr -d '[:space:]')"
 
+  [ -x "$bin" ] || die "Zoom binary missing: $bin"
+  [ -d "$temp_home" ] || die "Temporary profile missing: $temp_home"
+  mkdir -p "$temp_home/tmp" \
+    "$temp_home/Library/Application Support" \
+    "$temp_home/Library/Preferences" \
+    "$temp_home/Library/Caches" \
+    "$temp_home/Library/Logs"
+
+  if [ -n "$meeting" ]; then
+    printf '%s' "$meeting" | /usr/bin/pbcopy >/dev/null 2>&1 || true
+    printf '%s\n' "$meeting" >"$LOG_DIR/last_meeting.txt"
+    log INFO "Meeting number is on the clipboard. Paste it into Zoom Join."
+  fi
+  if [ -n "${WTF1132_DISPLAY_NAME:-}" ]; then
+    log INFO "In Zoom type '${WTF1132_DISPLAY_NAME}'. Do not sign in as the old account."
+  fi
+
+  log ACTION "Opening Zoom on temporary profile $temp_user"
+  (
+    export HOME="$temp_home"
+    export TMPDIR="$temp_home/tmp"
+    export USER="$temp_user"
+    export LOGNAME="$temp_user"
+    exec "$bin"
+  ) >>"$LOG_FILE" 2>&1 &
+  activate_zoom "$zoom_app"
+
+  waited=0
+  while [ "$waited" -lt 25 ]; do
+    if zoom_ui_running; then
+      activate_zoom "$zoom_app"
+      log OK "Zoom is open on the temporary profile."
+      log DONE "Click Join. When you quit Zoom, the temporary user is deleted."
+      return 0
+    fi
+    sleep 1
+    waited=$((waited + 1))
+    if [ $((waited % 5)) -eq 0 ]; then
+      activate_zoom "$zoom_app"
+    fi
+  done
+
+  die "Zoom did not open. Open Zoom from Applications after this reset."
+}
+
+do_wipe_identity() {
   local backup moved manifest
   backup="$(new_backup_dir)" ||
     die "Could not create a backup directory under $BACKUP_DIR"
@@ -473,10 +523,21 @@ do_fix() {
   else
     log INFO "Backup written to $backup"
   fi
+}
 
-  if [ "${NO_LAUNCH:-${WTF1132_NO_LAUNCH:-0}}" != "1" ]; then
-    launch_zoom_clean "$zoom"
+do_fix() {
+  local zoom
+  zoom="$(find_zoom_app || true)"
+  [ -n "$zoom" ] || die "Zoom is not installed. Install Zoom from zoom.us, then run this again."
+  log OK "Zoom: $zoom"
+
+  stop_zoom
+  do_wipe_identity
+
+  if [ "${NO_LAUNCH:-${WTF1132_NO_LAUNCH:-0}}" = "1" ]; then
+    return 0
   fi
+  do_fresh_session "$zoom"
 }
 
 list_backups() {
@@ -549,9 +610,8 @@ mac_user_exists() {
   /usr/bin/dscl . -read "/Users/$1" >/dev/null 2>&1
 }
 
-# Same-screen throwaway user: Zoom opens on THIS desktop as a hidden
-# wtf1132tmp account. When that Zoom exits, the account is deleted.
-# No password to write down. No profile switch.
+# Hidden throwaway user on THIS desktop. Zoom uses that empty profile.
+# When Zoom quits, the watcher deletes the user. No profile switch.
 do_fresh_session() {
   local zoom="${1:-}"
   if [ -z "$zoom" ]; then
@@ -567,28 +627,23 @@ do_fresh_session() {
   local session_dir="$SUPPORT_DIR/session"
   rm -rf "$session_dir"
   mkdir -p "$session_dir"
-  local join_url=""
-  join_url="$(build_join_url || true)"
   printf '%s\n' "$zoom" >"$session_dir/zoom.path"
-  printf '%s\n' "$join_url" >"$session_dir/join.url"
   printf '%s\n' "${WTF1132_DISPLAY_NAME:-Guest}" >"$session_dir/display.name"
   printf '%s\n' "$LOG_DIR/session.log" >"$session_dir/session.log"
 
-  # Open Zoom first. The admin password dialog used to run before launch,
-  # and `open` after that dialog often never put a window on screen.
-  if ! launch_zoom_clean "$zoom"; then
-    die "Zoom did not open. Open Zoom from Applications."
-  fi
-
-  log ACTION "Asking for your Mac password once to create a hidden throwaway user."
-  log INFO "When you quit Zoom, that user is deleted. Nothing to write down. No profile switch."
+  log ACTION "macOS will ask for your password once. That creates a hidden temporary user."
+  log INFO "Zoom opens on that empty profile. When you quit Zoom, the user is deleted."
 
   if ! run_admin "/bin/bash '$helper' --prepare '$session_dir'" >>"$LOG_FILE" 2>&1; then
-    log WARN "Administrator rights were refused. Zoom is already open on this screen."
+    die "Need your Mac password to create the temporary Zoom profile."
   fi
 
-  activate_zoom
-  log DONE "Zoom is open. When you quit it, the temporary user is deleted."
+  local temp_home temp_user
+  temp_home="$(tr -d '[:space:]' <"$session_dir/temp.home" 2>/dev/null || true)"
+  temp_user="$(tr -d '[:space:]' <"$session_dir/temp.user" 2>/dev/null || printf 'wtf1132tmp')"
+  [ -n "$temp_home" ] && [ -d "$temp_home" ] || die "Temporary user was not created."
+
+  launch_zoom_temp_profile "$zoom" "$temp_home" "$temp_user"
 }
 
 do_deep_fix() {

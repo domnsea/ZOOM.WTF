@@ -10,7 +10,7 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.12"
+APP_VERSION="1.0.13"
 APP_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 export APP_ROOT
 ENGINE="$APP_ROOT/Contents/Resources/1132wtf-engine.sh"
@@ -24,9 +24,12 @@ mkdir -p "$LOG_DIR"
 # redirected a double-click of this app to that old copy, which opened a
 # web page. Kill that login item so only THIS copy can run.
 OLD_AGENT="$HOME/Library/LaunchAgents/wtf.fix1132.mac.plist"
-/bin/launchctl bootout "gui/$(id -u)" "$OLD_AGENT" >/dev/null 2>&1 ||
-  /bin/launchctl unload "$OLD_AGENT" >/dev/null 2>&1 || true
-rm -f "$OLD_AGENT"
+OLD_AGENT12="$HOME/Library/LaunchAgents/wtf.fix1132.mac.12.plist"
+for agent in "$OLD_AGENT" "$OLD_AGENT12"; do
+  /bin/launchctl bootout "gui/$(id -u)" "$agent" >/dev/null 2>&1 ||
+    /bin/launchctl unload "$agent" >/dev/null 2>&1 || true
+  rm -f "$agent"
+done
 /usr/bin/killall -9 applet >/dev/null 2>&1 || true
 
 # If Gatekeeper let us in once, drop the download flag so the next launch
@@ -60,7 +63,7 @@ run_engine() {
 # ------------------------------------------------------- non-interactive mode
 
 if [ "${1:-}" = "--background" ]; then
-  run_engine fix >>"$LOG_DIR/background.log" 2>&1
+  WTF1132_NO_LAUNCH=1 run_engine fix >>"$LOG_DIR/background.log" 2>&1
   exit $?
 fi
 
@@ -85,7 +88,7 @@ set choices to {"$OPT_FIX", "$OPT_DEEP", "$OPT_STATUS", "$OPT_UNDO", "$OPT_AUTO_
 set picked to choose from list choices with title "$APP_NAME $APP_VERSION" ¬
   with prompt "STEP 1 - click Fix Zoom" & return & ¬
   "STEP 2 - type a name and the meeting #" & return & ¬
-  "LAUNCH opens Zoom.app only" ¬
+  "LAUNCH creates a temporary user, then Zoom" ¬
   default items {"$OPT_FIX"} OK button name "LAUNCH" cancel button name "Close"
 if picked is false then
   return "cancelled"
@@ -145,11 +148,12 @@ if [ "$NEEDS_REPORT" -eq 1 ]; then
   if [ "$STATUS" -eq 0 ] && [ "$VERB" = "fix" ]; then
     SUMMARY="Done.
 
-LAUNCH - Zoom.app is opening.
+LAUNCH - macOS will ask for your password once.
+That creates a hidden temporary user.
+Zoom opens on that empty profile.
 Click Join. Paste the meeting number.
-Type ${DISPLAY_NAME:-Guest}.
-Do not sign in as the old account."
-    /usr/bin/osascript -e "display notification \"Zoom.app is opening.\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true
+When you quit Zoom, that user is deleted."
+    /usr/bin/osascript -e "display notification \"Temporary Zoom profile is opening.\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true
     /usr/bin/osascript -e "display dialog \"$(applescript_quote "$SUMMARY")\" \
       buttons {\"OK\"} default button \"OK\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true
   elif [ "$STATUS" -eq 0 ]; then

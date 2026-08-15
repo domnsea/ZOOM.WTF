@@ -10,7 +10,7 @@ var retained = {}
 
 function run(argv) {
   var iconPath = argv.length ? argv[0] : ''
-  var version = argv.length > 1 ? argv[1] : '1.0.12'
+  var version = argv.length > 1 ? argv[1] : '1.0.13'
 
   var items = [
     'STEP 1 - Fix Zoom',
@@ -68,7 +68,7 @@ function run(argv) {
   alert.setMessageText('1132.WTF  ' + version)
   alert.setInformativeText(
     'STEP 1  then  STEP 2  then  LAUNCH\n' +
-    'LAUNCH opens Zoom.app. It does not open a web page.'
+    'LAUNCH creates a hidden temporary Mac user, opens Zoom on that empty profile, then deletes the user when you quit Zoom.'
   )
   if (iconPath) {
     var icon = $.NSImage.alloc.initWithContentsOfFile(iconPath)

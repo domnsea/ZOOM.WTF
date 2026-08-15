@@ -2,8 +2,8 @@
 #
 # Throwaway-user helper. Runs as root.
 #
-# --prepare DIR  create the hidden wtf1132tmp user and start a watcher, then
-#                return. The engine (not this script) opens Zoom on screen.
+# --prepare DIR  create the hidden wtf1132tmp user, make its home writable
+#                from the current desktop, start a watcher, then return.
 # --watch        wait until Zoom quits, then delete wtf1132tmp.
 #
 # This script must not launch Zoom itself. A root/osascript process has no
@@ -31,17 +31,21 @@ if [ "$(id -u)" -ne 0 ]; then
   die "This helper must run as root."
 fi
 
+delete_temp_user() {
+  assert_safe_user "$TEMP_USER"
+  if /usr/bin/dscl . -read "/Users/$TEMP_USER" >/dev/null 2>&1; then
+    /usr/sbin/sysadminctl -deleteUser "$TEMP_USER" >/dev/null 2>&1 || true
+  fi
+  /bin/rm -rf "/Users/$TEMP_USER" >/dev/null 2>&1 || true
+}
+
 if [ "${1:-}" = "--prepare" ]; then
   DIR="${2:-}"
   [ -d "$DIR" ] || die "session dir missing: $DIR"
   LOG="$(cat "$DIR/session.log" 2>/dev/null || printf '%s' "$DIR/session.log")"
   mkdir -p "$(dirname "$LOG")"
 
-  if /usr/bin/dscl . -read "/Users/$TEMP_USER" >/dev/null 2>&1; then
-    printf '%s\n' "[INFO] leftover $TEMP_USER exists, deleting it first" >>"$LOG"
-    /usr/sbin/sysadminctl -deleteUser "$TEMP_USER" >/dev/null 2>&1 || true
-    /bin/rm -rf "/Users/$TEMP_USER" >/dev/null 2>&1 || true
-  fi
+  delete_temp_user
 
   PASSWORD="$(/usr/bin/openssl rand -base64 24 | /usr/bin/tr -d '/+=' | /usr/bin/head -c 20)"
   [ -n "$PASSWORD" ] || die "Could not generate a password."
@@ -54,6 +58,29 @@ if [ "${1:-}" = "--prepare" ]; then
 
   /usr/bin/dscl . -create "/Users/$TEMP_USER" IsHidden 1 >/dev/null 2>&1 || true
   /usr/sbin/createhomedir -c -u "$TEMP_USER" >/dev/null 2>&1 || true
+
+  HOME_DIR="/Users/$TEMP_USER"
+  if [ ! -d "$HOME_DIR" ]; then
+    /bin/mkdir -p "$HOME_DIR"
+    /usr/sbin/chown "$TEMP_USER:staff" "$HOME_DIR" 2>/dev/null || true
+  fi
+  /bin/mkdir -p \
+    "$HOME_DIR/tmp" \
+    "$HOME_DIR/Library/Application Support" \
+    "$HOME_DIR/Library/Preferences" \
+    "$HOME_DIR/Library/Caches" \
+    "$HOME_DIR/Library/Logs" \
+    "$HOME_DIR/Library/Saved Application State"
+
+  CONSOLE_USER="$(/usr/bin/stat -f %Su /dev/console 2>/dev/null || true)"
+  [ -n "$CONSOLE_USER" ] || CONSOLE_USER="$(/usr/bin/id -un)"
+  # Current desktop must be able to write Zoom's empty profile into this home.
+  /usr/sbin/chown -R "$CONSOLE_USER:staff" "$HOME_DIR" 2>/dev/null || true
+  /bin/chmod -R 777 "$HOME_DIR" 2>/dev/null || true
+
+  printf '%s\n' "$HOME_DIR" >"$DIR/temp.home"
+  /usr/bin/id -u "$TEMP_USER" >"$DIR/temp.uid" 2>/dev/null || true
+  printf '%s\n' "$TEMP_USER" >"$DIR/temp.user"
   printf '%s\n' "[OK] created hidden user $TEMP_USER" >>"$LOG"
 
   nohup /bin/bash "$0" --watch >>"$LOG" 2>&1 &
@@ -65,10 +92,9 @@ fi
 
 printf '%s\n' "[START] waiting for Zoom to appear, then for you to quit it"
 
-# Wait until Zoom is actually on screen. Do not treat "not running yet" as quit.
 appeared=0
 waited=0
-while [ "$waited" -lt 90 ]; do
+while [ "$waited" -lt 180 ]; do
   if /usr/bin/pgrep -ix "zoom.us" >/dev/null 2>&1 || \
      /usr/bin/pgrep -f "zoom.us.app/Contents/MacOS" >/dev/null 2>&1; then
     appeared=1
@@ -89,11 +115,7 @@ else
   printf '%s\n' "[ACTION] Zoom exited. Deleting $TEMP_USER"
 fi
 
-assert_safe_user "$TEMP_USER"
-if /usr/bin/dscl . -read "/Users/$TEMP_USER" >/dev/null 2>&1; then
-  /usr/sbin/sysadminctl -deleteUser "$TEMP_USER" >/dev/null 2>&1 || true
-fi
-/bin/rm -rf "/Users/$TEMP_USER" >/dev/null 2>&1 || true
+delete_temp_user
 
 if /usr/bin/dscl . -read "/Users/$TEMP_USER" >/dev/null 2>&1; then
   printf '%s\n' "[WARN] $TEMP_USER is still on the system"
