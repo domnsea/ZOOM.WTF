@@ -37,14 +37,14 @@ TEMP_USER="$(/usr/bin/tr -d '\r\n' <"$STATE_DIR/temp.user" 2>/dev/null || true)"
 case "$TEMP_USER" in
   "" | "$CONSOLE_USER" | root | daemon | nobody) ;;
   *)
-    /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
+    /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost ZoomDaemon >/dev/null 2>&1 || true
     /usr/sbin/sysadminctl -deleteUser "$TEMP_USER" >/dev/null 2>&1 || true
     /bin/rm -rf "/Users/$TEMP_USER" >/dev/null 2>&1 || true
     log_line "RESTORE" "deleted throwaway user"
     ;;
 esac
 
-/usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
+/usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost ZoomDaemon >/dev/null 2>&1 || true
 /bin/sleep 1
 
 restore_network "$STATE_DIR"

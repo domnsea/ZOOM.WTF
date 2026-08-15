@@ -269,7 +269,70 @@ restore_network() {
   if [ -n "$host" ]; then
     /usr/sbin/scutil --set HostName "$host" >/dev/null 2>&1 || true
   fi
+  restore_isolated_network "$state"
   log_line "NET" "computer name restored"
+}
+
+net_service_for_iface() {
+  /usr/sbin/networksetup -listallhardwareports 2>/dev/null | /usr/bin/awk -v d="${1:-}" '
+    /Hardware Port:/ {port=$0; sub(/^Hardware Port: /,"",port)}
+    $1=="Device:" && $2==d {print port; exit}
+  '
+}
+
+# Home Wi-Fi + IPv6 can still carry 1132 after IPv4 changes. Keep only the
+# current default service and turn IPv6 off for this session.
+isolate_network_path() {
+  local state="$1"
+  local keep iface service name enabled v6info v6
+  iface="$(net_iface)"
+  keep="$(net_service_for_iface "$iface")"
+  printf '%s\n' "$keep" >"$state/net.keep_service"
+  : >"$state/net.services"
+  while IFS= read -r name; do
+    case "$name" in
+      "" | "An asterisk"*) continue ;;
+    esac
+    enabled=on
+    case "$name" in
+      \**) name="${name#\* }"; enabled=off ;;
+    esac
+    [ -n "$name" ] || continue
+    v6info="$(/usr/sbin/networksetup -getinfo "$name" 2>/dev/null || true)"
+    v6=automatic
+    printf '%s\n' "$v6info" | /usr/bin/grep -qi 'IPv6: Off' && v6=off
+    printf '%s\t%s\t%s\n' "$name" "$enabled" "$v6" >>"$state/net.services"
+    /usr/sbin/networksetup -setv6off "$name" >/dev/null 2>&1 || true
+    if [ -n "$keep" ] && [ "$name" != "$keep" ] && [ "$enabled" = "on" ]; then
+      /usr/sbin/networksetup -setnetworkserviceenabled "$name" off >/dev/null 2>&1 || true
+      log_line "NET" "disabled extra service=$name keep=$keep"
+    fi
+  done < <(/usr/sbin/networksetup -listallnetworkservices 2>/dev/null)
+  log_line "NET" "IPv6 off; only $keep left up"
+}
+
+restore_isolated_network() {
+  local state="$1"
+  local name enabled v6
+  [ -f "$state/net.services" ] || return 0
+  while IFS="$(printf '\t')" read -r name enabled v6; do
+    [ -n "$name" ] || continue
+    if [ "$enabled" = "on" ]; then
+      /usr/sbin/networksetup -setnetworkserviceenabled "$name" on >/dev/null 2>&1 || true
+    fi
+    if [ "$v6" = "off" ]; then
+      /usr/sbin/networksetup -setv6off "$name" >/dev/null 2>&1 || true
+    else
+      /usr/sbin/networksetup -setv6automatic "$name" >/dev/null 2>&1 || true
+    fi
+  done <"$state/net.services"
+  log_line "NET" "network services and IPv6 restored"
+}
+
+public_ipv6() {
+  /usr/bin/curl -6 -fsS --max-time 6 https://api64.ipify.org 2>/dev/null ||
+    /usr/bin/curl -6 -fsS --max-time 6 https://ifconfig.me/ip 2>/dev/null ||
+    true
 }
 
 public_ip() {
@@ -279,33 +342,147 @@ public_ip() {
     true
 }
 
-# Hide the Zoom in Applications so Dock / Spotlight cannot open the
-# 1132-tagged client during this session.
+# Console uid for launchctl bootout. Launch/restore set CONSOLE_UID;
+# fall back to the logged-in desktop if they did not.
+console_uid() {
+  if [ -n "${CONSOLE_UID:-}" ]; then
+    printf '%s' "$CONSOLE_UID"
+    return 0
+  fi
+  /usr/bin/stat -f %u /dev/console 2>/dev/null || /usr/bin/id -u
+}
+
+# ZoomDaemon and the system LaunchDaemons keep a machine token for THIS
+# Mac even after the user profile is gone. Unload them before Zoom opens.
+bootout_zoom_system_jobs() {
+  local plist uid
+  uid="$(console_uid)"
+  /usr/bin/killall -9 ZoomDaemon us.zoom.ZoomDaemon ZoomUpdater us.zoom.updater >/dev/null 2>&1 || true
+  for plist in /Library/LaunchDaemons/us.zoom*.plist /Library/LaunchDaemons/*[Zz]oom*.plist; do
+    [ -f "$plist" ] || continue
+    /bin/launchctl bootout system "$plist" >/dev/null 2>&1 ||
+      /bin/launchctl unload "$plist" >/dev/null 2>&1 || true
+  done
+  for plist in /Library/LaunchAgents/us.zoom*.plist /Library/LaunchAgents/*[Zz]oom*.plist; do
+    [ -f "$plist" ] || continue
+    /bin/launchctl bootout "gui/$uid" "$plist" >/dev/null 2>&1 ||
+      /bin/launchctl bootout system "$plist" >/dev/null 2>&1 ||
+      /bin/launchctl unload "$plist" >/dev/null 2>&1 || true
+  done
+}
+
+# Zoom also stores a machine id in the System keychain. Those items are
+# deleted for this session (they cannot be moved). Regular Zoom recreates
+# them after restore.
+scrub_system_zoom_keychain() {
+  local item n
+  for item in \
+    "Zoom Safe Meeting Storage" \
+    "zoom.us" \
+    "Zoom" \
+    "us.zoom.xos" \
+    "Zoom SSO" \
+    "ZoomChat" \
+    "ZoomAutoUpdater" \
+    "us.zoom.updater" \
+    "us.zoom.ZoomDaemon"
+  do
+    n=0
+    while [ "$n" -lt 40 ]; do
+      /usr/bin/security delete-generic-password -l "$item" /Library/Keychains/System.keychain >/dev/null 2>&1 || break
+      n=$((n + 1))
+    done
+    n=0
+    while [ "$n" -lt 40 ]; do
+      /usr/bin/security delete-generic-password -s "$item" /Library/Keychains/System.keychain >/dev/null 2>&1 || break
+      n=$((n + 1))
+    done
+  done
+  log_line "STASH" "system keychain Zoom items removed"
+}
+
+stash_one_path() {
+  local state="$1" src="$2"
+  local dest="$state/stashed-apps"
+  local tag
+  [ -e "$src" ] || [ -L "$src" ] || return 0
+  tag="$(printf '%s' "$src" | /usr/bin/tr '/ ' '__')"
+  if /bin/mv "$src" "$dest/$tag" 2>/dev/null; then
+    printf '%s\t%s\n' "$src" "$tag" >>"$state/stashed-apps.list"
+    log_line "STASH" "hid $src"
+    return 0
+  fi
+  log_line "STASH" "could not hide $src"
+  return 1
+}
+
+# Hide Applications Zoom and every machine-level Zoom token that marks
+# this Mac (daemon, /Library, /var/root). Restored when Zoom quits.
 stash_system_zoom() {
   local state="$1"
   local dest="$state/stashed-apps"
-  local app base
+  local src domain
   /bin/mkdir -p "$dest"
   : >"$state/stashed-apps.list"
-  for app in \
+  bootout_zoom_system_jobs
+  for src in \
     "/Applications/zoom.us.app" \
     "/Applications/Zoom Workplace.app" \
     "$HOME/Applications/zoom.us.app" \
-    "$HOME/Applications/Zoom Workplace.app"
+    "$HOME/Applications/Zoom Workplace.app" \
+    "/Library/Application Support/zoom.us" \
+    "/Library/Application Support/Zoom" \
+    "/Library/Logs/zoom.us" \
+    "/Library/PrivilegedHelperTools/us.zoom.ZoomDaemon" \
+    "/Library/PrivilegedHelperTools/us.zoom.updater" \
+    "/var/root/Library/Application Support/zoom.us" \
+    "/var/root/Library/Application Support/Zoom" \
+    "/var/root/Library/Logs/zoom.us" \
+    "/var/root/.zoomus"
   do
-    [ -d "$app" ] || continue
-    base="$(/usr/bin/basename "$app")"
-    if /bin/mv "$app" "$dest/$base" 2>/dev/null; then
-      printf '%s\t%s\n' "$app" "$base" >>"$state/stashed-apps.list"
-      log_line "STASH" "hid $app"
-    fi
+    stash_one_path "$state" "$src"
   done
-  if [ -d "/Library/Application Support/zoom.us" ]; then
-    if /bin/mv "/Library/Application Support/zoom.us" "$dest/Library-Application-Support-zoom.us" 2>/dev/null; then
-      printf '%s\t%s\n' "/Library/Application Support/zoom.us" "Library-Application-Support-zoom.us" >>"$state/stashed-apps.list"
-      log_line "STASH" "hid /Library/Application Support/zoom.us"
-    fi
-  fi
+  for src in \
+    /Library/LaunchDaemons/us.zoom*.plist \
+    /Library/LaunchAgents/us.zoom*.plist \
+    /Library/Preferences/us.zoom* \
+    /Library/Preferences/zoom.us* \
+    /Library/PrivilegedHelperTools/us.zoom* \
+    /var/root/Library/Preferences/us.zoom* \
+    /var/root/Library/Preferences/zoom.us* \
+    /var/root/Library/Caches/us.zoom* \
+    /var/root/Library/Caches/zoom.us*
+  do
+    stash_one_path "$state" "$src"
+  done
+  for domain in \
+    us.zoom.xos \
+    zoom.us \
+    us.zoom.config \
+    us.zoom.updater \
+    us.zoom.ZoomAutoUpdater \
+    us.zoom.pkginstall
+  do
+    /usr/bin/defaults delete "$domain" >/dev/null 2>&1 || true
+  done
+  scrub_system_zoom_keychain
+  /usr/bin/killall cfprefsd >/dev/null 2>&1 || true
+}
+
+relink_zoom_helpers() {
+  local state="$1"
+  local orig base
+  [ -f "$state/stashed-apps.list" ] || return 0
+  while IFS="$(printf '\t')" read -r orig base; do
+    case "$orig" in
+      /Library/LaunchDaemons/*.plist)
+        [ -f "$orig" ] || continue
+        /bin/launchctl bootstrap system "$orig" >/dev/null 2>&1 ||
+          /bin/launchctl load "$orig" >/dev/null 2>&1 || true
+        log_line "STASH" "reloaded $orig"
+        ;;
+    esac
+  done <"$state/stashed-apps.list"
 }
 
 restore_stashed_apps() {
@@ -315,25 +492,26 @@ restore_stashed_apps() {
   [ -f "$state/stashed-apps.list" ] || return 0
   while IFS="$(printf '\t')" read -r orig base; do
     [ -n "$orig" ] && [ -n "$base" ] || continue
-    if [ -e "$dest/$base" ]; then
+    if [ -e "$dest/$base" ] || [ -L "$dest/$base" ]; then
       /bin/rm -rf "$orig" 2>/dev/null || true
       /bin/mkdir -p "$(/usr/bin/dirname "$orig")"
       /bin/mv "$dest/$base" "$orig" 2>/dev/null || true
       log_line "STASH" "restored $orig"
     fi
   done <"$state/stashed-apps.list"
+  relink_zoom_helpers "$state"
 }
 
 # 1132 after a new name / MAC / Zoom 6.3 is the public IP. Do not open Zoom
 # on the same address.
 require_new_public_ip() {
   local state="$1"
-  local before after
+  local before after v6
   before="$(public_ip | /usr/bin/tr -d '[:space:]')"
   printf '%s\n' "$before" >"$state/ip.before"
   show_dialog "1132.WTF" "Public IP right now: ${before:-unknown}
 
-A new name, MAC, and Zoom 6.3.11 still got 1132. That is this IP or this Mac.
+This Mac is the block. The workaround needs a new IP first, then it removes Zoom's machine token on this Mac.
 
 Connect a phone hotspot — not the same Wi-Fi. Then click OK." "note"
   after="$(public_ip | /usr/bin/tr -d '[:space:]')"
@@ -349,5 +527,12 @@ Connect a phone hotspot — not the same Wi-Fi. Then click OK." "note"
     return 1
   fi
   log_line "NET" "public IP $before -> $after"
+  isolate_network_path "$state"
+  v6="$(public_ipv6 | /usr/bin/tr -d '[:space:]')"
+  if [ -n "$v6" ]; then
+    log_line "NET" "IPv6 still visible $v6"
+    show_dialog "1132.WTF" "IPv4 changed, but IPv6 is still $v6. Zoom can still see the old network. Turn off Wi-Fi if the hotspot is USB. Zoom was not opened." "stop"
+    return 1
+  fi
   return 0
 }

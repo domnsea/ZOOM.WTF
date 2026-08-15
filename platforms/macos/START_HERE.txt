@@ -1,26 +1,23 @@
-1132 FRESH 1.0.23 — Mac only
+1132 FRESH 1.0.25 — Mac only
 ============================
 
-Name, MAC, and Zoom 6.3.11 still got 1132. That is the
-public IP or this Mac's hardware id.
+This Mac is the block. 1.0.25 is the workaround.
 
-1.0.23 will not open Zoom until the public IP changes.
-It also hides the Zoom in Applications so the Dock cannot
-open the old client.
+It unloads ZoomDaemon and hides every Zoom token
+in /Library and /var/root (the files that mark
+THIS Mac). Then Zoom 6.3.11 opens as a new name
+on a hotspot, IPv6 off.
 
-Connect a phone hotspot when it shows your current IP.
-If the IP does not change, Zoom stays closed.
+The lime banner must say 1132 FRESH 1.0.25.
 
-If you already used a hotspot and still got 1132, this
-Mac is blocked. No app can rewrite the logic-board serial.
-
-The lime banner must say 1132 FRESH 1.0.23.
+If Join still says 1132 after that, Zoom is using
+the logic-board serial. This app cannot change that.
 
 https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132-FRESH-macos.zip
 
 STEP 1 - Right-click "STEP 1 - OPEN FRESH ZOOM.command" → Open → Open
-         Password. When it shows the IP, switch to a phone hotspot, then OK.
-STEP 2 - Join only in the Zoom 6.3.11 window it opened.
-LAUNCH - If it refuses to open Zoom, the IP did not change.
+         When it shows the IP, connect ONLY a phone hotspot. Turn home Wi-Fi off.
+STEP 2 - Join only in the window it opened.
+LAUNCH - Banner must say 1132 FRESH 1.0.25.
 
 sudo rm -rf /Applications/1132.WTF.app && sudo cp -R "$HOME/Downloads/1132-FRESH-macos/1132.WTF.app" /Applications/1132.WTF.app && sudo chown -R "$(whoami):staff" /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app

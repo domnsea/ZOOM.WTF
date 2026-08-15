@@ -1,12 +1,13 @@
-THIS IS 1132 FRESH 1.0.23
+THIS IS 1132 FRESH 1.0.25
 =========================
 
 Lime green icon.
 Window title: 1132 FRESH
-Banner: 1132 FRESH 1.0.23   new IP required   Zoom 6.3.11
+Banner: 1132 FRESH 1.0.25   this Mac workaround
 Zip name: 1132-FRESH-macos.zip
 
-Will not open Zoom on the same public IP.
-Hides Applications Zoom for the session.
+This Mac is the block. This build removes Zoom's
+machine token (daemon + /Library + /var/root),
+then opens Zoom 6.3.11 on a new IP.
 
-If the banner does not say 1.0.23, that is the OLD app. Trash it.
+If the banner does not say 1.0.25, that is the OLD app. Trash it.

@@ -217,8 +217,20 @@ check_grep "macos v9 launch uses a disposable runtime home" "runtime-home" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos v9 restores the regular Zoom profile" "restore_profile.sh" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos app shows version 1.0.23 so an old copy is obvious" "1.0.23" \
+check_grep "macos app shows version 1.0.25 so an old copy is obvious" "1.0.25" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
+check_grep "macos turns IPv6 off for the Zoom session" "setv6off" \
+  platforms/macos/1132.WTF.app/Contents/Resources/common.sh
+check_grep "macos isolates the hotspot network path" "isolate_network_path" \
+  platforms/macos/1132.WTF.app/Contents/Resources/common.sh
+check_grep "macos unloads ZoomDaemon for the session" "bootout_zoom_system_jobs" \
+  platforms/macos/1132.WTF.app/Contents/Resources/common.sh
+check_grep "macos hides the privileged Zoom helper" "PrivilegedHelperTools/us.zoom.ZoomDaemon" \
+  platforms/macos/1132.WTF.app/Contents/Resources/common.sh
+check_grep "macos hides root's Zoom machine profile" "/var/root/Library/Application Support/zoom.us" \
+  platforms/macos/1132.WTF.app/Contents/Resources/common.sh
+check_grep "macos removes Zoom items from the System keychain" "System.keychain" \
+  platforms/macos/1132.WTF.app/Contents/Resources/common.sh
 check_grep "macos refuses to open Zoom on the same public IP" "require_new_public_ip" \
   platforms/macos/1132.WTF.app/Contents/Resources/common.sh
 check_grep "macos hides Applications Zoom for the session" "stash_system_zoom" \
@@ -322,6 +334,10 @@ if "require_new_public_ip" not in helper:
     raise SystemExit("launch must refuse Zoom until the public IP changes")
 if "stash_system_zoom" not in helper:
     raise SystemExit("launch must hide Applications Zoom so the old client cannot open")
+if "bootout_zoom_system_jobs" not in helper:
+    raise SystemExit("launch must unload ZoomDaemon so this Mac's machine token is gone")
+if "PrivilegedHelperTools/us.zoom.ZoomDaemon" not in Path("platforms/macos/1132.WTF.app/Contents/Resources/common.sh").read_text():
+    raise SystemExit("machine wipe must hide ZoomDaemon")
 if "sudo -u" not in helper or "launchctl asuser" not in helper:
     raise SystemExit("launch must use launchctl asuser + sudo -u so Zoom is not the login uid")
 if "pgrep -u" not in helper:

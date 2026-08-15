@@ -201,7 +201,7 @@ kill_login_zoom() {
       /bin/kill -9 "$pid" 2>/dev/null || true
     done
   fi
-  /usr/bin/killall -9 ZoomOpener ZoomAutoUpdater >/dev/null 2>&1 || true
+  /usr/bin/killall -9 ZoomOpener ZoomAutoUpdater ZoomDaemon us.zoom.ZoomDaemon >/dev/null 2>&1 || true
 }
 
 # After a failed throwaway launch, restore the regular profile but do not
@@ -210,7 +210,7 @@ kill_login_zoom() {
 hold_zoom_closed() {
   local i
   for i in 1 2 3 4 5 6 7 8 9 10; do
-    /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
+    /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost ZoomDaemon >/dev/null 2>&1 || true
     kill_login_zoom
     /bin/sleep 1
   done
@@ -218,6 +218,7 @@ hold_zoom_closed() {
 
 unload_zoom_helpers() {
   local agent
+  bootout_zoom_system_jobs
   for agent in \
     "$CONSOLE_HOME/Library/LaunchAgents/us.zoom.updater.plist" \
     "$CONSOLE_HOME/Library/LaunchAgents/us.zoom.ZoomAutoUpdater.plist" \
@@ -324,10 +325,11 @@ if [ "${1:-}" = "--watch" ]; then
   if [ "$appeared" -eq 1 ]; then
     while zoom_for_uid "$TEMP_UID"; do
       kill_login_zoom
+      /usr/bin/killall -9 ZoomDaemon us.zoom.ZoomDaemon >/dev/null 2>&1 || true
       /bin/sleep 2
     done
   fi
-  /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
+  /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost ZoomDaemon >/dev/null 2>&1 || true
   [ -n "$TEMP_USER" ] && delete_temp_user "$TEMP_USER"
   export HOME="$CONSOLE_HOME"
   /bin/bash "$SCRIPT_DIR/restore_profile.sh" "$STATE_DIR" "zoom-closed" || true
@@ -337,7 +339,7 @@ fi
 
 REQUESTED_NAME="$(printf '%s' "${1:-}" | /usr/bin/tr -cd 'A-Za-z0-9 ._-')"
 
-/usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
+/usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost ZoomDaemon >/dev/null 2>&1 || true
 /usr/bin/pkill -9 -f "/zoom.us.app/" >/dev/null 2>&1 || true
 unload_zoom_helpers
 /bin/sleep 1
@@ -484,9 +486,11 @@ show_dialog "1132.WTF" "Zoom 6.3.11 is open as:
 
 $DISPLAY_NAME
 
-The Zoom in Applications is hidden for this session. Public IP changed.
+This Mac's Zoom machine token is gone for this session (ZoomDaemon, /Library, /var/root, system keychain). Public IP changed. IPv6 is off.
 
-If Join still says 1132 on this new IP, this Mac's hardware id is blocked. No app can rewrite that.
+Join in THIS window. Do not open the Zoom in Applications.
 
-When you quit Zoom, Applications Zoom, MAC, and name are put back." "note"
+If Join still says 1132, Zoom is reading the logic-board serial. This app cannot change that.
+
+When you quit Zoom, Applications Zoom, daemon, MAC, IPv6, and name are put back." "note"
 exit 0
