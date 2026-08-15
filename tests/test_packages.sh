@@ -384,6 +384,7 @@ check_grep "windows README names the launcher" "1132.WTF.vbs" platforms/windows/
 check_grep "macos README names the installer" "INSTALL_TO_APPLICATIONS.command" platforms/macos/README.md
 check_grep "macos installer can replace a root-owned old app" "with administrator privileges" platforms/macos/INSTALL_TO_APPLICATIONS.command
 check_grep "macos installer detects the old AppleScript applet" "OLD Zoom.WTF" platforms/macos/INSTALL_TO_APPLICATIONS.command
+check "macos has DELETE_OLD_APP.command" test -f platforms/macos/DELETE_OLD_APP.command
 
 # Every platform must tell the user what to do in the same three lines.
 # The first write-up was a wall of text and people could not follow it.
