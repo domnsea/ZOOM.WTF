@@ -1,6 +1,18 @@
 1132.WTF — Mac only
 ===================
 
+If the installer says Permission denied
+---------------------------------------
+
+The app already in /Applications is the OLD Zoom.WTF and it is locked.
+That is why the name never changed. Paste this in Terminal, press Return,
+type your Mac password when asked:
+
+osascript -e 'do shell script "killall -9 applet 1132.WTF 2>/dev/null; rm -rf /Applications/1132.WTF.app" with administrator privileges'
+
+Then run INSTALL_TO_APPLICATIONS.command again.
+
+
 If Zoom or 1132.WTF is stuck on screen right now:
 
 STEP 1 - Press Cmd + Option + Esc

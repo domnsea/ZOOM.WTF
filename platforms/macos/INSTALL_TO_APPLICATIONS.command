@@ -1,6 +1,10 @@
 #!/bin/bash
 # Copy 1132.WTF.app into /Applications, strip the download quarantine, and
 # ad-hoc sign it so Gatekeeper will launch it without a paid Developer ID.
+#
+# An older Zoom.WTF applet is often already in /Applications and owned by
+# root. A normal rm cannot replace it, so this installer asks for the Mac
+# password and deletes that copy first.
 
 set -u
 
@@ -11,6 +15,16 @@ DEST="/Applications/$APP_NAME.app"
 # allow-macos.sh sits next to this installer in the zip.
 # shellcheck disable=SC1091
 . "$HERE/allow-macos.sh"
+
+applescript_quote() {
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
+
+run_admin() {
+  local script
+  script="$(applescript_quote "$1")"
+  /usr/bin/osascript -e "do shell script \"$script\" with administrator privileges"
+}
 
 printf '%s\n' "=== $APP_NAME installer ==="
 
@@ -24,19 +38,40 @@ fi
 printf '%s\n' "Clearing the download flag on this folder..."
 allow_tree "$HERE"
 
-if [ -d "$DEST" ]; then
-  printf '%s\n' "Replacing the existing copy in /Applications..."
-  rm -rf "$DEST" || {
-    printf '%s\n' "Could not remove $DEST. Quit $APP_NAME and try again."
-    read -r -p "Press Return to close. " _
-    exit 1
-  }
+# The old Zoom.WTF was an AppleScript applet. If that is what is sitting in
+# Applications, every launch from there is the old app — not this one.
+if [ -f "$DEST/Contents/MacOS/applet" ] || [ -f "$DEST/Contents/Resources/Scripts/main.scpt" ]; then
+  printf '%s\n' "The app in /Applications is the OLD Zoom.WTF (not this one)."
+  printf '%s\n' "That is why the name never changed. Removing it."
 fi
 
-if ! cp -R "$SOURCE" "$DEST"; then
-  printf '%s\n' "Could not copy into /Applications."
+/usr/bin/killall -9 "1132.WTF" applet >/dev/null 2>&1 || true
+
+if [ -d "$DEST" ]; then
+  printf '%s\n' "Replacing the existing copy in /Applications..."
+  if ! rm -rf "$DEST" 2>/dev/null; then
+    printf '%s\n' "That copy is locked. macOS will ask for your password."
+    if ! run_admin "/bin/rm -rf '$DEST'"; then
+      printf '%s\n' "Password refused. The old app is still in /Applications."
+      read -r -p "Press Return to close. " _
+      exit 1
+    fi
+  fi
+fi
+
+if [ -d "$DEST" ]; then
+  printf '%s\n' "Could not remove $DEST."
   read -r -p "Press Return to close. " _
   exit 1
+fi
+
+if ! cp -R "$SOURCE" "$DEST" 2>/dev/null; then
+  printf '%s\n' "Need your password to copy into /Applications."
+  if ! run_admin "/bin/cp -R '$SOURCE' '$DEST' && /usr/sbin/chown -R $(id -un):staff '$DEST'"; then
+    printf '%s\n' "Could not copy into /Applications."
+    read -r -p "Press Return to close. " _
+    exit 1
+  fi
 fi
 
 allow_target "$DEST"
@@ -58,7 +93,5 @@ else
   printf '%s\n' "  LAUNCH - Open 1132.WTF from Applications"
 fi
 
-# Close this window. Do not sit on "Press Return" forever.
 /usr/bin/osascript -e 'tell application "Terminal" to close (every window whose name contains "INSTALL_TO_APPLICATIONS")' >/dev/null 2>&1 || true
 exit 0
-
