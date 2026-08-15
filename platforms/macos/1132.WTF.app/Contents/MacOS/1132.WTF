@@ -10,7 +10,7 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.18"
+APP_VERSION="1.0.19"
 APP_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 export APP_ROOT
 ENGINE="$APP_ROOT/Contents/Resources/1132wtf-engine.sh"
@@ -30,7 +30,8 @@ OLD_AGENT14="$HOME/Library/LaunchAgents/wtf.fix1132.mac.14.plist"
 OLD_AGENT15="$HOME/Library/LaunchAgents/wtf.fix1132.mac.15.plist"
 OLD_AGENT16="$HOME/Library/LaunchAgents/wtf.fix1132.mac.16.plist"
 OLD_AGENT17="$HOME/Library/LaunchAgents/wtf.fix1132.mac.17.plist"
-for agent in "$OLD_AGENT" "$OLD_AGENT12" "$OLD_AGENT13" "$OLD_AGENT14" "$OLD_AGENT15" "$OLD_AGENT16" "$OLD_AGENT17"; do
+OLD_AGENT18="$HOME/Library/LaunchAgents/wtf.fix1132.mac.18.plist"
+for agent in "$OLD_AGENT" "$OLD_AGENT12" "$OLD_AGENT13" "$OLD_AGENT14" "$OLD_AGENT15" "$OLD_AGENT16" "$OLD_AGENT17" "$OLD_AGENT18"; do
   /bin/launchctl bootout "gui/$(id -u)" "$agent" >/dev/null 2>&1 ||
     /bin/launchctl unload "$agent" >/dev/null 2>&1 || true
   rm -f "$agent"
@@ -156,11 +157,10 @@ This Zoom name: $USED_NAME
 Zoom Join must show that name, not your Mac login.
 
 LAUNCH - macOS will ask for your password once.
-That is so Zoom cannot use your Mac login name.
-Fresh Zoom then opens on this desktop (v9).
-Close Zoom to restore your regular Zoom and your Mac full name.
+That opens Zoom as a throwaway user, not your Mac login.
+Close Zoom to delete that user and restore your regular Zoom.
 
-Window must say 1132 FRESH 1.0.18. If it does not, this is the old app."
+Window must say 1132 FRESH 1.0.19. If it does not, this is the old app."
     /usr/bin/osascript -e "display notification \"1132 FRESH is opening Zoom.\" with title \"1132 FRESH $APP_VERSION\"" >/dev/null 2>&1 || true
     /usr/bin/osascript -e "display dialog \"$(applescript_quote "$SUMMARY")\" \
       buttons {\"OK\"} default button \"OK\" with title \"1132 FRESH $APP_VERSION\"" >/dev/null 2>&1 || true

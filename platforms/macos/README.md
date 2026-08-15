@@ -23,8 +23,8 @@ System Settings → Privacy & Security → Open Anyway. Or open `OPEN_ME_FIRST.t
 
 | Step | What it does | Admin password |
 |---|---|---|
-| **STEP 1 OPEN FRESH ZOOM** | Protects your regular Zoom profile, opens factory-fresh Zoom on this desktop (v9) | no |
-| **STEP 2 CLOSE AND CLEAN** | Deletes the disposable profile and restores your regular Zoom | no |
+| **STEP 1 OPEN FRESH ZOOM** | Opens Zoom as a throwaway user on this desktop so Join is not your Mac login | yes, once |
+| **STEP 2 CLOSE AND CLEAN** | Deletes the throwaway user and restores your regular Zoom | yes, once |
 
 ### What level 1 erases
 

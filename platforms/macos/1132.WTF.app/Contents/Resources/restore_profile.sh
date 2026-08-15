@@ -1,6 +1,21 @@
 #!/bin/bash
 set -u
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+SELF="$SCRIPT_DIR/$(basename "$0")"
+
+if [ "$(id -u)" -ne 0 ]; then
+  SELF_Q="$(printf '%s' "$SELF" | sed "s/'/'\\''/g")"
+  ARG1_Q="$(printf '%s' "${1:-}" | sed "s/'/'\\''/g")"
+  ARG2_Q="$(printf '%s' "${2:-}" | sed "s/'/'\\''/g")"
+  /usr/bin/osascript -e "do shell script \"/bin/bash '$SELF_Q' '$ARG1_Q' '$ARG2_Q'\" with administrator privileges"
+  exit $?
+fi
+
+CONSOLE_USER="$(/usr/bin/stat -f %Su /dev/console 2>/dev/null || true)"
+CONSOLE_HOME="$(/usr/bin/dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | /usr/bin/awk '{print $2}')"
+[ -n "$CONSOLE_HOME" ] || CONSOLE_HOME="/Users/$CONSOLE_USER"
+export HOME="$CONSOLE_HOME"
+
 # shellcheck source=common.sh
 source "$SCRIPT_DIR/common.sh"
 
@@ -18,12 +33,19 @@ if [[ ! -d "$STATE_DIR" ]]; then
   exit 0
 fi
 
-if zoom_processes_running; then
-  if ! stop_zoom_processes; then
-    log_line "RESTORE" "FAILED Zoom could not be stopped"
-    exit 70
-  fi
-fi
+TEMP_USER="$(/usr/bin/tr -d '\r\n' <"$STATE_DIR/temp.user" 2>/dev/null || true)"
+case "$TEMP_USER" in
+  "" | "$CONSOLE_USER" | root | daemon | nobody) ;;
+  *)
+    /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
+    /usr/sbin/sysadminctl -deleteUser "$TEMP_USER" >/dev/null 2>&1 || true
+    /bin/rm -rf "/Users/$TEMP_USER" >/dev/null 2>&1 || true
+    log_line "RESTORE" "deleted throwaway user"
+    ;;
+esac
+
+/usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
+/bin/sleep 1
 
 kill_preferences_cache
 mkdir -p "$QUARANTINE"

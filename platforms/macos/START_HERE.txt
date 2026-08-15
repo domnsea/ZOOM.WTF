@@ -1,16 +1,16 @@
-1132 FRESH 1.0.18 — Mac only
+1132 FRESH 1.0.19 — Mac only
 ============================
 
-v9 opens Zoom on this desktop. That part worked.
-It still showed your Mac login name because current Zoom
-(5.7 and later, including 6/7) ignores uname= and reads
-the Mac account full name.
+Zoom Join showed your Mac login because Zoom was still
+running as that account. Changing HOME or the Mac full
+name does not change that.
 
-1.0.18 keeps the v9 launch, then sets the Mac full name
-to a random Zoom name for this session only. When you
-quit Zoom, your real Mac full name is put back.
+1.0.19 creates a hidden throwaway Mac user whose name is
+not your login, opens Zoom as THAT user on this desktop,
+and deletes the user when you quit Zoom. If Zoom comes up
+as your login, this build refuses instead of opening it.
 
-The lime banner must say 1132 FRESH 1.0.18.
+The lime banner must say 1132 FRESH 1.0.19.
 If it does not, you have the old app. Trash it.
 
 Download:

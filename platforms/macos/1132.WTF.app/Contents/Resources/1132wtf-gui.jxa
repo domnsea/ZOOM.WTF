@@ -10,7 +10,7 @@ var retained = {}
 
 function run(argv) {
   var iconPath = argv.length ? argv[0] : ''
-  var version = argv.length > 1 ? argv[1] : '1.0.18'
+  var version = argv.length > 1 ? argv[1] : '1.0.19'
 
   var items = [
     'STEP 1 - Fix Zoom',
@@ -25,7 +25,7 @@ function run(argv) {
   $.NSApplication.sharedApplication.activateIgnoringOtherApps(true)
 
   var banner = $.NSTextField.alloc.initWithFrame($.NSMakeRect(0, 284, 448, 32))
-  banner.setStringValue('1132 FRESH 1.0.18   random name   not your Mac login')
+  banner.setStringValue('1132 FRESH 1.0.19   random name   not your Mac login')
   banner.setFont($.NSFont.boldSystemFontOfSize(16))
   banner.setDrawsBackground(true)
   banner.setBackgroundColor($.NSColor.colorWithCalibratedRedGreenBlueAlpha(0.78, 1.0, 0.0, 1.0))
@@ -80,7 +80,7 @@ function run(argv) {
   alert.setMessageText('1132 FRESH')
   alert.setInformativeText(
     'v' + version + '\n' +
-    'STEP 1 opens factory-fresh Zoom (v9). Password once so Zoom cannot use your Mac login name. STEP 2 restores your regular Zoom and your Mac full name.'
+    'STEP 1 opens factory-fresh Zoom as a throwaway user. Password once. Join must not be your Mac login. STEP 2 deletes that user and restores your regular Zoom.'
   )
   if (iconPath) {
     var icon = $.NSImage.alloc.initWithContentsOfFile(iconPath)

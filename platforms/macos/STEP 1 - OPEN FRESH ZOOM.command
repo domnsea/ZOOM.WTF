@@ -1,7 +1,7 @@
 #!/bin/bash
-# STEP 1 — same as the last working v9 public release.
-# Protects the regular Zoom profile, then opens a factory-fresh Zoom
-# on this desktop. Password once so Zoom cannot use the Mac login name.
+# STEP 1 — open Zoom as a throwaway Mac user on this desktop.
+# Password once. If Zoom is still the Mac login, this fails instead
+# of opening as that login (the dustin bug).
 set -u
 ROOT="$(cd "$(dirname "$0")" && pwd -P)"
 LAUNCH="$ROOT/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh"

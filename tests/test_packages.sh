@@ -217,10 +217,16 @@ check_grep "macos v9 launch uses a disposable runtime home" "runtime-home" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos v9 restores the regular Zoom profile" "restore_profile.sh" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos app shows version 1.0.18 so an old copy is obvious" "1.0.18" \
+check_grep "macos app shows version 1.0.19 so an old copy is obvious" "1.0.19" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
 check_grep "macos session sets the Mac full name so Zoom Join is not the login" "RealName" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-setname.sh
+check_grep "macos launch creates a throwaway user" "sysadminctl -addUser" \
+  platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
+check_grep "macos launch uses launchctl asuser" "launchctl asuser" \
+  platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
+check_grep "macos launch uses sudo -u for the throwaway uid" "sudo -u" \
+  platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos window title is 1132 FRESH" "1132 FRESH" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa
 check_grep "macos GUI is a branded window" "1132wtf-gui.jxa" \
@@ -286,10 +292,16 @@ if "CFFIXED_USER_HOME" not in helper:
     raise SystemExit("v9 launch must set CFFIXED_USER_HOME")
 if 'USER="$(id -un)"' in helper or "USER=\"$(id -un)\"" in helper:
     raise SystemExit("v9 launch must not pass the Mac login as USER")
-if "1132wtf-setname" not in helper:
-    raise SystemExit("launch must set the Mac full name so Zoom Join is not the login")
-if "sudo -u" in helper or "launchctl asuser" in helper:
-    raise SystemExit("v9 launch must not use sudo -u or launchctl asuser")
+if "sysadminctl -addUser" not in helper:
+    raise SystemExit("launch must create a throwaway Mac user")
+if "sudo -u" not in helper or "launchctl asuser" not in helper:
+    raise SystemExit("launch must use launchctl asuser + sudo -u so Zoom is not the login uid")
+if "pgrep -u" not in helper:
+    raise SystemExit("launch must verify Zoom is running as the throwaway uid")
+if "exit 72" not in helper:
+    raise SystemExit("launch must fail if Zoom is still the Mac login")
+if "1132wtf-setname" in helper:
+    raise SystemExit("launch must not use RealName swap; Zoom Join follows the process uid")
 if "resolve_display_name" not in engine or "random_display_name" not in engine:
     raise SystemExit("engine must pick a new random Zoom name each launch")
 if "setStringValue('Guest')" in gui:
