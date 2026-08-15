@@ -1,34 +1,27 @@
-1132 FRESH 1.0.17 — Mac only — v9 launch
-=======================================
+1132 FRESH 1.0.18 — Mac only
+============================
 
-This is the last known working launch (v9 PUBLIC SAFE),
-inside the lime 1132 FRESH package.
+v9 opens Zoom on this desktop. That part worked.
+It still showed your Mac login name because current Zoom
+(5.7 and later, including 6/7) ignores uname= and reads
+the Mac account full name.
 
-It does NOT create a temp Mac user.
-It does NOT ask for your Mac password.
-It does NOT use osascript to start Zoom.
+1.0.18 keeps the v9 launch, then sets the Mac full name
+to a random Zoom name for this session only. When you
+quit Zoom, your real Mac full name is put back.
 
-STEP 1 protects your regular Zoom profile, then opens a
-factory-fresh Zoom window on THIS desktop.
-STEP 2 (or quitting Zoom) restores your regular Zoom.
-
-The lime banner must say 1132 FRESH 1.0.17.
+The lime banner must say 1132 FRESH 1.0.18.
 If it does not, you have the old app. Trash it.
 
 Download:
 
 https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132-FRESH-macos.zip
 
-Delete every old 1132 zip. Double-click 1132-FRESH-macos.zip.
-
 STEP 1 - Right-click "STEP 1 - OPEN FRESH ZOOM.command" → Open → Open
-         Or double-click 1132.WTF.app, click STEP 1 - Fix Zoom, LAUNCH.
-STEP 2 - Type the random name into Zoom Join. Type the meeting number.
-LAUNCH - When you are done, quit Zoom. Or run
-         "STEP 2 - CLOSE AND CLEAN ZOOM.command"
+         Type your Mac password when asked.
+STEP 2 - Zoom Join must show the random name, not your Mac login.
+LAUNCH - Quit Zoom when done, or run STEP 2 - CLOSE AND CLEAN ZOOM.command
 
-If macOS blocks the command: System Settings → Privacy & Security → Open Anyway.
-
-If the old app is stuck in Applications:
+If macOS will not replace the old app in Applications:
 
 sudo rm -rf /Applications/1132.WTF.app && sudo cp -R "$HOME/Downloads/1132-FRESH-macos/1132.WTF.app" /Applications/1132.WTF.app && sudo chown -R "$(whoami):staff" /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app

@@ -11,7 +11,7 @@
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>wtf.fix1132.mac.17</string>
+	<string>wtf.fix1132.mac.18</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.17</string>
+	<string>1.0.18</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>17</string>
+	<string>18</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
@@ -35,6 +35,6 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>1132 FRESH</string>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>1132 FRESH 1.0.17 opens factory-fresh Zoom on this desktop using the v9 launch.</string>
+	<string>1132 FRESH 1.0.18 opens factory-fresh Zoom and sets a random Join name for this session.</string>
 </dict>
 </plist>

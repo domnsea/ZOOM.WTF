@@ -4,7 +4,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 # shellcheck source=common.sh
 source "$SCRIPT_DIR/common.sh"
 
-log_line "LAUNCH_V9" "START public_release=YES same_desktop=YES macOS=$(/usr/bin/sw_vers -productVersion 2>/dev/null || echo unknown)"
+ZOOM_VER="$(/usr/bin/defaults read "$ZOOM_APP/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo unknown)"
+log_line "LAUNCH_V9" "START public_release=YES same_desktop=YES zoom=$ZOOM_VER macOS=$(/usr/bin/sw_vers -productVersion 2>/dev/null || echo unknown)"
 
 ZOOM_APP="$(find_zoom_app 2>/dev/null || true)"
 if [[ -z "$ZOOM_APP" ]]; then
@@ -110,6 +111,23 @@ if [[ -z "${WTF1132_DISPLAY_NAME:-}" ]]; then
   export WTF1132_DISPLAY_NAME
 fi
 printf '%s\n' "$WTF1132_DISPLAY_NAME" > "$LOG_DIR/last_display_name.txt"
+printf '%s\n' "$WTF1132_DISPLAY_NAME" > "$ACTIVE_STATE/display.name"
+
+# Zoom 5.7+ ignores uname=. Join uses the Mac account full name, so v9
+# launched as the login account still said that name. One admin prompt
+# sets RealName to the random name for this session only.
+SETNAME="$SCRIPT_DIR/1132wtf-setname.sh"
+if [[ -f "$SETNAME" ]]; then
+  SETNAME_Q="$(printf '%s' "$SETNAME" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')"
+  STATE_Q="$(printf '%s' "$ACTIVE_STATE" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')"
+  if ! /usr/bin/osascript -e "do shell script \"/bin/bash '$SETNAME_Q' --start-from '$STATE_Q'\" with administrator privileges" >/dev/null 2>&1; then
+    log_line "LAUNCH_V9" "FAILED need password to stop Zoom using the Mac login name"
+    /bin/bash "$ACTIVE_STATE/runtime-scripts/restore_profile.sh" "$ACTIVE_STATE" "name-change-refused" || true
+    show_dialog "1132.WTF" "Need your Mac password once so Zoom cannot use your Mac login name. Nothing was left running." "stop"
+    exit 77
+  fi
+  log_line "LAUNCH_V9" "REALNAME_SET session_name_ready=YES"
+fi
 
 # Monitor is detached so cleanup still runs if the launcher app closes.
 /usr/bin/nohup /bin/bash "$ACTIVE_STATE/runtime-scripts/monitor_zoom.sh" "$ACTIVE_STATE" >> "$LOG_FILE" 2>&1 </dev/null &
@@ -121,13 +139,15 @@ log_line "LAUNCH_V9" "MONITOR_STARTED cleanup_watch=ACTIVE"
 TEMP_HOME="$ACTIVE_STATE/runtime-home"
 TEMP_TMP="$ACTIVE_STATE/runtime-tmp/"
 DISPLAY_NAME="${WTF1132_DISPLAY_NAME:-}"
+GUEST_USER="$(printf '%s' "$DISPLAY_NAME" | /usr/bin/tr '[:upper:]' '[:lower:]' | /usr/bin/tr -cd 'a-z0-9' | /usr/bin/cut -c1-20)"
+[[ -n "$GUEST_USER" ]] || GUEST_USER="zoomguest"
 /usr/bin/nohup /usr/bin/env \
   HOME="$TEMP_HOME" \
   CFFIXED_USER_HOME="$TEMP_HOME" \
   TMPDIR="$TEMP_TMP" \
   CFPREFERENCES_AVOID_DAEMON=1 \
-  USER="$(id -un)" \
-  LOGNAME="$(id -un)" \
+  USER="$GUEST_USER" \
+  LOGNAME="$GUEST_USER" \
   "$ZOOM_BIN" >/dev/null 2>&1 </dev/null &
 ZOOM_START_PID=$!
 printf '%s\n' "$ZOOM_START_PID" > "$ACTIVE_STATE/zoom-start.pid"

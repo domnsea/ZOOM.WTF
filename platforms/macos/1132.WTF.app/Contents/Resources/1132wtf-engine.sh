@@ -14,8 +14,8 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.17"
-BUNDLE_ID="wtf.fix1132.mac.17"
+APP_VERSION="1.0.18"
+BUNDLE_ID="wtf.fix1132.mac.18"
 
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
 LOG_DIR="$HOME/Library/Logs/$APP_NAME"
@@ -96,6 +96,8 @@ find_zoom_app() {
   for candidate in \
     "/Applications/zoom.us.app" \
     "$HOME/Applications/zoom.us.app" \
+    "/Applications/Zoom Workplace.app" \
+    "$HOME/Applications/Zoom Workplace.app" \
     "/Applications/Zoom.app" \
     "$HOME/Applications/Zoom.app"
   do
@@ -555,14 +557,14 @@ do_v9_launch() {
   fi
 
   log ACTION "Opening factory-fresh Zoom on this desktop (v9)."
-  log INFO "This Zoom name is '$name' (new random name every launch)."
-  log INFO "No Mac password. Close Zoom to restore your regular profile."
+  log INFO "This Zoom name is '$name'."
+  log INFO "macOS will ask for your password once so Zoom cannot use your Mac login name."
 
   if ! /bin/bash "$helper"; then
     die "Fresh Zoom did not start. See $HOME/Library/Logs/1132.WTF/launch.log"
   fi
-  log OK "Fresh Zoom is opening. Type '$name' in Zoom Join."
-  log DONE "Close Zoom completely, or run STEP 2, to restore your regular Zoom."
+  log OK "Fresh Zoom is opening as '$name'."
+  log DONE "Close Zoom completely, or run STEP 2, to restore your regular Zoom and your Mac full name."
 }
 
 do_deep_fix() {

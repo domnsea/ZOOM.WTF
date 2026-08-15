@@ -217,8 +217,10 @@ check_grep "macos v9 launch uses a disposable runtime home" "runtime-home" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos v9 restores the regular Zoom profile" "restore_profile.sh" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos app shows version 1.0.17 so an old copy is obvious" "1.0.17" \
+check_grep "macos app shows version 1.0.18 so an old copy is obvious" "1.0.18" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
+check_grep "macos session sets the Mac full name so Zoom Join is not the login" "RealName" \
+  platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-setname.sh
 check_grep "macos window title is 1132 FRESH" "1132 FRESH" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa
 check_grep "macos GUI is a branded window" "1132wtf-gui.jxa" \
@@ -253,6 +255,12 @@ if grep -q -- '--data=' "$MAC_ENGINE"; then
 else
   pass "macos does not pass Zoom a custom data directory"
 fi
+if grep -q 'USER="$(id -un)"' platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh; then
+  fail "macos launch does not pass the Mac login as USER" \
+    "USER=\$(id -un) is why Zoom Join kept the account name"
+else
+  pass "macos launch does not pass the Mac login as USER"
+fi
 if grep -vE '^[[:space:]]*#' platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh | grep -q 'killall'; then
   fail "macos session helper does not kill Zoom" \
     "the watcher used to force-quit zoom.us, which is why Zoom never stayed open"
@@ -276,6 +284,10 @@ if "launch_zoom_temp_profile" in engine or "launch_zoom_clean" in engine:
     raise SystemExit("engine must not use the broken HOME-only Zoom launchers")
 if "CFFIXED_USER_HOME" not in helper:
     raise SystemExit("v9 launch must set CFFIXED_USER_HOME")
+if 'USER="$(id -un)"' in helper or "USER=\"$(id -un)\"" in helper:
+    raise SystemExit("v9 launch must not pass the Mac login as USER")
+if "1132wtf-setname" not in helper:
+    raise SystemExit("launch must set the Mac full name so Zoom Join is not the login")
 if "sudo -u" in helper or "launchctl asuser" in helper:
     raise SystemExit("v9 launch must not use sudo -u or launchctl asuser")
 if "resolve_display_name" not in engine or "random_display_name" not in engine:

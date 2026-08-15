@@ -10,7 +10,7 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.17"
+APP_VERSION="1.0.18"
 APP_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 export APP_ROOT
 ENGINE="$APP_ROOT/Contents/Resources/1132wtf-engine.sh"
@@ -29,7 +29,8 @@ OLD_AGENT13="$HOME/Library/LaunchAgents/wtf.fix1132.mac.13.plist"
 OLD_AGENT14="$HOME/Library/LaunchAgents/wtf.fix1132.mac.14.plist"
 OLD_AGENT15="$HOME/Library/LaunchAgents/wtf.fix1132.mac.15.plist"
 OLD_AGENT16="$HOME/Library/LaunchAgents/wtf.fix1132.mac.16.plist"
-for agent in "$OLD_AGENT" "$OLD_AGENT12" "$OLD_AGENT13" "$OLD_AGENT14" "$OLD_AGENT15" "$OLD_AGENT16"; do
+OLD_AGENT17="$HOME/Library/LaunchAgents/wtf.fix1132.mac.17.plist"
+for agent in "$OLD_AGENT" "$OLD_AGENT12" "$OLD_AGENT13" "$OLD_AGENT14" "$OLD_AGENT15" "$OLD_AGENT16" "$OLD_AGENT17"; do
   /bin/launchctl bootout "gui/$(id -u)" "$agent" >/dev/null 2>&1 ||
     /bin/launchctl unload "$agent" >/dev/null 2>&1 || true
   rm -f "$agent"
@@ -152,14 +153,14 @@ if [ "$NEEDS_REPORT" -eq 1 ]; then
     SUMMARY="Done.
 
 This Zoom name: $USED_NAME
-Paste that name into Zoom Join. A new random name is picked every launch.
+Zoom Join must show that name, not your Mac login.
 
-LAUNCH - Fresh Zoom is opening on this desktop.
-No Mac password. No profile switch.
-This is the v9 launch that last worked.
-Close Zoom completely to restore your regular Zoom, or use STEP 2.
+LAUNCH - macOS will ask for your password once.
+That is so Zoom cannot use your Mac login name.
+Fresh Zoom then opens on this desktop (v9).
+Close Zoom to restore your regular Zoom and your Mac full name.
 
-Window must say 1132 FRESH 1.0.17. If it does not, this is the old app."
+Window must say 1132 FRESH 1.0.18. If it does not, this is the old app."
     /usr/bin/osascript -e "display notification \"1132 FRESH is opening Zoom.\" with title \"1132 FRESH $APP_VERSION\"" >/dev/null 2>&1 || true
     /usr/bin/osascript -e "display dialog \"$(applescript_quote "$SUMMARY")\" \
       buttons {\"OK\"} default button \"OK\" with title \"1132 FRESH $APP_VERSION\"" >/dev/null 2>&1 || true
