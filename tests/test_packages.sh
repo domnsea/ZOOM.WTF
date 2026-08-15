@@ -200,6 +200,12 @@ check_grep "macos kills ZoomOpener" "ZoomOpener" "$MAC_ENGINE"
 check_grep "macos kills CptHost" "CptHost" "$MAC_ENGINE"
 check_grep "macos launches an isolated --data profile" "--data=" "$MAC_ENGINE"
 check_grep "macos forces a new Zoom instance" "open -na" "$MAC_ENGINE"
+check_grep "macos force-closes Zoom instead of waiting on quit" "Force-closing Zoom" "$MAC_ENGINE"
+if grep -q 'tell application "zoom.us" to quit' "$MAC_ENGINE"; then
+  fail "macos does not wait on Zoom's quit dialog" "AppleScript quit is still there and will hang"
+else
+  pass "macos does not wait on Zoom's quit dialog"
+fi
 check_grep "macos loop-deletes keychain items" "delete-generic-password" "$MAC_ENGINE"
 check_grep "macos flushes cfprefsd" "cfprefsd" "$MAC_ENGINE"
 check_grep "macos can pass a guest display name" "uname=" "$MAC_ENGINE"

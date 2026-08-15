@@ -116,6 +116,9 @@ if [ "$VERB" = "browser" ]; then
 fi
 
 if [ "$VERB" = "fix" ]; then
+  # Kill Zoom before any more dialogs so a live meeting cannot freeze this app.
+  /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
+  /usr/bin/pkill -9 -f "/zoom.us.app/" >/dev/null 2>&1 || true
   DISPLAY_NAME="$(/usr/bin/osascript -e "text returned of (display dialog \
     \"STEP 1 - Type the name Zoom should show.\" & return & return & \
     \"Do not type your old name.\" \

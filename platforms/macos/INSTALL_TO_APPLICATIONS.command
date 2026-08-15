@@ -58,4 +58,7 @@ else
   printf '%s\n' "  LAUNCH - Open 1132.WTF from Applications"
 fi
 
-read -r -p "Press Return to close. " _
+# Close this window. Do not sit on "Press Return" forever.
+/usr/bin/osascript -e 'tell application "Terminal" to close (every window whose name contains "INSTALL_TO_APPLICATIONS")' >/dev/null 2>&1 || true
+exit 0
+

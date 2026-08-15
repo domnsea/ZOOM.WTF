@@ -126,37 +126,21 @@ zoom_running() {
 }
 
 stop_zoom() {
-  if ! zoom_running; then
-    log INFO "Zoom was not running."
-    return 0
-  fi
-  log ACTION "Quitting Zoom and every helper (CptHost, ZoomOpener, updater)"
-  /usr/bin/osascript -e 'tell application "zoom.us" to quit' >/dev/null 2>&1 || true
-
-  local waited=0
-  while zoom_running && [ "$waited" -lt 8 ]; do
-    sleep 1
-    waited=$((waited + 1))
-  done
-
+  # Do not ask Zoom to quit. If a meeting is open it shows "Leave meeting?"
+  # and AppleScript waits forever — that is the freeze where nothing closes.
+  log ACTION "Force-closing Zoom now (no prompt)"
+  /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost caphost airhost zCrashReport TranscodeServer CptShare >/dev/null 2>&1 || true
+  /usr/bin/pkill -9 -x "zoom.us" >/dev/null 2>&1 || true
+  /usr/bin/pkill -9 -f "/zoom.us.app/" >/dev/null 2>&1 || true
+  sleep 1
   if zoom_running; then
-    log WARN "Zoom ignored the quit request, forcing it."
-    /usr/bin/pkill -ix "zoom.us" >/dev/null 2>&1 || true
-    /usr/bin/pkill -f "zoom.us.app/Contents/MacOS" >/dev/null 2>&1 || true
-    /usr/bin/pkill -i -f "$ZOOM_HELPER_PATTERNS" >/dev/null 2>&1 || true
-    sleep 1
-  fi
-
-  if zoom_running; then
-    /usr/bin/pkill -9 -ix "zoom.us" >/dev/null 2>&1 || true
     /usr/bin/pkill -9 -i -f "$ZOOM_HELPER_PATTERNS" >/dev/null 2>&1 || true
     sleep 1
   fi
-
   if zoom_running; then
-    log WARN "A Zoom process is still running. The reset may be incomplete."
+    log WARN "A Zoom process is still running. Force Quit it with Cmd+Option+Esc."
   else
-    log OK "Zoom and its helpers stopped."
+    log OK "Zoom closed."
   fi
 }
 

@@ -1,51 +1,26 @@
-1132.WTF
-========
+1132.WTF — Mac only
+===================
 
-Do these three things. Stop when you are in the meeting.
+If Zoom or 1132.WTF is stuck on screen right now:
 
-STEP 1 - Right-click INSTALL_TO_APPLICATIONS.command
+STEP 1 - Press Cmd + Option + Esc
+STEP 2 - Force Quit Zoom. Force Quit 1132.WTF.
+LAUNCH - Then do the three steps below.
+
+
+Download this file only (not the other platforms):
+
+https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132.WTF-macos-1.0.0.zip
+
+
+STEP 1 - Unzip. Right-click INSTALL_TO_APPLICATIONS.command
          Click Open. Click Open again.
 
-STEP 2 - In the list, click:
-         STEP 1 - Fix Zoom
-         Click Run.
+STEP 2 - Click STEP 1 - Fix Zoom. Click Run.
 
-LAUNCH - When it asks:
-         STEP 1 - Type a name that is NOT your old name. Example: Guest
-         STEP 2 - Type the meeting number (or leave blank)
+LAUNCH - Type Guest (not your old name).
+         Type the meeting number.
          Click LAUNCH.
 
-Zoom opens empty. Join. Do not sign in as the old account.
-
-
-If macOS says the author cannot be verified
--------------------------------------------
-
-STEP 1 - Click Done (not Move to Trash).
-
-STEP 2 - Open System Settings → Privacy & Security.
-         Scroll down. Click Open Anyway.
-
-LAUNCH - Open 1132.WTF from Applications.
-
-
-If STEP 1 still shows your old name
------------------------------------
-
-STEP 1 - In 1132.WTF, click STEP 2 - Deep fix. Click Run.
-
-STEP 2 - Type your Mac password. Write down the new account and password.
-
-LAUNCH - Click Switch now. Log in as that new account. Open Zoom there.
-
-Do not stay on this login. Deleting those accounts does nothing.
-
-
-If that still fails
--------------------
-
-STEP 1 - In 1132.WTF, click STEP 3 - Join in browser.
-
-STEP 2 - Paste the meeting link.
-
-LAUNCH - Click Open. Join from the browser. Do not sign in as the old account.
+Zoom is force-closed. A new empty Zoom opens. Join.
+Do not sign in as the old account.
