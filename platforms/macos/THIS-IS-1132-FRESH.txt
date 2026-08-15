@@ -1,13 +1,14 @@
-THIS IS 1132 FRESH 1.0.16
+THIS IS 1132 FRESH 1.0.17
 =========================
 
 Lime green icon.
 Window title: 1132 FRESH
-Banner: 1132 FRESH 1.0.16   new random Zoom name each launch
+Banner: 1132 FRESH 1.0.17   v9 fresh Zoom
 Zip name: 1132-FRESH-macos.zip
 
-Each launch picks a new random Zoom name so the last one
-cannot be reused. Zoom runs as a hidden temporary user.
+This uses the last known working v9 launch:
+protect regular Zoom, open factory-fresh Zoom on this
+desktop, restore when Zoom quits. No Mac password.
 
-If the icon is cyan / dark blue, or the banner does not say
-1.0.16, that is the OLD app. Trash it.
+If the icon is cyan, or the banner does not say 1.0.17,
+that is the OLD app. Trash it.

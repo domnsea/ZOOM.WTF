@@ -14,8 +14,8 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.16"
-BUNDLE_ID="wtf.fix1132.mac.16"
+APP_VERSION="1.0.17"
+BUNDLE_ID="wtf.fix1132.mac.17"
 
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
 LOG_DIR="$HOME/Library/Logs/$APP_NAME"
@@ -440,13 +440,12 @@ do_fix() {
   [ -n "$zoom" ] || die "Zoom is not installed. Install Zoom from zoom.us, then run this again."
   log OK "Zoom: $zoom"
 
-  stop_zoom
-  do_wipe_identity
-
   if [ "${NO_LAUNCH:-${WTF1132_NO_LAUNCH:-0}}" = "1" ]; then
+    stop_zoom
+    do_wipe_identity
     return 0
   fi
-  do_fresh_session "$zoom"
+  do_v9_launch
 }
 
 list_backups() {
@@ -519,75 +518,63 @@ mac_user_exists() {
   /usr/bin/dscl . -read "/Users/$1" >/dev/null 2>&1
 }
 
-# Hidden throwaway user on THIS desktop. Zoom's process runs as that user
-# (launchctl asuser + sudo -u). osascript is only used for the password
-# prompt. When Zoom quits, the watcher deletes the user.
-do_fresh_session() {
-  local zoom="${1:-}"
-  if [ -z "$zoom" ]; then
-    zoom="$(find_zoom_app || true)"
-  fi
-  [ -n "$zoom" ] || die "Zoom is not installed on this Mac. Install Zoom from zoom.us, then run this again."
+assert_safe_user() {
+  case "$1" in
+    "$SLOT_PREFIX"*) : ;;
+    *) die "Refusing to act on '$1': not a $APP_NAME rotation account." ;;
+  esac
+}
 
+# Last known working Mac launch (v9 PUBLIC SAFE):
+# move the regular Zoom profile aside, start zoom.us with HOME +
+# CFFIXED_USER_HOME on this desktop, restore when Zoom quits.
+# No temp Mac user. No sudo. No osascript to start Zoom.
+do_v9_launch() {
   local helper
-  helper="$(cd "$(dirname "$0")" && pwd)/1132wtf-session.sh"
-  [ -f "$helper" ] || die "Missing session helper: $helper"
-  chmod +x "$helper" 2>/dev/null || true
+  helper="$(cd "$(dirname "$0")" && pwd)/launch_fresh_zoom.sh"
+  [ -f "$helper" ] || die "Missing v9 launcher: $helper"
+  chmod +x "$helper" "$(dirname "$helper")/common.sh" \
+    "$(dirname "$helper")/restore_profile.sh" \
+    "$(dirname "$helper")/monitor_zoom.sh" 2>/dev/null || true
 
-  local session_dir="$SUPPORT_DIR/session"
-  rm -rf "$session_dir"
-  mkdir -p "$session_dir"
-  : >"$LOG_DIR/session.log"
   local name
   name="$(resolve_display_name "${WTF1132_DISPLAY_NAME:-}")"
   WTF1132_DISPLAY_NAME="$name"
   export WTF1132_DISPLAY_NAME
   printf '%s\n' "$name" >"$LOG_DIR/last_display_name.txt"
-  local join_url=""
-  join_url="$(build_join_url || true)"
+
   local meeting
   meeting="$(printf '%s' "${WTF1132_MEETING:-${WTF1132_JOIN_URL:-}}" | tr -d '[:space:]')"
   if [ -n "$meeting" ]; then
     printf '%s' "$meeting" | /usr/bin/pbcopy >/dev/null 2>&1 || true
     printf '%s\n' "$meeting" >"$LOG_DIR/last_meeting.txt"
     log INFO "Meeting number is on the clipboard. Paste it into Zoom Join."
+  else
+    printf '%s' "$name" | /usr/bin/pbcopy >/dev/null 2>&1 || true
+    log INFO "Zoom name '$name' is on the clipboard. Paste it into Zoom Join."
   fi
-  printf '%s\n' "$zoom" >"$session_dir/zoom.path"
-  printf '%s\n' "$join_url" >"$session_dir/join.url"
-  printf '%s\n' "$name" >"$session_dir/display.name"
-  printf '%s\n' "$LOG_DIR/session.log" >"$session_dir/session.log"
 
-  log ACTION "macOS will ask for your password once. That creates a hidden temporary user."
+  log ACTION "Opening factory-fresh Zoom on this desktop (v9)."
   log INFO "This Zoom name is '$name' (new random name every launch)."
-  log INFO "Zoom then starts as that user (launchctl asuser + sudo -u), not as $(id -un)."
+  log INFO "No Mac password. Close Zoom to restore your regular profile."
 
-  if ! run_admin "/bin/bash '$helper' --start-from '$session_dir'" >>"$LOG_FILE" 2>&1; then
-    die "Need your Mac password to create the temporary Zoom profile."
+  if ! /bin/bash "$helper"; then
+    die "Fresh Zoom did not start. See $HOME/Library/Logs/1132.WTF/launch.log"
   fi
-
-  local waited=0
-  while [ "$waited" -lt 25 ]; do
-    if grep -q 'FATAL:' "$LOG_DIR/session.log" 2>/dev/null; then
-      die "Could not start the temporary Zoom user. See $LOG_DIR/session.log"
-    fi
-    if grep -q "Zoom is running as" "$LOG_DIR/session.log" 2>/dev/null; then
-      log OK "Zoom is running as '$name', not as $(id -un)."
-      log DONE "Click Join. When you quit Zoom, the temporary user is deleted."
-      return 0
-    fi
-    sleep 1
-    waited=$((waited + 1))
-  done
-
-  if grep -q 'FATAL:' "$LOG_DIR/session.log" 2>/dev/null; then
-    die "Could not start the temporary Zoom user. See $LOG_DIR/session.log"
-  fi
-  log OK "Temporary user is starting Zoom as '$name'."
-  log DONE "Click Join. When you quit Zoom, the temporary user is deleted."
+  log OK "Fresh Zoom is opening. Type '$name' in Zoom Join."
+  log DONE "Close Zoom completely, or run STEP 2, to restore your regular Zoom."
 }
 
 do_deep_fix() {
-  do_fix
+  local helper
+  helper="$(cd "$(dirname "$0")" && pwd)/restore_profile.sh"
+  [ -f "$helper" ] || die "Missing v9 restore: $helper"
+  chmod +x "$helper" 2>/dev/null || true
+  log ACTION "Closing disposable Zoom and restoring your regular profile."
+  if ! /bin/bash "$helper"; then
+    die "Could not restore the regular Zoom profile. See $HOME/Library/Logs/1132.WTF/launch.log"
+  fi
+  log OK "Regular Zoom profile restored."
 }
 
 # The "browser" verb used to open a web page. That is disabled.

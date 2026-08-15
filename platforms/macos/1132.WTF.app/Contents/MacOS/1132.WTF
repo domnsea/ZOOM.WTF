@@ -10,7 +10,7 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.16"
+APP_VERSION="1.0.17"
 APP_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 export APP_ROOT
 ENGINE="$APP_ROOT/Contents/Resources/1132wtf-engine.sh"
@@ -28,7 +28,8 @@ OLD_AGENT12="$HOME/Library/LaunchAgents/wtf.fix1132.mac.12.plist"
 OLD_AGENT13="$HOME/Library/LaunchAgents/wtf.fix1132.mac.13.plist"
 OLD_AGENT14="$HOME/Library/LaunchAgents/wtf.fix1132.mac.14.plist"
 OLD_AGENT15="$HOME/Library/LaunchAgents/wtf.fix1132.mac.15.plist"
-for agent in "$OLD_AGENT" "$OLD_AGENT12" "$OLD_AGENT13" "$OLD_AGENT14" "$OLD_AGENT15"; do
+OLD_AGENT16="$HOME/Library/LaunchAgents/wtf.fix1132.mac.16.plist"
+for agent in "$OLD_AGENT" "$OLD_AGENT12" "$OLD_AGENT13" "$OLD_AGENT14" "$OLD_AGENT15" "$OLD_AGENT16"; do
   /bin/launchctl bootout "gui/$(id -u)" "$agent" >/dev/null 2>&1 ||
     /bin/launchctl unload "$agent" >/dev/null 2>&1 || true
   rm -f "$agent"
@@ -78,7 +79,7 @@ fi
 # ------------------------------------------------------------ branded window
 
 OPT_FIX="STEP 1 - Fix Zoom"
-OPT_DEEP="STEP 2 - Deep fix (only if STEP 1 still fails)"
+OPT_DEEP="STEP 2 - Close and restore Zoom"
 OPT_STATUS="Status"
 OPT_UNDO="Undo last fix"
 OPT_AUTO_ON="Turn on autostart"
@@ -90,8 +91,8 @@ pick_from_plain_list() {
 set choices to {"$OPT_FIX", "$OPT_DEEP", "$OPT_STATUS", "$OPT_UNDO", "$OPT_AUTO_ON", "$OPT_AUTO_OFF", "$OPT_LOGS"}
 set picked to choose from list choices with title "1132 FRESH $APP_VERSION" ¬
   with prompt "STEP 1 - click Fix Zoom" & return & ¬
-  "STEP 2 - a new random name is picked each time" & return & ¬
-  "LAUNCH creates a temporary user, then Zoom" ¬
+  "STEP 2 - Close Zoom to restore your regular profile" & return & ¬
+  "LAUNCH opens factory-fresh Zoom on this desktop" ¬
   default items {"$OPT_FIX"} OK button name "LAUNCH" cancel button name "Close"
 if picked is false then
   return "cancelled"
@@ -139,9 +140,6 @@ if [ "$VERB" = "fix" ] || [ "$VERB" = "deep-fix" ]; then
   export WTF1132_DISPLAY_NAME="${DISPLAY_NAME:-}"
   export WTF1132_MEETING="${MEETING:-}"
 fi
-if [ "$VERB" = "deep-fix" ]; then
-  VERB="fix"
-fi
 
 OUTPUT="$(run_engine "$VERB")"
 STATUS=$?
@@ -154,15 +152,14 @@ if [ "$NEEDS_REPORT" -eq 1 ]; then
     SUMMARY="Done.
 
 This Zoom name: $USED_NAME
-A new random name is picked every launch so the last one cannot be reused.
+Paste that name into Zoom Join. A new random name is picked every launch.
 
-LAUNCH - macOS will ask for your password once.
-That creates a hidden temporary user.
-Zoom is started with sudo -u as that user, not as your Mac login.
-Click Join. Paste the meeting number.
-When you quit Zoom, that user is deleted.
+LAUNCH - Fresh Zoom is opening on this desktop.
+No Mac password. No profile switch.
+This is the v9 launch that last worked.
+Close Zoom completely to restore your regular Zoom, or use STEP 2.
 
-Window must say 1132 FRESH 1.0.16. If it does not, this is the old app."
+Window must say 1132 FRESH 1.0.17. If it does not, this is the old app."
     /usr/bin/osascript -e "display notification \"1132 FRESH is opening Zoom.\" with title \"1132 FRESH $APP_VERSION\"" >/dev/null 2>&1 || true
     /usr/bin/osascript -e "display dialog \"$(applescript_quote "$SUMMARY")\" \
       buttons {\"OK\"} default button \"OK\" with title \"1132 FRESH $APP_VERSION\"" >/dev/null 2>&1 || true

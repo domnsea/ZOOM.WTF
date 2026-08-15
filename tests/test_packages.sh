@@ -179,7 +179,7 @@ printf '\nsafety invariants hold on every desktop platform\n'
 # on a reserved name prefix before deleting anything.
 check_grep "windows refuses accounts outside its prefix" "Refusing to delete" "$WIN_ENGINE"
 check_grep "macos refuses accounts outside its prefix" "Refusing to act on" \
-  platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
+  platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-engine.sh
 check_grep "linux refuses accounts outside its prefix" "Refusing to delete" "$LINUX_ENGINE"
 
 # Backups must exist before anything is deleted, and restore must be reachable.
@@ -211,16 +211,16 @@ check_grep "macos can pass a guest display name" "uname=" "$MAC_ENGINE"
 check_grep "macos picks a new random Zoom name each launch" "random_display_name" "$MAC_ENGINE"
 check_grep "macos window generates a random display name" "randomDisplayName" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa
-check_grep "macos session helper prepares a throwaway user" "--prepare" \
-  platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
-check_grep "macos app shows version 1.0.16 so an old copy is obvious" "1.0.16" \
+check_grep "macos v9 launch sets CFFIXED_USER_HOME" "CFFIXED_USER_HOME" \
+  platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
+check_grep "macos v9 launch uses a disposable runtime home" "runtime-home" \
+  platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
+check_grep "macos v9 restores the regular Zoom profile" "restore_profile.sh" \
+  platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
+check_grep "macos app shows version 1.0.17 so an old copy is obvious" "1.0.17" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
 check_grep "macos window title is 1132 FRESH" "1132 FRESH" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa
-check_grep "macos launches Zoom as the throwaway user with sudo -u" "sudo -u" \
-  platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
-check_grep "macos uses launchctl asuser for the desktop" "launchctl asuser" \
-  platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
 check_grep "macos GUI is a branded window" "1132wtf-gui.jxa" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
 check_grep "macos GUI shows the 1132 logo" "setIcon" \
@@ -239,10 +239,8 @@ if grep -qi safari platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.j
 else
   pass "macos window does not mention Safari"
 fi
-check_grep "macos hides the throwaway user from the login list" "IsHidden" \
-  platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
-check_grep "macos deletes the throwaway user after Zoom quits" "Zoom exited. Deleting" \
-  platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh
+check_grep "macos v9 watches Zoom and restores on quit" "Zoom fully closed" \
+  platforms/macos/1132.WTF.app/Contents/Resources/monitor_zoom.sh
 if grep -E 'open -na.*[Zz]oom|open -na "\$zoom' "$MAC_ENGINE"; then
   fail "macos does not start a second Zoom with open -n" \
     "open -na starts a second instance that often has no window"
@@ -266,18 +264,20 @@ fi
 python_check <<'PY'
 from pathlib import Path
 engine = Path("platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-engine.sh").read_text()
-helper = Path("platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-session.sh").read_text()
+helper = Path("platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh").read_text()
 launcher = Path("platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF").read_text()
 gui = Path("platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa").read_text()
 start = engine.find("do_fix()")
 end = engine.find("\nlist_backups()", start)
 block = engine[start:end]
-if "do_fresh_session" not in block:
-    raise SystemExit("do_fix must create a temporary user and open Zoom")
+if "do_v9_launch" not in block:
+    raise SystemExit("do_fix must use the v9 fresh Zoom launch")
 if "launch_zoom_temp_profile" in engine or "launch_zoom_clean" in engine:
-    raise SystemExit("engine must not launch Zoom as the logged-in Mac user")
-if "launchctl asuser" not in helper or "sudo -u" not in helper:
-    raise SystemExit("helper must launch Zoom as the temp user via launchctl asuser + sudo -u")
+    raise SystemExit("engine must not use the broken HOME-only Zoom launchers")
+if "CFFIXED_USER_HOME" not in helper:
+    raise SystemExit("v9 launch must set CFFIXED_USER_HOME")
+if "sudo -u" in helper or "launchctl asuser" in helper:
+    raise SystemExit("v9 launch must not use sudo -u or launchctl asuser")
 if "resolve_display_name" not in engine or "random_display_name" not in engine:
     raise SystemExit("engine must pick a new random Zoom name each launch")
 if "setStringValue('Guest')" in gui:
@@ -287,7 +287,7 @@ if "randomDisplayName" not in gui:
 for banned in ("Safari", "open_join_page", "fromPWA", "Google Chrome", "Firefox"):
     if banned in engine or banned in launcher or banned in gui:
         raise SystemExit(f"Mac app still contains {banned}")
-print("  ok    macos fix opens Zoom as a temporary user via sudo -u")
+print("  ok    macos fix opens v9 factory-fresh Zoom on this desktop")
 PY
 if grep -q "Switch now" "$MAC_ENGINE"; then
   fail "macos fix does not ask you to switch profiles" "Switch now is still in the engine"

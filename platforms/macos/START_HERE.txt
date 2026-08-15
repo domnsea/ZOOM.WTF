@@ -1,34 +1,34 @@
-1132 FRESH 1.0.16 — Mac only
-============================
+1132 FRESH 1.0.17 — Mac only — v9 launch
+=======================================
 
-This zip is named 1132-FRESH-macos.zip
-The icon is LIME GREEN, not cyan.
-The window title is 1132 FRESH.
-The lime banner says 1132 FRESH 1.0.16.
-The Dock name is 1132 FRESH.
+This is the last known working launch (v9 PUBLIC SAFE),
+inside the lime 1132 FRESH package.
 
-If you do not see 1.0.16, you have the old app. Trash it.
+It does NOT create a temp Mac user.
+It does NOT ask for your Mac password.
+It does NOT use osascript to start Zoom.
 
-Each LAUNCH picks a new random Zoom name (for example Riley Kim 042)
-so the last name cannot be reused.
+STEP 1 protects your regular Zoom profile, then opens a
+factory-fresh Zoom window on THIS desktop.
+STEP 2 (or quitting Zoom) restores your regular Zoom.
 
-LAUNCH also creates a hidden temporary Mac user, then starts Zoom with
-launchctl asuser + sudo -u as THAT user. When you quit Zoom, that user
-is deleted.
+The lime banner must say 1132 FRESH 1.0.17.
+If it does not, you have the old app. Trash it.
 
 Download:
 
 https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132-FRESH-macos.zip
 
 Delete every old 1132 zip. Double-click 1132-FRESH-macos.zip.
-Double-click 1132.WTF.app. The window must say 1132 FRESH 1.0.16.
 
-STEP 1 - Click STEP 1 - Fix Zoom
-STEP 2 - A random name is already in the box. Type the meeting number.
-LAUNCH - Click LAUNCH. Type your Mac password when asked. Zoom opens as
-         the temporary user with that new name. Click Join. Paste the
-         meeting number. When you quit Zoom, that temporary user is deleted.
+STEP 1 - Right-click "STEP 1 - OPEN FRESH ZOOM.command" → Open → Open
+         Or double-click 1132.WTF.app, click STEP 1 - Fix Zoom, LAUNCH.
+STEP 2 - Type the random name into Zoom Join. Type the meeting number.
+LAUNCH - When you are done, quit Zoom. Or run
+         "STEP 2 - CLOSE AND CLEAN ZOOM.command"
 
-If macOS will not replace the old app in Applications, paste this in Terminal:
+If macOS blocks the command: System Settings → Privacy & Security → Open Anyway.
+
+If the old app is stuck in Applications:
 
 sudo rm -rf /Applications/1132.WTF.app && sudo cp -R "$HOME/Downloads/1132-FRESH-macos/1132.WTF.app" /Applications/1132.WTF.app && sudo chown -R "$(whoami):staff" /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app

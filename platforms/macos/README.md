@@ -10,22 +10,21 @@ compile.
 
 Open `START_HERE.txt`. Short version:
 
-STEP 1 - Right-click **`INSTALL_TO_APPLICATIONS.command`** → Open → Open
+STEP 1 - Right-click **`STEP 1 - OPEN FRESH ZOOM.command`** → Open → Open
 
-STEP 2 - You should see the **1132 logo** and the action list. Click **STEP 1 - Fix Zoom**
+STEP 2 - Type the random name into Zoom Join. Type the meeting #.
 
-LAUNCH - Type a name that is not your old name. Type the meeting #. Click LAUNCH.
-**Zoom.app** opens. Join. Do not sign in as the old account. This does not open a browser.
+If you want it in Applications instead, right-click **`INSTALL_TO_APPLICATIONS.command`**.
 
 If macOS says the author cannot be verified, that is normal. Click Done, then
 System Settings → Privacy & Security → Open Anyway. Or open `OPEN_ME_FIRST.txt`.
 
-## The two steps in the window
+## The two steps
 
 | Step | What it does | Admin password |
 |---|---|---|
-| **STEP 1 Fix Zoom** | Quits Zoom **and its helpers**, backs up and erases every Zoom identity path, wipes keychain login, opens a clean **Zoom.app** | no |
-| **STEP 2 Deep fix** | Same wipe again, then opens **Zoom.app** again | no |
+| **STEP 1 OPEN FRESH ZOOM** | Protects your regular Zoom profile, opens factory-fresh Zoom on this desktop (v9) | no |
+| **STEP 2 CLOSE AND CLEAN** | Deletes the disposable profile and restores your regular Zoom | no |
 
 ### What level 1 erases
 
