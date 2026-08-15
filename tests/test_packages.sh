@@ -191,6 +191,19 @@ check_grep "linux writes a backup manifest" "manifest.txt" "$LINUX_ENGINE"
 check_grep "macos claims a unique backup directory" "new_backup_dir" "$MAC_ENGINE"
 check_grep "linux claims a unique backup directory" "new_backup_dir" "$LINUX_ENGINE"
 
+# The first macOS wipe only moved a handful of Library paths and then ran
+# `open -a`, which reused the old Zoom session. That left the previous
+# display name and "Join new room?" meeting history in place.
+check_grep "macos wipes group containers" "Group Containers" "$MAC_ENGINE"
+check_grep "macos wipes hidden .zoomus dir" ".zoomus" "$MAC_ENGINE"
+check_grep "macos kills ZoomOpener" "ZoomOpener" "$MAC_ENGINE"
+check_grep "macos kills CptHost" "CptHost" "$MAC_ENGINE"
+check_grep "macos launches an isolated --data profile" "--data=" "$MAC_ENGINE"
+check_grep "macos forces a new Zoom instance" "open -na" "$MAC_ENGINE"
+check_grep "macos loop-deletes keychain items" "delete-generic-password" "$MAC_ENGINE"
+check_grep "macos flushes cfprefsd" "cfprefsd" "$MAC_ENGINE"
+check_grep "macos can pass a guest display name" "uname=" "$MAC_ENGINE"
+
 # No hardcoded passwords anywhere. The original Windows build shipped one.
 if grep -rniE "ZoomTemp123|password *= *['\"][A-Za-z0-9!@#]{6,}['\"]" \
   platforms/ --include='*.ps1' --include='*.sh' --include='*.bat' >/dev/null 2>&1; then

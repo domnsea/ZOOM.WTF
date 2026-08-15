@@ -14,12 +14,15 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.0"
+APP_VERSION="1.0.2"
 BUNDLE_ID="wtf.fix1132.mac"
 
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
 LOG_DIR="$HOME/Library/Logs/$APP_NAME"
 BACKUP_DIR="$SUPPORT_DIR/backups"
+# Empty Zoom profile used only for the launch after a reset. Recreated every
+# fix so Zoom cannot reopen the leftover name, rooms, or signed-in account.
+CLEAN_PROFILE_DIR="$SUPPORT_DIR/zoom-clean"
 SLOT_FILE="$SUPPORT_DIR/slot.txt"
 LAST_RUN_FILE="$SUPPORT_DIR/lastrun.txt"
 LOCK_DIR="$SUPPORT_DIR/run.lock"
@@ -110,9 +113,15 @@ find_zoom_app() {
   return 1
 }
 
+# Helpers keep the old session in memory and rewrite the profile after a
+# partial quit. CptHost / ZoomOpener are why a folder wipe still opened as
+# the previous name and still offered "Join new room?".
+ZOOM_HELPER_PATTERNS='zoom.us|ZoomOpener|ZoomAutoUpdater|CptHost|aomhost|caphost|airhost|zCrashReport|TranscodeServer|CptShare'
+
 zoom_running() {
   /usr/bin/pgrep -ix "zoom.us" >/dev/null 2>&1 && return 0
   /usr/bin/pgrep -f "zoom.us.app/Contents/MacOS" >/dev/null 2>&1 && return 0
+  /usr/bin/pgrep -i -f "$ZOOM_HELPER_PATTERNS" >/dev/null 2>&1 && return 0
   return 1
 }
 
@@ -121,11 +130,11 @@ stop_zoom() {
     log INFO "Zoom was not running."
     return 0
   fi
-  log ACTION "Quitting Zoom"
+  log ACTION "Quitting Zoom and every helper (CptHost, ZoomOpener, updater)"
   /usr/bin/osascript -e 'tell application "zoom.us" to quit' >/dev/null 2>&1 || true
 
   local waited=0
-  while zoom_running && [ "$waited" -lt 10 ]; do
+  while zoom_running && [ "$waited" -lt 8 ]; do
     sleep 1
     waited=$((waited + 1))
   done
@@ -134,29 +143,93 @@ stop_zoom() {
     log WARN "Zoom ignored the quit request, forcing it."
     /usr/bin/pkill -ix "zoom.us" >/dev/null 2>&1 || true
     /usr/bin/pkill -f "zoom.us.app/Contents/MacOS" >/dev/null 2>&1 || true
+    /usr/bin/pkill -i -f "$ZOOM_HELPER_PATTERNS" >/dev/null 2>&1 || true
     sleep 1
   fi
 
   if zoom_running; then
-    log WARN "Zoom is still running. The reset may be incomplete."
+    /usr/bin/pkill -9 -ix "zoom.us" >/dev/null 2>&1 || true
+    /usr/bin/pkill -9 -i -f "$ZOOM_HELPER_PATTERNS" >/dev/null 2>&1 || true
+    sleep 1
+  fi
+
+  if zoom_running; then
+    log WARN "A Zoom process is still running. The reset may be incomplete."
   else
-    log OK "Zoom stopped."
+    log OK "Zoom and its helpers stopped."
   fi
 }
 
 # ------------------------------------------------------- level 1: local reset
 
+# Skip 1132.WTF's own folders so a glob on *zoom* cannot eat our backups.
+is_our_path() {
+  case "$1" in
+    *"/1132.WTF"*|*"/wtf.fix1132"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+label_from_path() {
+  local rel="${1#"$HOME"/}"
+  printf '%s' "$rel" | tr '/ :' '___' | tr -cd 'A-Za-z0-9._-' | cut -c1-96
+}
+
 # label|path pairs. Labels keep backup folder names unique and let restore put
-# each item back exactly where it came from.
+# each item back exactly where it came from. The first block is every path
+# Zoom is known to use for the display name, meeting history ("Join new
+# room?"), SSO, and device id. The glob block catches folders Zoom adds in
+# later builds (Group Containers, extra preference domains, ~/.zoomus).
 identity_targets() {
-  cat <<TARGETS
-app_support|$HOME/Library/Application Support/zoom.us
-preferences|$HOME/Library/Preferences/$ZOOM_BUNDLE_ID.plist
-caches|$HOME/Library/Caches/$ZOOM_BUNDLE_ID
-cookies|$HOME/Library/Cookies/$ZOOM_BUNDLE_ID.binarycookies
-saved_state|$HOME/Library/Saved Application State/$ZOOM_BUNDLE_ID.savedState
-http_storage|$HOME/Library/HTTPStorages/$ZOOM_BUNDLE_ID
-TARGETS
+  {
+    printf '%s\n' "app_support|$HOME/Library/Application Support/zoom.us"
+    printf '%s\n' "app_support_zoom|$HOME/Library/Application Support/Zoom"
+    printf '%s\n' "app_support_xos|$HOME/Library/Application Support/$ZOOM_BUNDLE_ID"
+    printf '%s\n' "app_support_chat|$HOME/Library/Application Support/ZoomChat"
+    printf '%s\n' "app_support_updater|$HOME/Library/Application Support/ZoomAutoUpdater"
+    printf '%s\n' "preferences|$HOME/Library/Preferences/$ZOOM_BUNDLE_ID.plist"
+    printf '%s\n' "preferences_zoomus|$HOME/Library/Preferences/zoom.us.plist"
+    printf '%s\n' "preferences_config|$HOME/Library/Preferences/us.zoom.config.plist"
+    printf '%s\n' "preferences_chat|$HOME/Library/Preferences/ZoomChat.plist"
+    printf '%s\n' "preferences_updater|$HOME/Library/Preferences/us.zoom.ZoomAutoUpdater.plist"
+    printf '%s\n' "preferences_updater2|$HOME/Library/Preferences/us.zoom.updater.plist"
+    printf '%s\n' "caches|$HOME/Library/Caches/$ZOOM_BUNDLE_ID"
+    printf '%s\n' "caches_com|$HOME/Library/Caches/com.zoom.us"
+    printf '%s\n' "caches_zoom|$HOME/Library/Caches/Zoom"
+    printf '%s\n' "caches_updater|$HOME/Library/Caches/us.zoom.updater"
+    printf '%s\n' "cookies|$HOME/Library/Cookies/$ZOOM_BUNDLE_ID.binarycookies"
+    printf '%s\n' "saved_state|$HOME/Library/Saved Application State/$ZOOM_BUNDLE_ID.savedState"
+    printf '%s\n' "http_storage|$HOME/Library/HTTPStorages/$ZOOM_BUNDLE_ID"
+    printf '%s\n' "http_storage_cookies|$HOME/Library/HTTPStorages/$ZOOM_BUNDLE_ID.binarycookies"
+    printf '%s\n' "logs|$HOME/Library/Logs/zoom.us"
+    printf '%s\n' "logs_zoom|$HOME/Library/Logs/Zoom"
+    printf '%s\n' "webkit|$HOME/Library/WebKit/$ZOOM_BUNDLE_ID"
+    printf '%s\n' "webkit_com|$HOME/Library/WebKit/com.zoom.us"
+    printf '%s\n' "containers|$HOME/Library/Containers/$ZOOM_BUNDLE_ID"
+    printf '%s\n' "containers_com|$HOME/Library/Containers/com.zoom.us"
+    printf '%s\n' "dot_zoomus|$HOME/.zoomus"
+
+    # This brace is piped, so it runs in a subshell — do not use `local` here.
+    # nullglob so an unused pattern does not emit itself as a fake path.
+    shopt -s nullglob
+    for p in \
+      "$HOME/Library/Group Containers/"*[Zz]oom* \
+      "$HOME/Library/Containers/"*[Zz]oom* \
+      "$HOME/Library/Application Support/"*[Zz]oom* \
+      "$HOME/Library/Caches/"*[Zz]oom* \
+      "$HOME/Library/Logs/"*[Zz]oom* \
+      "$HOME/Library/Preferences/"*[Zz]oom* \
+      "$HOME/Library/WebKit/"*[Zz]oom* \
+      "$HOME/Library/HTTPStorages/"*[Zz]oom* \
+      "$HOME/Library/LaunchAgents/"*[Zz]oom* \
+      "$HOME/Library/LaunchAgents/"*Zoom* \
+      "$HOME/.zoomus"
+    do
+      is_our_path "$p" && continue
+      printf '%s\n' "$(label_from_path "$p")|$p"
+    done
+    shopt -u nullglob
+  } | awk -F'|' 'NF == 2 && $2 != "" && !seen[$2]++'
 }
 
 # Claim a backup directory that does not exist yet. Plain mkdir, not mkdir -p,
@@ -172,6 +245,176 @@ new_backup_dir() {
       return 0
     fi
   done
+  return 1
+}
+
+# Move a path into the backup. LaunchAgents are unloaded first so ZoomOpener
+# cannot rewrite the profile while we are moving it. Falls back to copy+rm
+# when mv cannot cross volumes or a file is briefly busy.
+move_identity() {
+  local path="$1" dest="$2"
+  case "$path" in
+    */LaunchAgents/*.plist)
+      /bin/launchctl bootout "gui/$(id -u)" "$path" >/dev/null 2>&1 ||
+        /bin/launchctl unload "$path" >/dev/null 2>&1 || true
+      ;;
+  esac
+  mkdir -p "$(dirname "$dest")"
+  if mv "$path" "$dest" 2>/dev/null; then
+    return 0
+  fi
+  if cp -R "$path" "$dest" 2>/dev/null; then
+    rm -rf "$path" >/dev/null 2>&1 && return 0
+  fi
+  return 1
+}
+
+# Zoom caches plist values in cfprefsd. Deleting the file is not enough —
+# cfprefsd writes the old name and rooms straight back on the next launch.
+flush_zoom_defaults() {
+  local domain
+  for domain in \
+    "$ZOOM_BUNDLE_ID" \
+    zoom.us \
+    us.zoom.config \
+    us.zoom.updater \
+    us.zoom.ZoomAutoUpdater \
+    ZoomChat \
+    us.zoom.pkginstall
+  do
+    if /usr/bin/defaults read "$domain" >/dev/null 2>&1; then
+      if /usr/bin/defaults delete "$domain" >/dev/null 2>&1; then
+        log OK "Cleared cached defaults for $domain"
+      else
+        log WARN "Could not clear cached defaults for $domain"
+      fi
+    fi
+  done
+  /usr/bin/killall cfprefsd >/dev/null 2>&1 || true
+}
+
+# One security delete-generic-password call removes ONE item. Zoom stores
+# many (SSO, "keep me signed in", meeting history). A leftover item is what
+# signed the user back in as the previous name after every reset.
+scrub_zoom_keychain() {
+  local item n total=0
+  for item in \
+    "Zoom Safe Meeting Storage" \
+    "zoom.us" \
+    "Zoom" \
+    "us.zoom.xos" \
+    "Zoom SSO" \
+    "ZoomChat" \
+    "ZoomAutoUpdater" \
+    "us.zoom.updater"
+  do
+    n=0
+    while [ "$n" -lt 40 ]; do
+      /usr/bin/security delete-generic-password -l "$item" >/dev/null 2>&1 || break
+      n=$((n + 1))
+    done
+    while [ "$n" -lt 40 ]; do
+      /usr/bin/security delete-generic-password -s "$item" >/dev/null 2>&1 || break
+      n=$((n + 1))
+    done
+    if [ "$n" -gt 0 ]; then
+      log OK "Removed $n keychain item(s) for $item"
+      total=$((total + n))
+    fi
+  done
+  for item in zoom.us www.zoom.us api.zoom.us "*.zoom.us"; do
+    n=0
+    while [ "$n" -lt 20 ]; do
+      /usr/bin/security delete-internet-password -s "$item" >/dev/null 2>&1 || break
+      n=$((n + 1))
+    done
+    if [ "$n" -gt 0 ]; then
+      log OK "Removed $n internet-password item(s) for $item"
+      total=$((total + n))
+    fi
+  done
+  if [ "$total" -eq 0 ]; then
+    log INFO "No Zoom keychain items were present."
+  fi
+}
+
+urlencode() {
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1"
+  else
+    printf '%s' "$1" | sed 's/ /%20/g'
+  fi
+}
+
+# Build a zoommtg join URL from WTF1132_MEETING / WTF1132_JOIN_URL and an
+# optional WTF1132_DISPLAY_NAME. Passing uname= stops Zoom prefilling the
+# Mac account name (the reason a clean profile still said "dustin").
+build_join_url() {
+  local raw="${WTF1132_JOIN_URL:-${WTF1132_MEETING:-${WTF1132_MEETING_ID:-}}}"
+  raw="$(printf '%s' "$raw" | tr -d '[:space:]')"
+  local name="${WTF1132_DISPLAY_NAME:-}"
+  local encoded=""
+  if [ -n "$name" ]; then
+    encoded="$(urlencode "$name")"
+  fi
+
+  if [ -z "$raw" ]; then
+    return 1
+  fi
+
+  case "$raw" in
+    zoommtg://*)
+      if [ -n "$encoded" ] && ! printf '%s' "$raw" | grep -q 'uname='; then
+        printf '%s&uname=%s' "$raw" "$encoded"
+      else
+        printf '%s' "$raw"
+      fi
+      return 0
+      ;;
+  esac
+
+  local id pwd
+  id="$(printf '%s' "$raw" | sed -n 's|.*/j/\([0-9][0-9]*\).*|\1|p')"
+  if [ -z "$id" ]; then
+    id="$(printf '%s' "$raw" | sed -n 's/.*confno=\([0-9][0-9]*\).*/\1/p')"
+  fi
+  if [ -z "$id" ]; then
+    id="$(printf '%s' "$raw" | tr -cd '0-9')"
+  fi
+  pwd="$(printf '%s' "$raw" | sed -n 's/.*[?&]pwd=\([^&]*\).*/\1/p')"
+  [ -z "$id" ] && return 1
+
+  local url="zoommtg://zoom.us/join?confno=${id}"
+  [ -n "$pwd" ] && url="${url}&pwd=${pwd}"
+  [ -n "$encoded" ] && url="${url}&uname=${encoded}"
+  printf '%s' "$url"
+}
+
+# Launch a NEW Zoom instance against an empty --data= directory. `open -a`
+# without -n reuses the running app and its old profile, which is why the
+# previous name and "Join new room?" survived a folder wipe.
+launch_zoom_isolated() {
+  local zoom_app="$1"
+  rm -rf "$CLEAN_PROFILE_DIR"
+  mkdir -p "$CLEAN_PROFILE_DIR"
+
+  local join_url=""
+  join_url="$(build_join_url || true)"
+
+  local args=(--data="$CLEAN_PROFILE_DIR")
+  if [ -n "$join_url" ]; then
+    args+=(--url="$join_url")
+    log INFO "Joining with a guest name so Zoom cannot reuse a saved identity."
+  elif [ -n "${WTF1132_DISPLAY_NAME:-}" ]; then
+    log INFO "No meeting id given; type '${WTF1132_DISPLAY_NAME}' in Zoom's join box (not your Mac login name)."
+  fi
+
+  log ACTION "Opening Zoom in an isolated empty profile (not your old one)"
+  if /usr/bin/open -na "$zoom_app" --args "${args[@]}"; then
+    log OK "Zoom started in a fresh profile."
+    return 0
+  fi
+  log WARN "Could not open Zoom automatically. Open it from Applications."
   return 1
 }
 
@@ -195,7 +438,7 @@ do_fix() {
   while IFS='|' read -r label path; do
     [ -z "${label:-}" ] && continue
     [ -e "$path" ] || continue
-    if mv "$path" "$backup/$label" 2>/dev/null; then
+    if move_identity "$path" "$backup/$label"; then
       printf '%s|%s\n' "$label" "$path" >>"$manifest"
       log OK "Reset $path"
       moved=$((moved + 1))
@@ -204,23 +447,9 @@ do_fix() {
     fi
   done < <(identity_targets)
 
-  # Zoom's cached preference values live in cfprefsd too, so drop them there.
-  if /usr/bin/defaults read "$ZOOM_BUNDLE_ID" >/dev/null 2>&1; then
-    if /usr/bin/defaults delete "$ZOOM_BUNDLE_ID" >/dev/null 2>&1; then
-      log OK "Cleared cached defaults for $ZOOM_BUNDLE_ID"
-    else
-      log WARN "Could not clear cached defaults for $ZOOM_BUNDLE_ID"
-    fi
-  fi
-
-  # Keychain items cannot be exported without prompting for each one, so these
-  # are deleted rather than backed up. Zoom recreates them on next sign in.
-  local item
-  for item in "Zoom Safe Meeting Storage" "zoom.us" "Zoom"; do
-    if /usr/bin/security delete-generic-password -l "$item" >/dev/null 2>&1; then
-      log OK "Removed keychain item: $item"
-    fi
-  done
+  flush_zoom_defaults
+  scrub_zoom_keychain
+  rm -rf "$CLEAN_PROFILE_DIR"
 
   if [ "$moved" -eq 0 ]; then
     rm -f "$manifest"
@@ -230,16 +459,12 @@ do_fix() {
     log INFO "Backup written to $backup"
   fi
 
-  if [ "${NO_LAUNCH:-0}" != "1" ]; then
-    log ACTION "Opening Zoom with a fresh identity"
-    if /usr/bin/open -a "$zoom"; then
-      log OK "Zoom started."
-    else
-      log WARN "Could not open Zoom automatically. Open it from Applications."
-    fi
+  if [ "${NO_LAUNCH:-${WTF1132_NO_LAUNCH:-0}}" != "1" ]; then
+    launch_zoom_isolated "$zoom"
   fi
 
-  log DONE "Level 1 reset complete. Rejoin the meeting now."
+  log DONE "Level 1 reset complete. Zoom is empty — the old name and rooms are gone."
+  log INFO "Do not sign into the Zoom account that was blocked. Type a different name if the join box still shows your Mac login name."
 }
 
 list_backups() {
@@ -274,6 +499,8 @@ do_restore() {
       log WARN "Could not restore $path"
     fi
   done <"$backup/manifest.txt"
+
+  rm -rf "$CLEAN_PROFILE_DIR"
 
   log DONE "Restore finished."
   return 0
@@ -367,8 +594,9 @@ do_deep_fix() {
 
 Zoom sees this as a completely different machine-local identity.
 
-Next: switch to that account, open Zoom, and join the meeting. Your own
-account and files are untouched. Switch back at any time.
+Next: switch to that account, open Zoom, and join the meeting.
+Staying on this login and deleting wtf1132 users does nothing —
+Zoom still sees this Mac user. Your own files are untouched.
 
 This account is deleted automatically the next time the rotation reaches it."
 
@@ -524,6 +752,14 @@ do_status() {
   fi
 
   [ -f "$LAST_RUN_FILE" ] && log INFO "Last run: $(cat "$LAST_RUN_FILE")"
+
+  local leftovers=0
+  while IFS='|' read -r label path; do
+    [ -z "${label:-}" ] && continue
+    [ -e "$path" ] || continue
+    leftovers=$((leftovers + 1))
+  done < <(identity_targets)
+  log INFO "Zoom identity leftovers on disk: $leftovers"
   log INFO "Logs: $LOG_DIR"
 }
 

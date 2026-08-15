@@ -32,30 +32,49 @@ Otherwise:
 
 | Level | What it does | Admin password |
 |---|---|---|
-| **1 Fix now** | Quits Zoom, backs up and erases Zoom's local identity, reopens Zoom | no |
-| **2 Deep fix** | Creates a clean throwaway macOS account and hands you its password | yes |
+| **1 Fix now** | Quits Zoom **and its helpers**, backs up and erases every Zoom identity path, wipes keychain login, reopens Zoom in an empty isolated profile | no |
+| **2 Deep fix** | Creates a clean throwaway macOS account. You must **switch** to it — deleting those accounts while staying on this login does nothing | yes |
 | **3 Join in browser** | Opens a fresh private browser window so you skip the client entirely | no |
 
 ### What level 1 erases
 
-Each item is **moved** into a timestamped backup, never deleted outright:
+Each item is **moved** into a timestamped backup, never deleted outright. The
+list is longer than it used to be, because Zoom keeps the display name,
+meeting history ("Join new room?"), and signed-in account in more than the
+main Application Support folder:
 
 ```
 ~/Library/Application Support/zoom.us
+~/Library/Application Support/Zoom
 ~/Library/Preferences/us.zoom.xos.plist
+~/Library/Preferences/us.zoom.config.plist
 ~/Library/Caches/us.zoom.xos
+~/Library/Caches/com.zoom.us
 ~/Library/Cookies/us.zoom.xos.binarycookies
 ~/Library/Saved Application State/us.zoom.xos.savedState
 ~/Library/HTTPStorages/us.zoom.xos
+~/Library/Logs/zoom.us
+~/Library/WebKit/us.zoom.xos
+~/Library/Containers/us.zoom.xos
+~/Library/Group Containers/*zoom*
+~/Library/LaunchAgents/*zoom*   (ZoomOpener — this relaunches the old session)
+~/.zoomus
 ```
 
-It also clears Zoom's cached preferences out of `cfprefsd`, because macOS will
-otherwise write the old values straight back.
+It also:
 
-Keychain items named `Zoom Safe Meeting Storage`, `zoom.us`, and `Zoom` are
-**deleted rather than backed up**, because macOS cannot export a keychain item
-without prompting separately for each one. Zoom recreates them the next time
-you sign in.
+- quits **CptHost, ZoomOpener, aomhost, and the updater**, not just `zoom.us`
+- clears every Zoom domain out of `cfprefsd` and kills that daemon so the old
+  name is not written straight back
+- **loop-deletes** every keychain item labeled or serviced `zoom.us` /
+  `us.zoom.xos` / `Zoom` (one `delete-generic-password` call only removes one
+  item; leftovers are what signed people back in as the previous name)
+- launches a **new** Zoom instance (`open -n`) against an empty `--data=`
+  profile, so LaunchServices cannot reuse the old window
+
+Fix now also asks for the name you want Zoom to show, and an optional meeting
+ID. If you give both, Zoom is opened with `uname=` so it cannot prefill your
+Mac login name.
 
 **Undo last fix** puts the most recent backup back. Backups are in
 `~/Library/Application Support/1132.WTF/backups`.
@@ -102,6 +121,9 @@ Run **Status** first, then read this:
 
 | Symptom | What is really happening | What helps |
 |---|---|---|
+| Zoom still opens with your old name | Keychain / iCloud Keychain signed you back in, or Zoom used your **Mac login name** as the guest default | Run Fix now, type a different name, do not sign into the blocked Zoom account. If iCloud Keychain is on, delete Zoom from Keychain Access |
+| "Join new room?" after typing a meeting ID | Meeting history was still on disk (helpers or Group Containers survived an older wipe) | This build wipes those. Re-download, run Fix now, do not open Zoom from the Dock first |
+| Deleting wtf1132 accounts changed nothing | Those accounts only matter if you **switch** to them. Staying on this Mac login keeps the same identity | Use Fix now on this login, or Deep fix and actually switch users |
 | 1132 returns immediately, on the throwaway account too | The block is on your **Zoom account**, server side | A different Zoom account, or join as a guest from the browser |
 | Level 1 does nothing but level 2 works | Zoom is fingerprinting something outside its data folder | Keep using level 2, or use the browser |
 | No account on this Mac can join, but your phone can | The block is on your **IP address** | A VPN, or a phone hotspot |

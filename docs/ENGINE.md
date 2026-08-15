@@ -94,12 +94,27 @@ HKCU\Software\Zoom
 
 ```
 ~/Library/Application Support/zoom.us
+~/Library/Application Support/Zoom
 ~/Library/Preferences/us.zoom.xos.plist
+~/Library/Preferences/us.zoom.config.plist
 ~/Library/Caches/us.zoom.xos
+~/Library/Caches/com.zoom.us
 ~/Library/Cookies/us.zoom.xos.binarycookies
 ~/Library/Saved Application State/us.zoom.xos.savedState
-keychain: "Zoom Safe Meeting Storage", "zoom.us"
+~/Library/HTTPStorages/us.zoom.xos
+~/Library/Logs/zoom.us
+~/Library/WebKit/us.zoom.xos
+~/Library/Containers/us.zoom.xos
+~/Library/Group Containers/*zoom*
+~/Library/LaunchAgents/*zoom*
+~/.zoomus
+keychain: every item labeled or serviced zoom.us / us.zoom.xos / Zoom
+          (loop-deleted; one delete-generic-password call is not enough)
 ```
+
+After the wipe, macOS launches Zoom as a **new instance** (`open -n`) against
+an empty `--data=` profile. `open -a` without `-n` reuses the running app and
+its old name, rooms, and signed-in account.
 
 **Linux**
 
