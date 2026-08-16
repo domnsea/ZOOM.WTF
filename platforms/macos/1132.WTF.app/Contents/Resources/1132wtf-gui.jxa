@@ -10,7 +10,7 @@ var retained = {}
 
 function run(argv) {
   var iconPath = argv.length ? argv[0] : ''
-  var version = argv.length > 1 ? argv[1] : '1.0.28'
+  var version = argv.length > 1 ? argv[1] : '1.0.29'
 
   var items = [
     'STEP 1 - Fix Zoom',
@@ -25,7 +25,7 @@ function run(argv) {
   $.NSApplication.sharedApplication.activateIgnoringOtherApps(true)
 
   var banner = $.NSTextField.alloc.initWithFrame($.NSMakeRect(0, 284, 448, 32))
-  banner.setStringValue('1132 FRESH 1.0.28   blank profile')
+  banner.setStringValue('1132 FRESH 1.0.29   temp account')
   banner.setFont($.NSFont.boldSystemFontOfSize(16))
   banner.setDrawsBackground(true)
   banner.setBackgroundColor($.NSColor.colorWithCalibratedRedGreenBlueAlpha(0.78, 1.0, 0.0, 1.0))
@@ -80,7 +80,7 @@ function run(argv) {
   alert.setMessageText('1132 FRESH')
   alert.setInformativeText(
     'v' + version + '\n' +
-    'STEP 1: connect a hotspot, then a blank Zoom profile is created that has never seen your old IP. Quit Zoom and that profile is deleted. STEP 2 restores regular Zoom.'
+    'STEP 1 creates a new temp Zoom account and opens Zoom. Quit Zoom and that account is deleted. STEP 2 restores regular Zoom. Stay on your current network.'
   )
   if (iconPath) {
     var icon = $.NSImage.alloc.initWithContentsOfFile(iconPath)

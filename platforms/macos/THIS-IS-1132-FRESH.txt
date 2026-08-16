@@ -1,12 +1,13 @@
-THIS IS 1132 FRESH 1.0.28
+THIS IS 1132 FRESH 1.0.29
 =========================
 
 Lime green icon.
 Window title: 1132 FRESH
-Banner: 1132 FRESH 1.0.28   blank profile
+Banner: 1132 FRESH 1.0.29   temp account
 Zip name: 1132-FRESH-macos.zip
 
-Hotspot first. Blank Zoom profile. Quit Zoom
-and that profile is deleted. No MAC spoof.
+New temp account. Open Zoom. Quit Zoom
+and the temp account is deleted.
+Do not switch networks.
 
-If the banner does not say 1.0.28, that is the OLD app. Trash it.
+If the banner does not say 1.0.29, that is the OLD app. Trash it.

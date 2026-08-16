@@ -1,23 +1,16 @@
-1132 FRESH 1.0.28 — Mac only
+1132 FRESH 1.0.29 — Mac only
 ============================
 
-Connect a phone hotspot first. Then STEP 1
-creates a blank Zoom profile that has never
-seen your old IP. Zoom opens on that profile
-only. When you quit Zoom, the profile is
-deleted. Regular Zoom never gets the hotspot
-address. The Wi-Fi MAC is not spoofed.
+One password. A new temp Zoom account.
+Zoom opens. Quit Zoom and that account
+is deleted. Do not switch networks.
 
-The lime banner must say 1132 FRESH 1.0.28.
+The lime banner must say 1132 FRESH 1.0.29.
 
-https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132-FRESH-macos.zip
-
-Or this file if Latest is still old:
 https://github.com/domnsea/ZOOM.WTF/raw/cursor/build-1132-wtf-all-platforms-c565/dist/1132-FRESH-macos.zip
 
 STEP 1 - Right-click "STEP 1 - OPEN FRESH ZOOM.command" → Open → Open
-         Already on the hotspot? Click OK. Home Wi-Fi off.
 STEP 2 - Join only in the window it opened.
-LAUNCH - Quit Zoom when done. The blank profile is deleted.
+LAUNCH - Quit Zoom when done. The temp account is deleted.
 
 sudo rm -rf /Applications/1132.WTF.app && sudo cp -R "$HOME/Downloads/1132-FRESH-macos/1132.WTF.app" /Applications/1132.WTF.app && sudo chown -R "$(whoami):staff" /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app

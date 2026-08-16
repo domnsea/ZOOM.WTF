@@ -11,7 +11,7 @@
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>wtf.fix1132.mac.28</string>
+	<string>wtf.fix1132.mac.29</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.28</string>
+	<string>1.0.29</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>28</string>
+	<string>29</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
@@ -35,6 +35,6 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>1132 FRESH</string>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>1132 FRESH 1.0.28 opens Zoom on a blank hotspot-only profile and deletes that profile when Zoom quits.</string>
+	<string>1132 FRESH 1.0.29 opens Zoom on a new temp account and deletes that account when Zoom quits.</string>
 </dict>
 </plist>

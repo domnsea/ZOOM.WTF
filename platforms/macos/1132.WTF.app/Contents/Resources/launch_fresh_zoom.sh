@@ -441,11 +441,6 @@ kill_preferences_cache
 log_line "LAUNCH" "PROFILE_READY protected_items=$MOVED"
 
 stash_system_zoom "$ACTIVE_STATE"
-if ! require_new_public_ip "$ACTIVE_STATE"; then
-  /bin/bash "$SCRIPT_DIR/restore_profile.sh" "$ACTIVE_STATE" "ip-unchanged" || true
-  /bin/rmdir "$LOCK_DIR" 2>/dev/null || true
-  exit 73
-fi
 
 IDENT="$(pick_identity)" || {
   /bin/bash "$SCRIPT_DIR/restore_profile.sh" "$ACTIVE_STATE" "identity-failed" || true
@@ -490,9 +485,8 @@ if ! prepare_temp_keychain; then
   fail_throwaway_launch "throwaway keychain was not created"
 fi
 seed_zoom_prefs
-# Do not rotate the Wi-Fi MAC or hostname. That is tampering Zoom can
-# see. This profile is born on the hotspot and is deleted on quit, so
-# Zoom only ever registers the new address on a throwaway identity.
+# One password. New temp account. Open Zoom. Delete the account on quit.
+# Do not ask them to switch networks. Do not spoof the Wi-Fi MAC.
 
 # Aqua session of the logged-in desktop, process uid of the throwaway user.
 # Always pass the throwaway HOME. Never launch with the login account home.
@@ -549,13 +543,11 @@ log_line "LAUNCH" "OK Zoom is running as throwaway uid=$TEMP_UID stable=$stable 
 printf '%s\n' "$!" >"$ACTIVE_STATE/monitor.pid"
 printf '%s' "$DISPLAY_NAME" | /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/pbcopy >/dev/null 2>&1 || true
 notify_user "1132.WTF" "Fresh Zoom is opening as $DISPLAY_NAME"
-show_dialog "1132.WTF" "Blank Zoom profile is open as:
+show_dialog "1132.WTF" "Zoom is open as:
 
 $DISPLAY_NAME
 
-This profile did not exist until you were on the hotspot. It has no old Zoom addresses. Extra home networks are off. The Wi-Fi MAC was not spoofed.
+That is a new temp account. Join in THIS window.
 
-Join in THIS window only.
-
-When you quit Zoom, this profile is deleted. Regular Zoom never receives the hotspot address." "note"
+When you quit Zoom, the temp account is deleted and your regular Zoom is put back." "note"
 exit 0
