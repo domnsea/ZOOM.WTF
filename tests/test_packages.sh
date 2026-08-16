@@ -217,8 +217,12 @@ check_grep "macos v9 launch uses a disposable runtime home" "runtime-home" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos v9 restores the regular Zoom profile" "restore_profile.sh" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos app shows version 1.0.32 so an old copy is obvious" "1.0.32" \
+check_grep "macos app shows version 1.0.33 so an old copy is obvious" "1.0.33" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
+check_grep "macos zip filename includes the app version so Safari cannot reuse the old download" '1132-FRESH-${mac_ver}-macos' \
+  tools/build_all.sh
+check_grep "macos START_HERE downloads a versioned zip" "1132-FRESH-1.0.33-macos.zip" \
+  platforms/macos/START_HERE.txt
 check_grep "macos uses sudo in Terminal to become root" "sudo -p" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos deletes the throwaway profile when Zoom quits" "delete_temp_user" \
@@ -401,6 +405,13 @@ for banned in ("Safari", "open_join_page", "fromPWA", "Google Chrome", "Firefox"
         raise SystemExit(f"Mac app still contains {banned}")
 if "hotspot" in gui.lower() or "hotspot" in launcher.lower():
     raise SystemExit("window must not ask them to switch to a hotspot")
+start_here = Path("platforms/macos/START_HERE.txt").read_text()
+plist_ver = __import__("plistlib").loads(Path("platforms/macos/1132.WTF.app/Contents/Info.plist").read_bytes())["CFBundleShortVersionString"]
+zip_name = f"1132-FRESH-{plist_ver}-macos.zip"
+if zip_name not in start_here:
+    raise SystemExit(f"START_HERE must link {zip_name} so Safari cannot reuse 1132-FRESH-macos.zip")
+if "/dist/1132-FRESH-macos.zip" in start_here:
+    raise SystemExit("START_HERE still downloads the unversioned zip")
 print("  ok    macos fix opens v9 factory-fresh Zoom on this desktop")
 PY
 if grep -q "Switch now" "$MAC_ENGINE"; then

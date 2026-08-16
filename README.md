@@ -16,7 +16,7 @@ with no download button).
 | Platform | Download | Then run |
 |---|---|---|
 | **Windows** | [1132.WTF-windows-1.0.0.zip](https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132.WTF-windows-1.0.0.zip) | `1132.WTF.vbs` |
-| **macOS** | [1132-FRESH-macos.zip](https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132-FRESH-macos.zip) | `INSTALL_TO_APPLICATIONS.command` |
+| **macOS** | [1132-FRESH-1.0.33-macos.zip](https://github.com/domnsea/ZOOM.WTF/releases/download/v1.0.33/1132-FRESH-1.0.33-macos.zip) | `STEP 1 - OPEN FRESH ZOOM.command` |
 | **Linux** | [1132.WTF-linux-1.0.0.tar.gz](https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132.WTF-linux-1.0.0.tar.gz) | `./install.sh` |
 | **Android** | [1132.WTF-android-1.0.0.zip](https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132.WTF-android-1.0.0.zip) | the `.apk` inside |
 | **iOS** | [1132.WTF-ios-1.0.0.zip](https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132.WTF-ios-1.0.0.zip) | `1132WTF.xcodeproj` in Xcode |
@@ -27,7 +27,7 @@ If a Release is not up yet, the same files are on this branch:
 | Platform | Direct file |
 |---|---|
 | Windows | [dist/1132.WTF-windows-1.0.0.zip](dist/1132.WTF-windows-1.0.0.zip) |
-| macOS | [dist/1132-FRESH-macos.zip](dist/1132-FRESH-macos.zip) |
+| macOS | [dist/1132-FRESH-1.0.33-macos.zip](dist/1132-FRESH-1.0.33-macos.zip) |
 | Linux | [dist/1132.WTF-linux-1.0.0.tar.gz](dist/1132.WTF-linux-1.0.0.tar.gz) |
 | Android | [dist/1132.WTF-android-1.0.0.zip](dist/1132.WTF-android-1.0.0.zip) |
 | iOS | [dist/1132.WTF-ios-1.0.0.zip](dist/1132.WTF-ios-1.0.0.zip) |
@@ -59,7 +59,7 @@ STEP 1 - Right-click `INSTALL_TO_APPLICATIONS.command` → Open → Open
 
 STEP 2 - Click **STEP 1 - Fix Zoom**
 
-LAUNCH - Window must say **1132 FRESH 1.0.32**. Use **STEP 1 - OPEN FRESH ZOOM.command**. Lime icon.
+LAUNCH - Window must say **1132 FRESH 1.0.33**. Use **STEP 1 - OPEN FRESH ZOOM.command**. Lime icon.
 
 ### Linux
 

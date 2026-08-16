@@ -141,7 +141,10 @@ fi
 
 if wanted macos; then
   step "macOS"
-  target="$STAGE/1132-FRESH-macos"
+  rm -f "$DIST/1132.WTF-macos-1.0.0.zip" "$DIST/1132-FRESH-macos.zip"
+  mac_ver="$(python3 -c "import plistlib;print(plistlib.loads(open('platforms/macos/1132.WTF.app/Contents/Info.plist','rb').read())['CFBundleShortVersionString'])")"
+  mac_name="1132-FRESH-${mac_ver}-macos"
+  target="$STAGE/$mac_name"
   mkdir -p "$target"
   cp -r platforms/macos/. "$target/"
   cp brand/out/AppIcon.icns "$target/1132.WTF.app/Contents/Resources/AppIcon.icns"
@@ -154,9 +157,9 @@ if wanted macos; then
   chmod +x "$target/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa"
   chmod +x "$target"/*.command "$target/allow-macos.sh"
   note "executable bits set on the app, helpers, and .command files"
+  note "zip name is ${mac_name}.zip so Safari cannot reuse the old download"
 
-  rm -f "$DIST/1132.WTF-macos-1.0.0.zip"
-  package macos "1132-FRESH-macos" "1132-FRESH-macos.zip"
+  package macos "$mac_name" "${mac_name}.zip"
 fi
 
 # --------------------------------------------------------------------- linux
