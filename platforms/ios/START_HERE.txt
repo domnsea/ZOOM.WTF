@@ -1,0 +1,27 @@
+1132.WTF
+========
+
+Do these three things. Stop when you are in the meeting.
+
+STEP 1 - On a Mac, open 1132WTF.xcodeproj in Xcode
+
+STEP 2 - Plug in your iPhone. Press Run.
+
+LAUNCH - On the phone, follow the three cards, in order.
+
+
+On the screen
+-------------
+
+STEP 1 - Clear Zoom
+         Tap Open Settings. Then:
+         General → iPhone Storage → Zoom → Delete App
+         Reinstall Zoom. Join as a guest. Do not sign in.
+
+STEP 2 - Not possible on iPhone
+         Skip this. iPhone has no second user.
+
+STEP 3 - Join in browser
+         Type the meeting number.
+         Tap LAUNCH.
+         Do not sign in as the old account.

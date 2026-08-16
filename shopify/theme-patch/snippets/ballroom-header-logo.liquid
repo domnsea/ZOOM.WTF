@@ -1,0 +1,28 @@
+{% comment %}
+  Top-left looping logo video for every page.
+  Replace assets/ballroom-header-logo.mp4 with the Grok video to update it.
+{% endcomment %}
+<div class="ballroom-header-lockup ballroom-header-lockup--video" data-logo-rev="grok-video">
+  <a class="ballroom-header-logo-link" href="/" aria-label="Ballroom.WTF home">
+    <video
+      class="ballroom-header-logo-video"
+      autoplay
+      muted
+      loop
+      playsinline
+      preload="auto"
+      poster="{{ 'ballroom-header-logo.png' | asset_url }}"
+      aria-label="Ballroom.WTF"
+    >
+      <source src="{{ 'ballroom-header-logo.mp4' | asset_url }}" type="video/mp4">
+    </video>
+    <img
+      class="ballroom-header-logo-img ballroom-header-logo-img--fallback"
+      src="{{ 'ballroom-header-logo.png' | asset_url }}"
+      alt="Ballroom.WTF"
+      width="1680"
+      height="544"
+      decoding="async"
+    >
+  </a>
+</div>

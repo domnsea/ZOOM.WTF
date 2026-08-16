@@ -1,0 +1,127 @@
+{% include 'zoom-wtf-platform-data' %}
+<style>
+  .zoom-wtf-page { max-width: 760px; margin: 0 auto; padding: calc(var(--below-fixed, 120px) + 24px) 24px 80px; }
+  .zoom-wtf-page__card { margin-top: 24px; padding: 32px 28px; border: 1px solid rgba(184,232,136,0.22); background: #0a0a0a; }
+  .zoom-wtf-page__kicker { font-size: 10px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: #888; margin: 0 0 8px; }
+  .zoom-wtf-page__title { font-family: 'Cormorant Garamond', Georgia, serif; font-size: clamp(28px, 4vw, 36px); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #b8e888; margin: 0 0 10px; }
+  .zoom-wtf-page__lead { color: #999; font-size: 14px; line-height: 1.6; margin: 0 0 22px; }
+  .zoom-wtf-page__field { margin: 0 0 18px; }
+  .zoom-wtf-page__label { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #b8e888; margin: 0 0 8px; }
+  .zoom-wtf-page__input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 14px;
+    border: 1px solid rgba(184,232,136,0.28);
+    background: #000;
+    color: #eee;
+    font: inherit;
+    font-size: 16px;
+  }
+  .zoom-wtf-page__input:focus { outline: none; border-color: #b8e888; }
+  .zoom-wtf-page__hint { margin: 8px 0 0; font-size: 12px; color: #777; line-height: 1.45; }
+  .zoom-wtf-page__choices {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .zoom-wtf-page__choice {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 88px;
+    width: 100%;
+    padding: 14px 8px;
+    border: 1px solid rgba(184,232,136,0.28);
+    background: #000;
+    color: #eee;
+    cursor: pointer;
+    font: inherit;
+  }
+  .zoom-wtf-page__choice:hover { border-color: #b8e888; background: rgba(184,232,136,0.06); }
+  .zoom-wtf-page__choice:disabled { opacity: 0.5; cursor: wait; }
+  .zoom-wtf-page__choice-label { font-size: 14px; font-weight: 900; letter-spacing: 0.16em; text-transform: uppercase; }
+  .zoom-wtf-page__choice-sub { font-size: 11px; color: #888; letter-spacing: 0.08em; }
+  .zoom-wtf-page__choice--mac:hover { border-color: #7ec94a; }
+  .zoom-wtf-page__choice--win:hover { border-color: #3d95ce; }
+  .zoom-wtf-page__choice--linux:hover { border-color: #e95420; }
+  .zoom-wtf-page__choice--ios:hover { border-color: #7d7d7d; }
+  .zoom-wtf-page__choice--android:hover { border-color: #3ddc84; }
+  .zoom-wtf-page__form { margin: 0; }
+  .zoom-wtf-page__error { display: none; margin: 0 0 14px; padding: 10px 12px; border: 1px solid #ff6b6b; color: #ffb4b4; font-size: 13px; }
+  .zoom-wtf-page__error.is-visible { display: block; }
+  @media (max-width: 640px) {
+    .zoom-wtf-page__choices { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 420px) {
+    .zoom-wtf-page__choices { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="zoom-wtf-page">
+  <a class="col-back" href="/">← Back to Home</a>
+
+  <div class="zoom-wtf-page__card">
+    <img class="home-hero-product__logo" src="{{ '1132-wtf-logo.png' | asset_url }}" width="180" height="180" alt="1132.WTF" style="margin:0 auto 16px;display:block;">
+    <p class="zoom-wtf-page__kicker">1132.WTF · {{ zoom_wtf_price_money }} · auto email</p>
+
+    {% if page.content != blank %}
+      {{ page.content }}
+    {% else %}
+      <h1 class="zoom-wtf-page__title">Get your installer</h1>
+      <p class="zoom-wtf-page__lead">Enter your email, pick <strong>Mac</strong>, <strong>Windows</strong>, <strong>Linux</strong>, <strong>iOS</strong>, or <strong>Android</strong>, pay {{ zoom_wtf_price_money }}. Shopify emails the correct installer automatically after payment.</p>
+    {% endif %}
+
+    <p class="zoom-wtf-page__error" id="zoom-wtf-error" role="alert"></p>
+
+    <form
+      class="zoom-wtf-page__form"
+      id="zoom-wtf-buy-form"
+      action="/cart/add"
+      method="post"
+      accept-charset="UTF-8"
+      data-mac-vid="{{ zoom_wtf_mac_vid }}"
+      data-win-vid="{{ zoom_wtf_win_vid }}"
+      data-linux-vid="{{ zoom_wtf_linux_vid }}"
+      data-ios-vid="{{ zoom_wtf_ios_vid }}"
+      data-android-vid="{{ zoom_wtf_android_vid }}"
+    >
+      <div class="zoom-wtf-page__field">
+        <label class="zoom-wtf-page__label" for="zoom-wtf-email">Email for automatic download</label>
+        <input
+          class="zoom-wtf-page__input"
+          id="zoom-wtf-email"
+          type="email"
+          name="properties[Delivery email]"
+          autocomplete="email"
+          inputmode="email"
+          required
+          placeholder="you@email.com"
+        >
+        <p class="zoom-wtf-page__hint">After you pay, the Mac, Windows, Linux, iOS, or Android zip is sent automatically to this email. Use the same address at checkout.</p>
+      </div>
+
+      <input type="hidden" name="quantity" value="1">
+      <input type="hidden" name="id" id="zoom-wtf-variant-id" value="{{ zoom_wtf_mac_vid }}">
+      <input type="hidden" name="properties[Platform]" id="zoom-wtf-platform" value="Mac">
+      <input type="hidden" name="attributes[1132_delivery_email]" id="zoom-wtf-attr-email" value="">
+      <input type="hidden" name="attributes[1132_platform]" id="zoom-wtf-attr-platform" value="Mac">
+      <input type="hidden" name="return_to" value="/checkout">
+
+      {% render 'zoom-wtf-platform-buttons', class_prefix: 'zoom-wtf-page' %}
+    </form>
+  </div>
+</div>
+
+{% render 'zoom-wtf-buy-js',
+  form_id: 'zoom-wtf-buy-form',
+  email_id: 'zoom-wtf-email',
+  vid_id: 'zoom-wtf-variant-id',
+  platform_id: 'zoom-wtf-platform',
+  attr_email_id: 'zoom-wtf-attr-email',
+  attr_platform_id: 'zoom-wtf-attr-platform',
+  error_id: 'zoom-wtf-error',
+  checkout_fallback: '/pages/zoom-wtf'
+%}

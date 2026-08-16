@@ -1,0 +1,181 @@
+{% comment %}
+  Sitewide header chrome: video logo top-left, ZOOM DIRECTORY next to 1132.WTF,
+  and live measured offset so every page's sections sit below the banner.
+{% endcomment %}
+<style>
+  :root {
+    --nav-height: 240px;
+    --below-fixed: var(--nav-measured-height, 240px);
+  }
+  html {
+    scroll-padding-top: calc(var(--below-fixed, 240px) + 8px);
+  }
+  .nav.nav--classic {
+    height: auto !important;
+  }
+  .ballroom-header-lockup--video .ballroom-header-logo-video {
+    width: 100%;
+    height: auto;
+    max-height: clamp(88px, 12vw, 230px);
+    object-fit: contain;
+    object-position: left center;
+    display: block;
+    background: transparent;
+  }
+  .ballroom-header-lockup--video .ballroom-header-logo-img--fallback {
+    display: none;
+  }
+  .nav.nav--classic .nav-lockup__img--classic.nav-lockup__img--header-logo {
+    width: min(46vw, 680px) !important;
+    max-width: 680px !important;
+    height: auto !important;
+  }
+  a.nav-link--zoom-directory,
+  a.nav-mobile-quick__btn.nav-link--zoom-directory,
+  a[href="/pages/zoom-directory"] {
+    color: #ffffff !important;
+  }
+  .home-hero-product,
+  .home-dual-feature {
+    padding-top: calc(var(--below-fixed, 240px) + 12px) !important;
+    scroll-margin-top: calc(var(--below-fixed, 240px) + 12px) !important;
+  }
+  .col-page,
+  .pdp,
+  .cart-page,
+  .generic-page,
+  .dir-wrap,
+  .zoom-wtf-page,
+  .zoom-directory,
+  .customer-account-page,
+  .ballroom-app-page,
+  .page-404-wrap {
+    padding-top: calc(var(--below-fixed, 240px) + 28px) !important;
+    scroll-margin-top: calc(var(--below-fixed, 240px) + 12px);
+  }
+  .nav-room-shell {
+    top: calc(var(--below-fixed, 240px) + var(--room-dock-gap, 12px)) !important;
+  }
+</style>
+<script>
+(() => {
+  'use strict';
+  const VIDEO_SRC = {{ 'ballroom-header-logo.mp4' | asset_url | json }};
+  const POSTER_SRC = {{ 'ballroom-header-logo.png' | asset_url | json }};
+  const FALLBACK_VIDEO = 'https://ballroom.wtf/cdn/shop/t/192/assets/ballroom-header-logo.mp4';
+  const FALLBACK_POSTER = 'https://ballroom.wtf/cdn/shop/t/192/assets/ballroom-header-logo.png';
+
+  function syncSitewideNavOffset() {
+    const nav = document.querySelector('.nav');
+    if (!nav) return;
+    const h = Math.ceil(nav.getBoundingClientRect().height);
+    if (h > 0) {
+      document.documentElement.style.setProperty('--nav-measured-height', h + 'px');
+      document.documentElement.style.setProperty('--below-fixed', h + 'px');
+      document.documentElement.style.setProperty('--nav-height', h + 'px');
+    }
+  }
+
+  function unwrapNestedLockup() {
+    document.querySelectorAll('a.nav-lockup').forEach((anchor) => {
+      if (!anchor.querySelector('a')) return;
+      const wrap = document.createElement('div');
+      wrap.className = anchor.className;
+      while (anchor.firstChild) wrap.appendChild(anchor.firstChild);
+      anchor.replaceWith(wrap);
+    });
+  }
+
+  function mountVideoLogo() {
+    const lockup = document.querySelector('.ballroom-header-lockup') || document.querySelector('.nav-lockup__img--header-logo');
+    if (!lockup) return;
+    lockup.classList.add('ballroom-header-lockup', 'ballroom-header-lockup--video');
+    if (lockup.querySelector('video.ballroom-header-logo-video')) {
+      const existing = lockup.querySelector('video.ballroom-header-logo-video');
+      existing.muted = true;
+      existing.loop = true;
+      existing.playsInline = true;
+      existing.play().catch(() => {});
+      existing.addEventListener('loadeddata', syncSitewideNavOffset);
+      existing.addEventListener('playing', syncSitewideNavOffset);
+      return;
+    }
+    const img = lockup.querySelector('.ballroom-header-logo-img, img');
+    const video = document.createElement('video');
+    video.className = 'ballroom-header-logo-video';
+    video.autoplay = true;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.setAttribute('muted', '');
+    video.preload = 'auto';
+    video.setAttribute('aria-label', 'Ballroom.WTF');
+    video.poster = POSTER_SRC || FALLBACK_POSTER;
+    const source = document.createElement('source');
+    source.src = VIDEO_SRC || FALLBACK_VIDEO;
+    source.type = 'video/mp4';
+    video.appendChild(source);
+    if (img) {
+      img.classList.add('ballroom-header-logo-img', 'ballroom-header-logo-img--fallback');
+      img.before(video);
+    } else {
+      const link = lockup.querySelector('.ballroom-header-logo-link') || lockup;
+      link.insertBefore(video, link.firstChild);
+    }
+    video.addEventListener('loadeddata', syncSitewideNavOffset);
+    video.addEventListener('playing', syncSitewideNavOffset);
+    video.play().catch(() => {});
+  }
+
+  function paintWhite(link) {
+    link.classList.remove('nav-link--brand-lime', 'nav-link--zoom-wtf');
+    if (!link.classList.contains('nav-link--brand-white')) link.classList.add('nav-link--brand-white');
+    if (!link.classList.contains('nav-link--zoom-directory')) link.classList.add('nav-link--zoom-directory');
+    link.style.color = '#ffffff';
+  }
+
+  function addZoomDirectoryNextTo1132() {
+    document.querySelectorAll('a[href="/pages/zoom-wtf"], a[href="/pages/zoom-wtf/"]').forEach((link) => {
+      const item = link.closest('.nav-mnav-item') || link;
+      const host = item.parentElement;
+      if (!host) return;
+      if (host.querySelector('a[href="/pages/zoom-directory"], a[href="/pages/zoom-directory/"]')) return;
+      const clone = item.cloneNode(true);
+      const cloneLink = clone.tagName === 'A' ? clone : clone.querySelector('a');
+      if (!cloneLink) return;
+      cloneLink.setAttribute('href', '/pages/zoom-directory');
+      cloneLink.textContent = 'ZOOM DIRECTORY';
+      cloneLink.setAttribute('aria-label', 'ZOOM DIRECTORY');
+      paintWhite(cloneLink);
+      item.after(clone);
+    });
+  }
+
+  function bootOffset() {
+    syncSitewideNavOffset();
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(syncSitewideNavOffset);
+    [0, 80, 250, 700, 1500].forEach((ms) => setTimeout(syncSitewideNavOffset, ms));
+    const nav = document.querySelector('.nav');
+    if (nav && typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(syncSitewideNavOffset).observe(nav);
+    }
+    window.addEventListener('resize', syncSitewideNavOffset);
+    window.addEventListener('load', syncSitewideNavOffset);
+  }
+
+  function boot() {
+    unwrapNestedLockup();
+    mountVideoLogo();
+    addZoomDirectoryNextTo1132();
+    bootOffset();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>

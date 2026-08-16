@@ -1,0 +1,62 @@
+plugins {
+    id "com.android.application"
+}
+
+// Release signing is opt-in. build-apk.sh generates keystore.properties and a
+// keystore on first run; without it, only debug builds are possible. Nothing
+// secret is ever committed, because both files are gitignored.
+def keystorePropsFile = rootProject.file("keystore.properties")
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.withInputStream { keystoreProps.load(it) }
+}
+
+android {
+    namespace "wtf.fix1132.android"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "wtf.fix1132.android"
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    signingConfigs {
+        if (keystoreProps.containsKey("storeFile")) {
+            release {
+                storeFile rootProject.file(keystoreProps["storeFile"])
+                storePassword keystoreProps["storePassword"]
+                keyAlias keystoreProps["keyAlias"]
+                keyPassword keystoreProps["keyPassword"]
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            // Left unminified on purpose: the whole app is a few small
+            // framework-only classes, so shrinking buys nothing and only makes
+            // stack traces from user reports harder to read.
+            minifyEnabled false
+            if (keystoreProps.containsKey("storeFile")) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+// No dependencies at all. The app uses only the Android framework, which keeps
+// it buildable offline and keeps the APK tiny.
+dependencies {
+}

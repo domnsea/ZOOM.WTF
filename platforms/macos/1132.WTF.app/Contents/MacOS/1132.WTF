@@ -1,0 +1,181 @@
+#!/bin/bash
+#
+# 1132.WTF app entry point for macOS.
+#
+# Double-clicked, it shows a branded window (logo + the action list) and
+# runs the picked action. Started by the login item, it runs a level 1
+# reset with no interface.
+
+set -u
+set -o pipefail
+
+APP_NAME="1132.WTF"
+APP_VERSION="1.0.20"
+APP_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+export APP_ROOT
+ENGINE="$APP_ROOT/Contents/Resources/1132wtf-engine.sh"
+GUI="$APP_ROOT/Contents/Resources/1132wtf-gui.jxa"
+ICON="$APP_ROOT/Contents/Resources/AppIcon.icns"
+LOG_DIR="$HOME/Library/Logs/$APP_NAME"
+
+mkdir -p "$LOG_DIR"
+
+# Old copies in /Applications used bundle id wtf.fix1132.mac. macOS then
+# redirected a double-click of this app to that old copy, which opened a
+# web page. Kill that login item so only THIS copy can run.
+OLD_AGENT="$HOME/Library/LaunchAgents/wtf.fix1132.mac.plist"
+OLD_AGENT12="$HOME/Library/LaunchAgents/wtf.fix1132.mac.12.plist"
+OLD_AGENT13="$HOME/Library/LaunchAgents/wtf.fix1132.mac.13.plist"
+OLD_AGENT14="$HOME/Library/LaunchAgents/wtf.fix1132.mac.14.plist"
+OLD_AGENT15="$HOME/Library/LaunchAgents/wtf.fix1132.mac.15.plist"
+OLD_AGENT16="$HOME/Library/LaunchAgents/wtf.fix1132.mac.16.plist"
+OLD_AGENT17="$HOME/Library/LaunchAgents/wtf.fix1132.mac.17.plist"
+OLD_AGENT18="$HOME/Library/LaunchAgents/wtf.fix1132.mac.18.plist"
+OLD_AGENT19="$HOME/Library/LaunchAgents/wtf.fix1132.mac.19.plist"
+for agent in "$OLD_AGENT" "$OLD_AGENT12" "$OLD_AGENT13" "$OLD_AGENT14" "$OLD_AGENT15" "$OLD_AGENT16" "$OLD_AGENT17" "$OLD_AGENT18" "$OLD_AGENT19"; do
+  /bin/launchctl bootout "gui/$(id -u)" "$agent" >/dev/null 2>&1 ||
+    /bin/launchctl unload "$agent" >/dev/null 2>&1 || true
+  rm -f "$agent"
+done
+/usr/bin/killall -9 applet >/dev/null 2>&1 || true
+
+# If Gatekeeper let us in once, drop the download flag so the next launch
+# does not show the same dialog.
+xattr -cr "$APP_ROOT" >/dev/null 2>&1 || true
+chmod +x "$ENGINE" >/dev/null 2>&1 || true
+
+applescript_quote() {
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
+
+fail_dialog() {
+  /usr/bin/osascript -e "display dialog \"$(applescript_quote "$1")\" \
+    buttons {\"OK\"} default button \"OK\" with icon stop with title \"$APP_NAME\"" >/dev/null 2>&1 || true
+}
+
+if [ ! -f "$ENGINE" ]; then
+  fail_dialog "The engine is missing from this app bundle:
+
+$ENGINE
+
+Re-extract the package without changing what is inside $APP_NAME.app."
+  exit 1
+fi
+chmod +x "$ENGINE" 2>/dev/null || true
+
+run_engine() {
+  "$ENGINE" "$@" 2>&1
+}
+
+# ------------------------------------------------------- non-interactive mode
+
+if [ "${1:-}" = "--background" ]; then
+  WTF1132_NO_LAUNCH=1 run_engine fix >>"$LOG_DIR/background.log" 2>&1
+  exit $?
+fi
+
+if [ $# -gt 0 ]; then
+  run_engine "$@"
+  exit $?
+fi
+
+# ------------------------------------------------------------ branded window
+
+OPT_FIX="STEP 1 - Fix Zoom"
+OPT_DEEP="STEP 2 - Close and restore Zoom"
+OPT_STATUS="Status"
+OPT_UNDO="Undo last fix"
+OPT_AUTO_ON="Turn on autostart"
+OPT_AUTO_OFF="Turn off autostart"
+OPT_LOGS="Open logs"
+
+pick_from_plain_list() {
+  /usr/bin/osascript <<OSA 2>/dev/null
+set choices to {"$OPT_FIX", "$OPT_DEEP", "$OPT_STATUS", "$OPT_UNDO", "$OPT_AUTO_ON", "$OPT_AUTO_OFF", "$OPT_LOGS"}
+set picked to choose from list choices with title "1132 FRESH $APP_VERSION" ¬
+  with prompt "STEP 1 - click Fix Zoom" & return & ¬
+  "STEP 2 - Close Zoom to restore your regular profile" & return & ¬
+  "LAUNCH opens factory-fresh Zoom on this desktop" ¬
+  default items {"$OPT_FIX"} OK button name "LAUNCH" cancel button name "Close"
+if picked is false then
+  return "cancelled"
+else
+  return "CHOICE=" & (item 1 of picked) & linefeed & "NAME=" & linefeed & "MEETING="
+end if
+OSA
+}
+
+GUI_OUT=""
+if [ -f "$GUI" ]; then
+  GUI_OUT="$(/usr/bin/osascript -l JavaScript "$GUI" "$ICON" "$APP_VERSION" 2>/dev/null || true)"
+fi
+if [ -z "$GUI_OUT" ]; then
+  GUI_OUT="$(pick_from_plain_list || true)"
+fi
+
+if [ -z "$GUI_OUT" ] || [ "$GUI_OUT" = "cancelled" ]; then
+  exit 0
+fi
+
+CHOICE="$(printf '%s\n' "$GUI_OUT" | sed -n 's/^CHOICE=//p' | head -n 1)"
+DISPLAY_NAME="$(printf '%s\n' "$GUI_OUT" | sed -n 's/^NAME=//p' | head -n 1)"
+MEETING="$(printf '%s\n' "$GUI_OUT" | sed -n 's/^MEETING=//p' | head -n 1)"
+[ -n "$CHOICE" ] || CHOICE="$GUI_OUT"
+# Guest / empty / the Mac login are replaced with a new random name.
+
+VERB=""
+NEEDS_REPORT=1
+case "$CHOICE" in
+  "$OPT_FIX") VERB="fix" ;;
+  "$OPT_DEEP") VERB="deep-fix"; NEEDS_REPORT=1 ;;
+  "$OPT_STATUS") VERB="status" ;;
+  "$OPT_UNDO") VERB="restore" ;;
+  "$OPT_AUTO_ON") VERB="autostart-on" ;;
+  "$OPT_AUTO_OFF") VERB="autostart-off" ;;
+  "$OPT_LOGS") VERB="logs"; NEEDS_REPORT=0 ;;
+  cancelled) exit 0 ;;
+  *) exit 0 ;;
+esac
+
+if [ "$VERB" = "fix" ] || [ "$VERB" = "deep-fix" ]; then
+  /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost >/dev/null 2>&1 || true
+  /usr/bin/pkill -9 -f "/zoom.us.app/" >/dev/null 2>&1 || true
+  export WTF1132_DISPLAY_NAME="${DISPLAY_NAME:-}"
+  export WTF1132_MEETING="${MEETING:-}"
+fi
+
+OUTPUT="$(run_engine "$VERB")"
+STATUS=$?
+
+if [ "$NEEDS_REPORT" -eq 1 ]; then
+  SUMMARY="$(printf '%s\n' "$OUTPUT" | tail -n 12)"
+  if [ "$STATUS" -eq 0 ] && [ "$VERB" = "fix" ]; then
+    USED_NAME="$(tr -d '\r\n' <"$LOG_DIR/last_display_name.txt" 2>/dev/null || true)"
+    [ -n "$USED_NAME" ] || USED_NAME="a new random name"
+    SUMMARY="Done.
+
+This Zoom name: $USED_NAME
+Zoom Join must show that name, not your Mac login.
+
+LAUNCH - macOS will ask for your password once.
+That wipes the old Zoom identity, sets the Join name, and opens Zoom on this desktop.
+Close Zoom to restore your Mac full name and regular Zoom.
+
+Window must say 1132 FRESH 1.0.20. If it does not, this is the old app."
+    /usr/bin/osascript -e "display notification \"1132 FRESH is opening Zoom.\" with title \"1132 FRESH $APP_VERSION\"" >/dev/null 2>&1 || true
+    /usr/bin/osascript -e "display dialog \"$(applescript_quote "$SUMMARY")\" \
+      buttons {\"OK\"} default button \"OK\" with title \"1132 FRESH $APP_VERSION\"" >/dev/null 2>&1 || true
+  elif [ "$STATUS" -eq 0 ]; then
+    /usr/bin/osascript -e "display dialog \"$(applescript_quote "$SUMMARY")\" \
+      buttons {\"OK\"} default button \"OK\" with title \"$APP_NAME $APP_VERSION\"" >/dev/null 2>&1 || true
+  else
+    BUTTON="$(/usr/bin/osascript -e "button returned of (display dialog \
+      \"$(applescript_quote "$SUMMARY")\" buttons {\"Open logs\", \"OK\"} \
+      default button \"OK\" with icon caution with title \"$APP_NAME $APP_VERSION\")" 2>/dev/null || printf 'OK')"
+    if [ "$BUTTON" = "Open logs" ]; then
+      /usr/bin/open "$LOG_DIR" >/dev/null 2>&1 || true
+    fi
+  fi
+fi
+
+exit "$STATUS"

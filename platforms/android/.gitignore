@@ -1,0 +1,15 @@
+# Android build output and machine-specific settings.
+.gradle/
+build/
+app/build/
+local.properties
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Generated signing key and its passwords: never commit these.
+1132wtf-release.keystore
+keystore.properties
+*.apk

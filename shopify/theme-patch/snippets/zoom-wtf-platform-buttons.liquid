@@ -1,0 +1,28 @@
+{%- comment -%}
+  Renders the five 1132.WTF platform checkout buttons.
+  Required: class_prefix (zoom-wtf-page or zoom-wtf-modal)
+{%- endcomment -%}
+{%- include 'zoom-wtf-platform-data' -%}
+{%- assign class_prefix = class_prefix | default: 'zoom-wtf-page' -%}
+<div class="{{ class_prefix }}__choices" aria-label="Choose platform">
+  <button type="submit" class="{{ class_prefix }}__choice {{ class_prefix }}__choice--mac" data-zoom-platform="Mac" data-zoom-vid="{{ zoom_wtf_mac_vid }}">
+    <span class="{{ class_prefix }}__choice-label">Mac</span>
+    <span class="{{ class_prefix }}__choice-sub">{{ zoom_wtf_price_money }} · Auto-email</span>
+  </button>
+  <button type="submit" class="{{ class_prefix }}__choice {{ class_prefix }}__choice--win" data-zoom-platform="Windows" data-zoom-vid="{{ zoom_wtf_win_vid }}">
+    <span class="{{ class_prefix }}__choice-label">Windows</span>
+    <span class="{{ class_prefix }}__choice-sub">{{ zoom_wtf_price_money }} · Auto-email</span>
+  </button>
+  <button type="submit" class="{{ class_prefix }}__choice {{ class_prefix }}__choice--linux" data-zoom-platform="Linux" data-zoom-vid="{{ zoom_wtf_linux_vid }}">
+    <span class="{{ class_prefix }}__choice-label">Linux</span>
+    <span class="{{ class_prefix }}__choice-sub">{{ zoom_wtf_price_money }} · Auto-email</span>
+  </button>
+  <button type="submit" class="{{ class_prefix }}__choice {{ class_prefix }}__choice--ios" data-zoom-platform="iOS" data-zoom-vid="{{ zoom_wtf_ios_vid }}">
+    <span class="{{ class_prefix }}__choice-label">iOS</span>
+    <span class="{{ class_prefix }}__choice-sub">{{ zoom_wtf_price_money }} · Auto-email</span>
+  </button>
+  <button type="submit" class="{{ class_prefix }}__choice {{ class_prefix }}__choice--android" data-zoom-platform="Android" data-zoom-vid="{{ zoom_wtf_android_vid }}">
+    <span class="{{ class_prefix }}__choice-label">Android</span>
+    <span class="{{ class_prefix }}__choice-sub">{{ zoom_wtf_price_money }} · Auto-email</span>
+  </button>
+</div>
