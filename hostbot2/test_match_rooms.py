@@ -12,6 +12,8 @@ from match_rooms import (  # noqa: E402
     build_directory,
     extract_hosts,
     parse_key,
+    parse_rooms_txt,
+    write_rooms_txt,
 )
 
 
@@ -139,7 +141,12 @@ class PhraseAndIdTest(unittest.TestCase):
             KEY,
             [{"text": "random lobby https://zoom.us/j/12121212121"}],
         )
-        self.assertTrue(all(r["status"] == "closed" for r in directory["rooms"]))
+        named = [r for r in directory["rooms"] if not r.get("needs_name")]
+        unknown = [r for r in directory["rooms"] if r.get("needs_name")]
+        self.assertTrue(all(r["status"] == "closed" for r in named))
+        self.assertEqual([r["name"] for r in named], ["Ballroom", "Palace", "Circuit"])
+        self.assertEqual(len(unknown), 1)
+        self.assertEqual(unknown[0]["room_number"], "12121212121")
         self.assertEqual(len(directory["unmatched"]), 1)
         self.assertEqual(directory["unmatched"][0]["room_number"], "12121212121")
 
@@ -237,6 +244,69 @@ class BallroomIdentityTest(unittest.TestCase):
         ballroom = next(r for r in directory["rooms"] if r["name"] == "Ballroom")
         self.assertNotEqual(ballroom.get("room_number"), "2060220206")
         self.assertIsNone(ballroom.get("join_url"))
+
+
+class RoomsTxtTest(unittest.TestCase):
+    def test_named_number_is_remembered(self):
+        memory = "55566677788    Palace\n"
+        directory = build_directory(
+            KEY,
+            [{"text": "live https://us02web.zoom.us/j/55566677788"}],
+            rooms_txt=memory,
+        )
+        palace = next(r for r in directory["rooms"] if r["name"] == "Palace")
+        self.assertEqual(palace["status"], "open")
+        self.assertEqual(palace["room_number"], "55566677788")
+        self.assertFalse(palace.get("needs_name"))
+
+    def test_unknown_number_shows_until_named(self):
+        directory = build_directory(
+            KEY,
+            [{"text": "https://zoom.us/j/12121212121"}],
+            rooms_txt="# empty\n",
+        )
+        unknown = next(r for r in directory["rooms"] if r.get("needs_name"))
+        self.assertEqual(unknown["room_number"], "12121212121")
+        self.assertFalse(unknown.get("name"))
+
+        named = build_directory(
+            KEY,
+            [{"text": "https://zoom.us/j/12121212121"}],
+            rooms_txt="12121212121    Circuit\n",
+        )
+        circuit = next(r for r in named["rooms"] if r["name"] == "Circuit")
+        self.assertEqual(circuit["status"], "open")
+        self.assertEqual(circuit["room_number"], "12121212121")
+        self.assertFalse(any(r.get("needs_name") and r.get("room_number") == "12121212121" for r in named["rooms"]))
+
+    def test_write_rooms_txt_keeps_names_and_adds_unknowns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "ROOMS.txt"
+            path.write_text("55566677788    Palace\n", encoding="utf-8")
+            write_rooms_txt(
+                path,
+                [{"meeting_id": "55566677788", "name": "Palace"}],
+                extra_ids=["12121212121"],
+            )
+            text = path.read_text(encoding="utf-8")
+            entries = parse_rooms_txt(text)
+            by_id = {e["meeting_id"]: e["name"] for e in entries}
+            self.assertEqual(by_id["55566677788"], "Palace")
+            self.assertEqual(by_id["12121212121"], "")
+            self.assertIn("12121212121", text)
+
+    def test_rooms_txt_cannot_relabel_stale_id_as_ballroom(self):
+        entries = parse_rooms_txt("2060220206    Ballroom\n")
+        self.assertEqual(entries[0]["meeting_id"], "2060220206")
+        self.assertEqual(entries[0]["name"], "")
+
+    def test_multi_word_name_is_kept(self):
+        entries = parse_rooms_txt("55566677788    The Grand Palace\n")
+        self.assertEqual(entries[0]["name"], "The Grand Palace")
+
+    def test_stale_id_does_not_show_as_needs_name(self):
+        directory = build_directory(KEY, [{"text": "https://zoom.us/j/2060220206"}])
+        self.assertFalse(any(r.get("room_number") == "2060220206" for r in directory["rooms"]))
 
 
 if __name__ == "__main__":

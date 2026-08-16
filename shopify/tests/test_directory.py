@@ -21,6 +21,8 @@ class DirectoryThemeTest(unittest.TestCase):
         self.assertIn("2060220206", snippet)
         self.assertIn("973", snippet)
         self.assertIn("raw.githubusercontent.com", snippet)
+        self.assertIn("ROOMS.txt", snippet)
+        self.assertIn("needs_name", snippet)
 
     def test_apply_copies_files_and_injects_render(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -37,6 +39,7 @@ class DirectoryThemeTest(unittest.TestCase):
             self.assertTrue((root / "snippets" / "zoom-directory.liquid").is_file())
             self.assertTrue((root / "templates" / "page.zoom-directory.liquid").is_file())
             self.assertTrue((root / "assets" / "zoom-directory.json").is_file())
+            self.assertTrue((root / "assets" / "ROOMS.txt").is_file())
             layout = (root / "layout" / "theme.liquid").read_text()
             self.assertIn("{% render 'zoom-directory' %}", layout)
             self.assertIn("</body>", layout)

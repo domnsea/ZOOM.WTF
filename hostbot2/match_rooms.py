@@ -80,6 +80,7 @@ POST_NAMES = (
     "messages.json",
     "directory-posts.json",
 )
+ROOMS_TXT_NAMES = ("ROOMS.txt", "rooms.txt")
 
 WEBSITE_SCORE = 100
 NAME_AS_WEBSITE_SCORE = 90
@@ -89,6 +90,7 @@ ALIAS_DOMAIN_SCORE = 80
 NAME_PHRASE_SCORE = 45
 ALIAS_PHRASE_SCORE = 40
 MIN_ASSIGN_SCORE = 45
+ROOMS_TXT_SCORE = 110
 
 # 2060220206 was Ballroom once. It is not Ballroom. The 973 number being
 # promoted is Ballroom.
@@ -482,6 +484,149 @@ def finalize_key_rooms(rooms: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [merged[key] for key in order if merged[key].get("name")]
 
 
+ROOMS_TXT_HEADER = """# ROOMS.txt — the directory remembers these names.
+# One room per line: NUMBER    NAME
+# If the matcher cannot find a name, the number shows up here alone.
+# Type the name next to it, save, and the directory keeps that name.
+#
+"""
+
+
+def parse_rooms_txt(source: Any) -> list[dict[str, str]]:
+    """Parse ROOMS.txt (NUMBER then NAME). Name may be blank until you add it."""
+    if source is None:
+        return []
+    if isinstance(source, Path):
+        if not source.is_file():
+            return []
+        return parse_rooms_txt(source.read_text(encoding="utf-8", errors="replace"))
+    if isinstance(source, (list, tuple)):
+        out = []
+        for item in source:
+            if isinstance(item, dict):
+                mid = meeting_id_token(str(item.get("meeting_id") or item.get("id") or item.get("number") or ""))
+                name = str(item.get("name") or item.get("room") or "").strip()
+                if mid:
+                    out.append({"meeting_id": mid, "name": name})
+            else:
+                out.extend(parse_rooms_txt(str(item)))
+        return out
+    text = str(source)
+    entries: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "|" in line:
+            parts = [p.strip() for p in line.split("|")]
+        elif "\t" in line:
+            parts = [p.strip() for p in line.split("\t") if p.strip()]
+        else:
+            parts = line.split(None, 1)
+        if not parts:
+            continue
+        mid = meeting_id_token(parts[0]) if looks_like_meeting_id(parts[0]) else ""
+        name = parts[1].strip() if len(parts) > 1 else ""
+        if not mid and looks_like_meeting_id(name):
+            mid = meeting_id_token(name)
+            name = parts[0].strip()
+        if not mid or mid in seen:
+            continue
+        if is_stale_ballroom_id(mid) and is_ballroom_name(name):
+            name = ""
+        seen.add(mid)
+        entries.append({"meeting_id": mid, "name": name})
+    return entries
+
+
+def remembered_name(meeting_id: str, memory: list[dict[str, str]]) -> str:
+    mid = meeting_id_token(meeting_id)
+    for entry in memory:
+        if entry["meeting_id"] == mid:
+            return entry.get("name") or ""
+    return ""
+
+
+def merge_rooms_txt_into_key(rooms: list[dict[str, Any]], memory: list[dict[str, str]]) -> list[dict[str, Any]]:
+    rooms = list(rooms)
+    by_name = {compact_name(room.get("name") or ""): room for room in rooms if room.get("name")}
+    for entry in memory:
+        mid = entry["meeting_id"]
+        name = entry.get("name") or ""
+        if is_promoted_ballroom_id(mid) and not name:
+            name = "Ballroom"
+        if not name:
+            continue
+        if is_stale_ballroom_id(mid) and is_ballroom_name(name):
+            continue
+        if is_promoted_ballroom_id(mid):
+            name = "Ballroom"
+        key = compact_name(name)
+        if key in by_name:
+            ids = by_name[key].setdefault("meeting_ids", [])
+            if mid not in ids and not is_stale_ballroom_id(mid):
+                ids.append(mid)
+            continue
+        payload = {"name": name, "meeting_ids": [mid]}
+        if is_ballroom_name(name):
+            payload["website"] = "https://ballroom.wtf"
+        room = _room_from_mapping(payload, len(rooms))
+        rooms.append(room)
+        by_name[compact_name(room["name"]) or room["id"]] = room
+    return finalize_key_rooms(rooms)
+
+
+def format_rooms_txt(memory: list[dict[str, str]], extra_ids: Iterable[str] | None = None) -> str:
+    by_id: dict[str, str] = {}
+    order: list[str] = []
+    for entry in memory:
+        mid = entry["meeting_id"]
+        if mid in by_id:
+            if entry.get("name") and not by_id[mid]:
+                by_id[mid] = entry["name"]
+            continue
+        by_id[mid] = entry.get("name") or ""
+        order.append(mid)
+    for raw in extra_ids or []:
+        mid = meeting_id_token(str(raw))
+        if not mid or mid in by_id:
+            continue
+        by_id[mid] = "Ballroom" if is_promoted_ballroom_id(mid) else ""
+        if is_stale_ballroom_id(mid) and by_id[mid] == "Ballroom":
+            by_id[mid] = ""
+        order.append(mid)
+    lines = [ROOMS_TXT_HEADER.rstrip(), ""]
+    named = [mid for mid in order if by_id[mid]]
+    unnamed = [mid for mid in order if not by_id[mid]]
+    for mid in named:
+        lines.append(f"{mid}    {by_id[mid]}")
+    if unnamed:
+        if named:
+            lines.append("")
+        lines.append("# Numbers with no name yet — add the name after the number:")
+        for mid in unnamed:
+            lines.append(mid)
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write_rooms_txt(path: Path, memory: list[dict[str, str]], extra_ids: Iterable[str] | None = None) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    existing = parse_rooms_txt(path) if path.is_file() else []
+    by_id = {entry["meeting_id"]: entry.get("name") or "" for entry in existing}
+    order = [entry["meeting_id"] for entry in existing]
+    for entry in memory:
+        mid = entry["meeting_id"]
+        if mid not in by_id:
+            by_id[mid] = entry.get("name") or ""
+            order.append(mid)
+        elif entry.get("name") and not by_id[mid]:
+            by_id[mid] = entry["name"]
+    merged = [{"meeting_id": mid, "name": by_id[mid]} for mid in order]
+    path.write_text(format_rooms_txt(merged, extra_ids), encoding="utf-8")
+
+
 def parse_posts(source: Any) -> list[dict[str, Any]]:
     if source is None:
         return []
@@ -648,9 +793,11 @@ def build_directory(
     key: Any,
     posts: Any,
     *,
+    rooms_txt: Any = None,
     generated_at: str | None = None,
 ) -> dict[str, Any]:
-    rooms = parse_key(key)
+    memory = parse_rooms_txt(rooms_txt)
+    rooms = merge_rooms_txt_into_key(parse_key(key), memory)
     parsed_posts = parse_posts(posts)
     by_id: dict[str, dict[str, Any]] = {}
     for room in rooms:
@@ -720,10 +867,23 @@ def build_directory(
         excerpt = _excerpt(text, join_url)
         ts = post.get("ts") or ""
         if room is None:
+            remembered = remembered_name(join_mid, memory)
+            if remembered:
+                room = next(
+                    (
+                        item
+                        for item in rooms
+                        if compact_name(item.get("name") or "") == compact_name(remembered)
+                    ),
+                    None,
+                )
+                score = ROOMS_TXT_SCORE
+                clues = ["rooms_txt"]
+        if room is None:
             unmatched.append(
                 {
                     "join_url": join_url,
-                    "room_number": extract_meeting_id(join_url) or extract_meeting_id(text) or None,
+                    "room_number": join_mid or extract_meeting_id(join_url) or extract_meeting_id(text) or None,
                     "excerpt": excerpt,
                     "source": post.get("source") or None,
                     "ts": ts or None,
@@ -763,8 +923,54 @@ def build_directory(
             "matched_by": entry["matched_by"],
             "last_seen": entry["last_seen"],
             "source": entry["source"],
+            "needs_name": False,
         }
         directory_rooms.append(public)
+
+    seen_ids = {r.get("room_number") for r in directory_rooms if r.get("room_number")}
+    for item in unmatched:
+        mid = item.get("room_number")
+        if not mid or mid in seen_ids:
+            continue
+        remembered = remembered_name(mid, memory)
+        if remembered:
+            continue
+        if is_stale_ballroom_id(mid):
+            continue
+        directory_rooms.append(
+            {
+                "id": f"unknown-{mid}",
+                "name": "",
+                "website": None,
+                "status": "open" if item.get("join_url") else "closed",
+                "join_url": item.get("join_url"),
+                "room_number": mid,
+                "matched_by": [],
+                "last_seen": item.get("ts"),
+                "source": item.get("source"),
+                "needs_name": True,
+            }
+        )
+        seen_ids.add(mid)
+    for entry in memory:
+        mid = entry["meeting_id"]
+        if mid in seen_ids or entry.get("name"):
+            continue
+        directory_rooms.append(
+            {
+                "id": f"unknown-{mid}",
+                "name": "",
+                "website": None,
+                "status": "closed",
+                "join_url": None,
+                "room_number": mid,
+                "matched_by": [],
+                "last_seen": None,
+                "source": "ROOMS.txt",
+                "needs_name": True,
+            }
+        )
+        seen_ids.add(mid)
 
     return {
         "source": "HOSTBOT2",
@@ -798,7 +1004,7 @@ def _excerpt(text: str, join_url: str, limit: int = 180) -> str:
 
 def discover_hostbot2_files(root: Path) -> dict[str, Path | None]:
     root = root.expanduser().resolve()
-    found = {"key": None, "posts": None}
+    found = {"key": None, "posts": None, "rooms_txt": None}
     if not root.exists():
         return found
     files = list(root.rglob("*")) if root.is_dir() else [root]
@@ -810,6 +1016,8 @@ def discover_hostbot2_files(root: Path) -> dict[str, Path | None]:
             found["key"] = path
         if found["posts"] is None and name in POST_NAMES:
             found["posts"] = path
+        if found["rooms_txt"] is None and name in ROOMS_TXT_NAMES:
+            found["rooms_txt"] = path
     if found["key"] is None:
         for path in files:
             if path.is_file() and "key" in path.name.lower() and path.suffix.lower() in {".json", ".txt", ".csv", ".html"}:

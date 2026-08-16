@@ -26,6 +26,7 @@ That copies:
 | `templates/page.zoom-directory.liquid` | Template for `/pages/zoom-directory` |
 | `sections/zoom-directory.liquid` | Online Store 2.0 wrapper |
 | `assets/zoom-directory.json` | Feed HOSTBOT2 overwrites |
+| `assets/ROOMS.txt` | Number → name memory. Add a name next to an unknown number and save. |
 | `layout/theme.liquid` | `{% render 'zoom-directory' %}` before `</body>` |
 
 Zip the patched theme → Shopify Admin → **Online Store → Themes → Add theme → Upload zip** → Preview → **Publish**.
@@ -34,7 +35,22 @@ Optional: Online Store → Pages → **ZOOM DIRECTORY** (`zoom-directory`) → T
 
 Leave the page body as-is (or empty). The placeholder line is hidden once the directory mounts.
 
-## 2. Keep the feed updated from HOSTBOT2
+## 2. Name unknown rooms in ROOMS.txt
+
+If the directory cannot find a room name, the number still shows with **NEEDS NAME**.
+
+Shopify Admin → **Online Store → Themes → … → Edit code → Assets → ROOMS.txt**. Add the name on that line:
+
+```
+97312345678    Ballroom
+55566677788    Palace
+```
+
+Save. The page refreshes every 5 minutes and **remembers** that name for that number.
+
+Do not put `2060220206 Ballroom` — that ID is not Ballroom. The 973 number is Ballroom.
+
+## 3. Keep the feed updated from HOSTBOT2
 
 On the machine that runs HOSTBOT2:
 
@@ -54,4 +70,5 @@ Matcher rules and key formats: [hostbot2/README.md](../hostbot2/README.md).
 2. Every key room is listed.
 3. OPEN rooms show the current Zoom join link from HOSTBOT2.
 4. CLOSED rooms have no live link yet.
-5. The list reloads every 5 minutes, and again when you come back to the tab.
+5. Numbers without a name show as **NEEDS NAME**. Add `NUMBER    NAME` in `ROOMS.txt` and the page remembers it.
+6. The list reloads every 5 minutes, and again when you come back to the tab.

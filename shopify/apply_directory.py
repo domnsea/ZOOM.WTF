@@ -24,6 +24,7 @@ def copy_patch(patch_root: Path, theme_root: Path) -> list[str]:
         "templates/page.zoom-directory.liquid": "templates/page.zoom-directory.liquid",
         "sections/zoom-directory.liquid": "sections/zoom-directory.liquid",
         "assets/zoom-directory.json": "assets/zoom-directory.json",
+        "assets/ROOMS.txt": "assets/ROOMS.txt",
     }
     for src_rel, dest_rel in mapping.items():
         src = patch_root / src_rel
@@ -76,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
         print("Injected {% render 'zoom-directory' %} into layout/theme.liquid")
     else:
         print("layout/theme.liquid already renders zoom-directory (or was missing)")
-    print("Upload the theme ZIP, then keep assets/zoom-directory.json updated from HOSTBOT2 every 5 minutes.")
+    print("Upload the theme ZIP. Edit assets/ROOMS.txt to name unknown numbers. Keep zoom-directory.json updated from HOSTBOT2.")
     return 0
 
 

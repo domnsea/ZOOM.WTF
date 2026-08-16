@@ -135,6 +135,24 @@
     color: #666;
     font-size: 13px;
   }
+  .zoom-directory__card.is-needs-name {
+    border-style: dashed;
+    border-color: rgba(184,232,136,0.4);
+  }
+  .zoom-directory__pill.is-needs-name {
+    color: #b8e888;
+    border-color: rgba(184,232,136,0.45);
+  }
+  .zoom-directory__hint {
+    margin-top: auto;
+    color: #b8e888;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .zoom-directory__hint code {
+    color: #eee;
+    font-size: 11px;
+  }
   .zoom-directory__empty {
     padding: 28px 20px;
     border: 1px dashed rgba(184,232,136,0.25);
@@ -147,7 +165,7 @@
 <div class="zoom-directory" data-zoom-directory data-zoom-directory-page hidden>
   <p class="zoom-directory__kicker">HOSTBOT2 · live rooms</p>
   <h1 class="zoom-directory__title">ZOOM DIRECTORY</h1>
-  <p class="zoom-directory__lead">Rooms are named from the HOSTBOT2 key. A post usually identifies the room as a website — <code>ballroom.wtf</code> is Ballroom. This list refreshes every 5 minutes.</p>
+  <p class="zoom-directory__lead">Rooms are named from the HOSTBOT2 key, websites in posts, and <code>ROOMS.txt</code>. If a number has no name, add it next to the number in <code>ROOMS.txt</code> — the directory remembers it. Refreshes every 5 minutes.</p>
   <div class="zoom-directory__meta">
     <span>Open <strong data-dir-open-count>—</strong></span>
     <span data-dir-stamp>Waiting for HOSTBOT2…</span>
@@ -161,9 +179,14 @@
   'use strict';
   const REFRESH_MS = 5 * 60 * 1000;
   const ASSET_URL = {{ 'zoom-directory.json' | asset_url | json }};
+  const ROOMS_ASSET = {{ 'ROOMS.txt' | asset_url | json }};
   const GITHUB_FEEDS = [
     'https://raw.githubusercontent.com/domnsea/ZOOM.WTF/cursor/zoom-directory-hostbot2-082d/shopify/theme-patch/assets/zoom-directory.json',
     'https://raw.githubusercontent.com/domnsea/ZOOM.WTF/MAIN/shopify/theme-patch/assets/zoom-directory.json'
+  ];
+  const GITHUB_ROOMS = [
+    'https://raw.githubusercontent.com/domnsea/ZOOM.WTF/cursor/zoom-directory-hostbot2-082d/shopify/theme-patch/assets/ROOMS.txt',
+    'https://raw.githubusercontent.com/domnsea/ZOOM.WTF/MAIN/shopify/theme-patch/assets/ROOMS.txt'
   ];
   const NOISE = {
     'zoom.us': 1, 'www.zoom.us': 1, 'app.zoom.us': 1, 'zoom.com': 1,
@@ -184,6 +207,113 @@
 
   function isBallroomName(name) {
     return compactName(name) === 'ballroom' || compactName(name) === 'ballroomwtf';
+  }
+
+  function parseRoomsTxt(text) {
+    const entries = [];
+    const seen = {};
+    String(text || '').split(/\r?\n/).forEach((raw) => {
+      const line = raw.trim();
+      if (!line || line.charAt(0) === '#') return;
+      let left = '';
+      let name = '';
+      if (line.indexOf('|') !== -1) {
+        const parts = line.split('|').map((p) => p.trim()).filter(Boolean);
+        left = parts[0] || '';
+        name = parts.slice(1).join(' ').trim();
+      } else {
+        const m = line.match(/^(\S+)\s+(.*)$/);
+        if (m) {
+          left = m[1];
+          name = m[2].trim();
+        } else {
+          left = line;
+        }
+      }
+      let mid = String(left || '').replace(/\D/g, '');
+      if (!(mid.length >= 9 && mid.length <= 12) && name.replace(/\D/g, '').length >= 9) {
+        mid = name.replace(/\D/g, '');
+        name = left;
+      }
+      if (!(mid.length >= 9 && mid.length <= 12) || seen[mid]) return;
+      if (isStaleBallroomId(mid) && isBallroomName(name)) name = '';
+      seen[mid] = 1;
+      entries.push({ meeting_id: mid, name: name });
+    });
+    return entries;
+  }
+
+  function applyRoomsTxt(directory, roomsText) {
+    const memory = parseRoomsTxt(roomsText);
+    const byId = {};
+    memory.forEach((entry) => { byId[entry.meeting_id] = entry.name; });
+    const rooms = ((directory && directory.rooms) || []).slice();
+    rooms.forEach((room) => {
+      const mid = String(room.room_number || '').replace(/\D/g, '');
+      const remembered = byId[mid];
+      if (remembered) {
+        room.name = isPromotedBallroomId(mid) ? 'Ballroom' : remembered;
+        room.needs_name = false;
+        if (isBallroomName(room.name) && !room.website) room.website = 'https://ballroom.wtf';
+      }
+    });
+    const seen = {};
+    rooms.forEach((room) => {
+      const mid = String(room.room_number || '').replace(/\D/g, '');
+      if (mid) seen[mid] = 1;
+    });
+    memory.forEach((entry) => {
+      if (seen[entry.meeting_id]) return;
+      if (entry.name) {
+        rooms.push({
+          id: compactName(entry.name) || entry.meeting_id,
+          name: isPromotedBallroomId(entry.meeting_id) ? 'Ballroom' : entry.name,
+          website: isBallroomName(entry.name) ? 'https://ballroom.wtf' : null,
+          status: 'closed',
+          join_url: null,
+          room_number: entry.meeting_id,
+          matched_by: ['rooms_txt'],
+          needs_name: false,
+          last_seen: null,
+          source: 'ROOMS.txt'
+        });
+      } else {
+        rooms.push({
+          id: 'unknown-' + entry.meeting_id,
+          name: '',
+          website: null,
+          status: 'closed',
+          join_url: null,
+          room_number: entry.meeting_id,
+          matched_by: [],
+          needs_name: true,
+          last_seen: null,
+          source: 'ROOMS.txt'
+        });
+      }
+      seen[entry.meeting_id] = 1;
+    });
+    ((directory && directory.unmatched) || []).forEach((item) => {
+      const mid = String(item.room_number || '').replace(/\D/g, '') || extractMeetingId(item.join_url || '');
+      if (!mid || seen[mid]) return;
+      if (isStaleBallroomId(mid) && !byId[mid]) return;
+      const remembered = byId[mid];
+      rooms.push({
+        id: remembered ? compactName(remembered) : 'unknown-' + mid,
+        name: remembered || '',
+        website: null,
+        status: item.join_url ? 'open' : 'closed',
+        join_url: item.join_url || null,
+        room_number: mid,
+        matched_by: remembered ? ['rooms_txt'] : [],
+        needs_name: !remembered,
+        last_seen: item.ts || null,
+        source: item.source || 'HOSTBOT2'
+      });
+      seen[mid] = 1;
+    });
+    directory.rooms = rooms;
+    return directory;
   }
 
   function isDirectoryPage() {
@@ -371,7 +501,7 @@
       const join = links[links.length - 1];
       const joinMid = extractMeetingId(join) || extractMeetingId(text);
       if (isStaleBallroomId(joinMid)) {
-        unmatched.push({ join_url: join, excerpt: text.slice(0, 160), reason: 'stale id 2060220206 is not Ballroom' });
+        unmatched.push({ join_url: join, room_number: joinMid, excerpt: text.slice(0, 160), reason: 'stale id 2060220206 is not Ballroom' });
         return;
       }
       let best = null;
@@ -388,11 +518,11 @@
         best = { room: ballroom, score: 120, clues: ['promoted_id'] };
       }
       if (!best || best.score < 45) {
-        unmatched.push({ join_url: join, excerpt: text.slice(0, 160), reason: 'no key match' });
+        unmatched.push({ join_url: join, room_number: joinMid, excerpt: text.slice(0, 160), reason: 'no key match' });
         return;
       }
       if (isBallroomName(best.room.name) && isStaleBallroomId(joinMid)) {
-        unmatched.push({ join_url: join, excerpt: text.slice(0, 160), reason: 'stale id 2060220206 is not Ballroom' });
+        unmatched.push({ join_url: join, room_number: joinMid, excerpt: text.slice(0, 160), reason: 'stale id 2060220206 is not Ballroom' });
         return;
       }
       if (best.score >= best.room.score) {
@@ -479,21 +609,28 @@
       return;
     }
     grid.innerHTML = rooms.map((room) => {
+      const needs = Boolean(room.needs_name) || !room.name;
       const open = room.status === 'open' && room.join_url;
       const site = room.website ? hostLabel(room.website) : '';
       const href = room.website && room.website.indexOf('://') === -1 ? 'https://' + room.website : room.website;
       const num = formatRoomNumber(room.room_number);
+      const title = needs ? (num ? 'Room # ' + num : 'Needs a name') : (room.name || 'Room');
+      const pill = needs ? 'NEEDS NAME' : (open ? 'OPEN' : 'CLOSED');
+      const hint = needs && num
+        ? '<div class="zoom-directory__hint">Add this number to <code>ROOMS.txt</code> as <code>' + escapeHtml(String(room.room_number).replace(/\D/g, '')) + '    YourRoomName</code> and save. The directory will remember it.</div>'
+        : '';
       return (
-        '<article class="zoom-directory__card' + (open ? ' is-open' : '') + '">' +
+        '<article class="zoom-directory__card' + (open && !needs ? ' is-open' : '') + (needs ? ' is-needs-name' : '') + '">' +
           '<div class="zoom-directory__card-top">' +
-            '<h2 class="zoom-directory__name">' + escapeHtml(room.name || 'Room') + '</h2>' +
-            '<span class="zoom-directory__pill' + (open ? ' is-open' : '') + '">' + (open ? 'OPEN' : 'CLOSED') + '</span>' +
+            '<h2 class="zoom-directory__name">' + escapeHtml(title) + '</h2>' +
+            '<span class="zoom-directory__pill' + (open && !needs ? ' is-open' : '') + (needs ? ' is-needs-name' : '') + '">' + pill + '</span>' +
           '</div>' +
           (site ? '<a class="zoom-directory__website" href="' + escapeHtml(href) + '" target="_blank" rel="noopener">' + escapeHtml(site) + '</a>' : '') +
-          (open && num ? '<div class="zoom-directory__room-no">Room # ' + escapeHtml(num) + '</div>' : '') +
+          (!needs && num ? '<div class="zoom-directory__room-no">Room # ' + escapeHtml(num) + '</div>' : '') +
+          hint +
           (open
             ? '<a class="zoom-directory__join" href="' + escapeHtml(room.join_url) + '" target="_blank" rel="noopener">Join room</a>'
-            : '<div class="zoom-directory__closed-note">No live link from HOSTBOT2 yet.</div>') +
+            : (needs ? '' : '<div class="zoom-directory__closed-note">No live link from HOSTBOT2 yet.</div>')) +
         '</article>'
       );
     }).join('');
@@ -515,30 +652,43 @@
     return list.filter((url, i, arr) => url && arr.indexOf(url) === i);
   }
 
-  async function refresh() {
-    const meta = { fetchedAt: new Date().toISOString(), error: '' };
-    const urls = feedCandidates();
+  function roomsCandidates() {
+    const list = [];
+    if (ROOMS_ASSET) list.push(ROOMS_ASSET);
+    list.push('https://ballroom.wtf/cdn/shop/t/192/assets/ROOMS.txt');
+    GITHUB_ROOMS.forEach((url) => list.push(url));
+    return list.filter((url, i, arr) => url && arr.indexOf(url) === i);
+  }
+
+  async function fetchFirst(urls) {
     for (let i = 0; i < urls.length; i++) {
       try {
         const res = await fetch(bust(urls[i]), { cache: 'no-store' });
-        if (!res.ok) throw new Error('HOSTBOT2 feed HTTP ' + res.status);
-        const data = await res.json();
-        if (!data || typeof data !== 'object') throw new Error('bad feed');
-        render(matchDirectory(data), meta);
-        return;
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res;
       } catch (_) {}
     }
-    meta.error = 'Could not refresh from HOSTBOT2. Retrying every 5 minutes.';
-    const grid = document.querySelector('[data-dir-grid]');
-    if (grid && !grid.children.length) {
-      render({ rooms: [] }, meta);
-    } else {
-      const status = document.querySelector('[data-dir-status]');
-      if (status) {
-        status.textContent = meta.error;
-        status.classList.add('is-error');
-      }
+    return null;
+  }
+
+  async function refresh() {
+    const meta = { fetchedAt: new Date().toISOString(), error: '' };
+    const feedRes = await fetchFirst(feedCandidates());
+    const roomsRes = await fetchFirst(roomsCandidates());
+    let data = { rooms: [], unmatched: [] };
+    let roomsText = '';
+    if (feedRes) {
+      try { data = await feedRes.json(); } catch (_) {}
     }
+    if (roomsRes) {
+      try { roomsText = await roomsRes.text(); } catch (_) {}
+    }
+    if ((!data || !data.rooms) && !roomsText) {
+      meta.error = 'Could not refresh from HOSTBOT2. Retrying every 5 minutes.';
+      render({ rooms: [] }, meta);
+      return;
+    }
+    render(applyRoomsTxt(matchDirectory(data || { rooms: [] }), roomsText), meta);
   }
 
   function boot() {
