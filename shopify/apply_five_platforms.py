@@ -167,6 +167,19 @@ def patch_text(text: str) -> tuple[str, int]:
     return text, count
 
 
+def apply_five_platforms(root: Path, dry_run: bool = False) -> list[tuple[str, int]]:
+    changed: list[tuple[str, int]] = []
+    for path in iter_theme_files(root):
+        original = path.read_text(encoding="utf-8", errors="replace")
+        updated, n = patch_text(original)
+        if n == 0 or updated == original:
+            continue
+        changed.append((str(path.relative_to(root)), n))
+        if not dry_run:
+            path.write_text(updated, encoding="utf-8")
+    return changed
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("theme_dir", help="Unzipped Shopify theme folder")
@@ -177,23 +190,15 @@ def main() -> int:
         print(f"Not a directory: {root}", file=sys.stderr)
         return 2
 
-    changed = []
-    for path in iter_theme_files(root):
-        original = path.read_text(encoding="utf-8", errors="replace")
-        updated, n = patch_text(original)
-        if n == 0 or updated == original:
-            continue
-        changed.append((path, n))
-        if not args.dry_run:
-            path.write_text(updated, encoding="utf-8")
+    changed = apply_five_platforms(root, dry_run=args.dry_run)
 
     if not changed:
         print("No 1132.WTF three-platform copy found. Theme may already be patched, or markup differs.")
         return 1
 
     action = "Would update" if args.dry_run else "Updated"
-    for path, n in changed:
-        print(f"{action} {path.relative_to(root)} ({n} replacement(s))")
+    for rel, n in changed:
+        print(f"{action} {rel} ({n} replacement(s))")
     print(f"{action} {len(changed)} file(s). Upload the theme ZIP to Shopify to go live.")
     return 0
 

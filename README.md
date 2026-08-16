@@ -2,7 +2,7 @@
 
 Zoom error 1132, fixed. Five platforms. Mac is **1.0.20**.
 
-Paid downloads: [ballroom.wtf/pages/zoom-wtf](https://ballroom.wtf/pages/zoom-wtf) — Mac, Windows, Linux, iOS, Android at $10, emailed after payment. Theme steps: [shopify/README.md](shopify/README.md).
+Paid downloads: [ballroom.wtf/pages/zoom-wtf](https://ballroom.wtf/pages/zoom-wtf) — Mac, Windows, Linux, iOS, Android at $10, emailed after payment. Theme steps (header video logo, ZOOM DIRECTORY nav, five-platform shop): [shopify/README.md](shopify/README.md).
 
 ## How to use
 
