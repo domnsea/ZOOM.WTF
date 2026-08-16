@@ -29,7 +29,7 @@ if [[ ! -d "$STATE_DIR" ]]; then
   exit 0
 fi
 
-TEMP_USER="$(/usr/bin/tr -d '\r\n' <"$STATE_DIR/temp.user" 2>/dev/null || true)"
+TEMP_USER="$(read_state_line "$STATE_DIR/temp.user")"
 case "$TEMP_USER" in
   "" | "$CONSOLE_USER" | root | daemon | nobody) ;;
   *)
@@ -104,7 +104,9 @@ if [[ "$FAILED" -eq 0 ]]; then
   /bin/rm -rf "$STATE_DIR" 2>/dev/null || true
   /bin/rmdir "$LOCK_DIR" 2>/dev/null || true
   log_line "RESTORE" "SUCCESS restored=$RESTORED failed=0 reason=$REASON"
-  notify_user "1132.WTF" "Temporary Zoom profile deleted. Your regular Zoom profile was restored."
+  if [ "$REASON" != "startup-recovery" ]; then
+    notify_user "1132.WTF" "Temporary Zoom profile deleted. Your regular Zoom profile was restored."
+  fi
   exit 0
 fi
 

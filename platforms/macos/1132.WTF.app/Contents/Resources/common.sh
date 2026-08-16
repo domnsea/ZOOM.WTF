@@ -16,6 +16,14 @@ log_line() {
   printf '%s | %s | %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" "$2" >> "$LOG_FILE"
 }
 
+# Read one state file. Missing files must not print "No such file" and
+# must not abort a leftover STEP 1 recovery.
+read_state_line() {
+  local f="${1:-}"
+  [ -n "$f" ] && [ -f "$f" ] || return 0
+  /usr/bin/tr -d '\r\n' <"$f"
+}
+
 show_dialog() {
   local title="$1"
   local message="$2"
@@ -202,6 +210,7 @@ net_set_mac() {
 save_and_rotate_network() {
   local state="$1"
   local iface wifi mac new got host
+  /bin/mkdir -p "$state"
   : >"$state/net.ifaces"
   iface="$(net_iface)"
   wifi="$(net_wifi_iface)"
@@ -246,16 +255,18 @@ restore_network() {
       log_line "NET" "MAC restored iface=$iface"
     done <"$state/net.ifaces"
   fi
-  computer="$(/usr/bin/tr -d '\r\n' <"$state/net.computer" 2>/dev/null || true)"
-  localn="$(/usr/bin/tr -d '\r\n' <"$state/net.localhost" 2>/dev/null || true)"
-  host="$(/usr/bin/tr -d '\r\n' <"$state/net.hostname" 2>/dev/null || true)"
+  computer="$(read_state_line "$state/net.computer")"
+  localn="$(read_state_line "$state/net.localhost")"
+  host="$(read_state_line "$state/net.hostname")"
   [ -n "$computer" ] && /usr/sbin/scutil --set ComputerName "$computer" >/dev/null 2>&1 || true
   [ -n "$localn" ] && /usr/sbin/scutil --set LocalHostName "$localn" >/dev/null 2>&1 || true
   if [ -n "$host" ]; then
     /usr/sbin/scutil --set HostName "$host" >/dev/null 2>&1 || true
   fi
   restore_isolated_network "$state"
-  log_line "NET" "computer name restored"
+  if [ -n "$computer$localn$host" ] || [ -f "$state/net.ifaces" ] || [ -f "$state/net.services" ]; then
+    log_line "NET" "computer name restored"
+  fi
 }
 
 net_service_for_iface() {

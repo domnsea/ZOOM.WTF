@@ -217,7 +217,7 @@ check_grep "macos v9 launch uses a disposable runtime home" "runtime-home" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos v9 restores the regular Zoom profile" "restore_profile.sh" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos app shows version 1.0.31 so an old copy is obvious" "1.0.31" \
+check_grep "macos app shows version 1.0.32 so an old copy is obvious" "1.0.32" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
 check_grep "macos uses sudo in Terminal to become root" "sudo -p" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
@@ -251,6 +251,14 @@ check_grep "macos downloads Zoom 6 from zoom.us" "zoomusInstallerFull.pkg" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos rotates a locally administered Wi-Fi MAC" "net_random_mac" \
   platforms/macos/1132.WTF.app/Contents/Resources/common.sh
+check_grep "macos leftover recovery uses read_state_line so missing net files are not fatal" "read_state_line" \
+  platforms/macos/1132.WTF.app/Contents/Resources/common.sh
+check_grep "macos leftover recovery kills the previous Zoom watcher" "stop_leftover_watchers" \
+  platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
+check_grep "macos leftover recovery continues into a new Zoom" "Opening a new Zoom" \
+  platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
+check_grep "macos leftover restore is quiet so STEP 1 does not look finished" "startup-recovery" \
+  platforms/macos/1132.WTF.app/Contents/Resources/restore_profile.sh
 check_grep "macos restores the original MAC when Zoom quits" "restore_network" \
   platforms/macos/1132.WTF.app/Contents/Resources/restore_profile.sh
 check_grep "macos launch creates a throwaway login keychain" "create-keychain" \
@@ -355,6 +363,15 @@ if "require_new_public_ip" in helper:
     raise SystemExit("launch must not ask them to switch networks")
 if "hotspot" in helper.lower():
     raise SystemExit("launch must not mention a hotspot")
+if "read_state_line" not in Path("platforms/macos/1132.WTF.app/Contents/Resources/common.sh").read_text():
+    raise SystemExit("common.sh must read leftover net files only if they exist")
+if "stop_leftover_watchers" not in helper or "Opening a new Zoom" not in helper:
+    raise SystemExit("leftover session cleanup must continue and open a new Zoom")
+restore = Path("platforms/macos/1132.WTF.app/Contents/Resources/restore_profile.sh").read_text()
+if "startup-recovery" not in restore:
+    raise SystemExit("restore must stay quiet during leftover STEP 1 recovery")
+if ' <"$state/net.computer"' in Path("platforms/macos/1132.WTF.app/Contents/Resources/common.sh").read_text():
+    raise SystemExit("restore_network must not redirect a missing net.computer")
 if "delete_temp_user" not in helper:
     raise SystemExit("launch must delete the throwaway profile when Zoom quits")
 if "6.3.11.50104" not in helper or "zoomusInstallerFull.pkg" not in helper:
@@ -391,6 +408,25 @@ if grep -q "Switch now" "$MAC_ENGINE"; then
 else
   pass "macos fix does not ask you to switch profiles"
 fi
+
+# Leftover active/ with no net.computer must not print No such file.
+# That is what aborted STEP 1 after the sudo password (1.0.31).
+leftover_home="$(mktemp -d "${TMPDIR:-/tmp}/1132-leftover.XXXXXX")"
+leftover_err="$(
+  HOME="$leftover_home" /bin/bash -c '
+    set -u
+    source platforms/macos/1132.WTF.app/Contents/Resources/common.sh
+    mkdir -p "$ACTIVE_STATE"
+    restore_network "$ACTIVE_STATE"
+  ' 2>&1
+)" || leftover_status=$?
+leftover_status="${leftover_status:-0}"
+if [ "$leftover_status" -eq 0 ] && ! printf '%s\n' "$leftover_err" | grep -q "No such file"; then
+  pass "macos leftover restore_network ignores missing net.computer"
+else
+  fail "macos leftover restore_network ignores missing net.computer" "$leftover_err"
+fi
+/bin/rm -rf "$leftover_home"
 
 # No hardcoded passwords anywhere. The original Windows build shipped one.
 if grep -rniE "ZoomTemp123|password *= *['\"][A-Za-z0-9!@#]{6,}['\"]" \

@@ -1,4 +1,4 @@
-1132 FRESH 1.0.31 — Mac only
+1132 FRESH 1.0.32 — Mac only
 ============================
 
 Type your Mac password in Terminal.

@@ -165,6 +165,19 @@ delete_temp_user() {
   /bin/rm -rf "/Users/$user" >/dev/null 2>&1 || true
 }
 
+# A leftover --watch from the last STEP 1 will killall zoom.us after this
+# run opens Zoom. Kill it before creating a new session.
+stop_leftover_watchers() {
+  local pid
+  pid="$(read_state_line "$ACTIVE_STATE/monitor.pid")"
+  case "$pid" in
+    '' | *[!0-9]*) ;;
+    *) /bin/kill -9 "$pid" >/dev/null 2>&1 || true ;;
+  esac
+  /usr/bin/pkill -9 -f "launch_fresh_zoom.sh --watch" >/dev/null 2>&1 || true
+  /usr/bin/pkill -9 -f "/monitor_zoom.sh " >/dev/null 2>&1 || true
+}
+
 zoom_for_uid() {
   local uid="$1"
   /usr/bin/pgrep -u "$uid" -x "zoom.us" >/dev/null 2>&1 && return 0
@@ -391,12 +404,19 @@ REQUESTED_NAME="$(printf '%s' "${1:-}" | /usr/bin/tr -cd 'A-Za-z0-9 ._-')"
 unload_zoom_helpers
 /bin/sleep 1
 
+# Leftover ~/Library/Application Support/1132.WTF/active from a previous
+# run must not abort this one. Missing net.computer files are normal now
+# (STEP 1 no longer rotates MAC/hostname). Clear the old watcher and
+# lock, restore the regular profile quietly, then open a new Zoom.
+stop_leftover_watchers
 if [[ -d "$ACTIVE_STATE" ]]; then
   log_line "LAUNCH" "RECOVERY leftover session"
-  leftover="$(/usr/bin/tr -d '\r\n' <"$ACTIVE_STATE/temp.user" 2>/dev/null || true)"
+  leftover="$(read_state_line "$ACTIVE_STATE/temp.user")"
   [ -n "$leftover" ] && delete_temp_user "$leftover"
   /bin/bash "$SCRIPT_DIR/restore_profile.sh" "$ACTIVE_STATE" "startup-recovery" || true
+  printf '%s\n' "Previous session cleaned up. Opening a new Zoom..."
 fi
+/bin/rm -rf "$LOCK_DIR" >/dev/null 2>&1 || true
 
 if ! /bin/mkdir "$LOCK_DIR" 2>/dev/null; then
   show_dialog "1132.WTF" "Another 1132.WTF launch is still active. Quit Zoom, wait a few seconds, then run STEP 1 again." "stop"

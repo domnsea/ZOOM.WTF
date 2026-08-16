@@ -1,8 +1,8 @@
-THIS IS 1132 FRESH 1.0.31
+THIS IS 1132 FRESH 1.0.32
 =========================
 
 Lime green icon.
 Window title: 1132 FRESH
 Zip name: 1132-FRESH-macos.zip
 
-If it does not say 1.0.31, that is the OLD app. Trash it.
+If it does not say 1.0.32, that is the OLD app. Trash it.
