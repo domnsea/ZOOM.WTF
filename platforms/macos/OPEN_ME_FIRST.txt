@@ -1,0 +1,29 @@
+1132.WTF — macOS will not open the app
+======================================
+
+macOS is blocking the download. That is normal. Do this:
+
+STEP 1 - Right-click INSTALL_TO_APPLICATIONS.command
+         Click Open. Click Open again.
+
+STEP 2 - If it still blocks:
+         Click Done (not Move to Trash).
+         System Settings → Privacy & Security → Open Anyway.
+
+LAUNCH - Open 1132.WTF from Applications.
+         Then follow START_HERE.txt
+
+
+If that still fails, open Terminal, paste this, press Return:
+
+xattr -cr ~/Downloads ~/Desktop /Applications/1132.WTF.app 2>/dev/null
+find ~/Downloads ~/Desktop /Applications -name '1132.WTF.app' -type d -maxdepth 6 \
+  -exec xattr -cr {} \; \
+  -exec codesign --force --deep --sign - {} \; 2>/dev/null
+open /Applications/1132.WTF.app 2>/dev/null \
+  || open ~/Downloads/1132-FRESH-1.0.35-macos/1132.WTF.app 2>/dev/null \
+  || open ~/Downloads/1132-FRESH-1.0.34-macos/1132.WTF.app 2>/dev/null \
+  || open ~/Downloads/1132-FRESH-1.0.33-macos/1132.WTF.app 2>/dev/null \
+  || open ~/Downloads/1132-FRESH-macos/1132.WTF.app 2>/dev/null \
+  || open ~/Downloads/1132.WTF-macos-1.0.0/1132.WTF.app 2>/dev/null \
+  || open ~/Downloads/1132.WTF-macos/1132.WTF.app 2>/dev/null

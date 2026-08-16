@@ -1,0 +1,9 @@
+# Staging area used while packaging.
+dist/.stage/
+
+# Scratch directory used when inspecting the original uploads.
+_extract/
+
+# Python bytecode from the brand generator.
+__pycache__/
+*.pyc

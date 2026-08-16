@@ -1,0 +1,133 @@
+#!/bin/bash
+# Copy 1132.WTF.app into /Applications, strip the download quarantine, and
+# ad-hoc sign it so Gatekeeper will launch it without a paid Developer ID.
+#
+# An older Zoom.WTF applet is often already in /Applications and owned by
+# root. A normal rm cannot replace it, so this installer asks for the Mac
+# password and deletes that copy first.
+
+set -u
+
+APP_NAME="1132.WTF"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+SOURCE="$HERE/$APP_NAME.app"
+DEST="/Applications/$APP_NAME.app"
+# allow-macos.sh sits next to this installer in the zip.
+# shellcheck disable=SC1091
+. "$HERE/allow-macos.sh"
+
+applescript_quote() {
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
+
+run_admin() {
+  /usr/bin/sudo -p "Password: " /bin/bash -c "$1"
+}
+
+# The .command launcher always does `script ; exit`, so anything pasted into
+# this window after a failure is thrown away. Open a real Terminal instead.
+open_fresh_terminal_for_replace() {
+  local helper
+  helper="$(/usr/bin/mktemp /tmp/1132-replace.XXXXXX.command)"
+  printf '%s\n' "#!/bin/bash" >"$helper"
+  printf '%s\n' "sudo rm -rf /Applications/1132.WTF.app && sudo cp -R '$SOURCE' /Applications/1132.WTF.app && sudo chown -R $(id -un):staff /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app" >>"$helper"
+  /bin/chmod 700 "$helper"
+  /usr/bin/open -a Terminal "$helper"
+  printf '%s\n' ""
+  printf '%s\n' "A new Terminal window should be asking for your password."
+  printf '%s\n' "Type it (nothing shows) and press Return."
+}
+
+printf '%s\n' "=== $APP_NAME installer ==="
+
+if [ ! -d "$SOURCE" ]; then
+  printf '%s\n' "Cannot find $APP_NAME.app next to this script."
+  printf '%s\n' "Extract the whole package (not just the .app) and run this again."
+  read -r -p "Press Return to close. " _
+  exit 1
+fi
+
+printf '%s\n' "Clearing the download flag on this folder..."
+allow_tree "$HERE"
+
+# The old Zoom.WTF was an AppleScript applet. If that is what is sitting in
+# Applications, every launch from there is the old app — not this one.
+if [ -f "$DEST/Contents/MacOS/applet" ] || [ -f "$DEST/Contents/Resources/Scripts/main.scpt" ]; then
+  printf '%s\n' "The app in /Applications is the OLD Zoom.WTF (not this one)."
+  printf '%s\n' "That is why the name never changed. Removing it."
+fi
+
+/usr/bin/killall -9 "1132.WTF" applet >/dev/null 2>&1 || true
+OLD_AGENT="$HOME/Library/LaunchAgents/wtf.fix1132.mac.plist"
+OLD12="$HOME/Library/LaunchAgents/wtf.fix1132.mac.12.plist"
+OLD13="$HOME/Library/LaunchAgents/wtf.fix1132.mac.13.plist"
+OLD14="$HOME/Library/LaunchAgents/wtf.fix1132.mac.14.plist"
+OLD15="$HOME/Library/LaunchAgents/wtf.fix1132.mac.15.plist"
+OLD16="$HOME/Library/LaunchAgents/wtf.fix1132.mac.16.plist"
+OLD17="$HOME/Library/LaunchAgents/wtf.fix1132.mac.17.plist"
+OLD18="$HOME/Library/LaunchAgents/wtf.fix1132.mac.18.plist"
+OLD19="$HOME/Library/LaunchAgents/wtf.fix1132.mac.19.plist"
+OLD20="$HOME/Library/LaunchAgents/wtf.fix1132.mac.20.plist"
+OLD21="$HOME/Library/LaunchAgents/wtf.fix1132.mac.21.plist"
+OLD22="$HOME/Library/LaunchAgents/wtf.fix1132.mac.22.plist"
+OLD23="$HOME/Library/LaunchAgents/wtf.fix1132.mac.23.plist"
+OLD24="$HOME/Library/LaunchAgents/wtf.fix1132.mac.24.plist"
+OLD25="$HOME/Library/LaunchAgents/wtf.fix1132.mac.25.plist"
+OLD26="$HOME/Library/LaunchAgents/wtf.fix1132.mac.26.plist"
+OLD27="$HOME/Library/LaunchAgents/wtf.fix1132.mac.27.plist"
+OLD28="$HOME/Library/LaunchAgents/wtf.fix1132.mac.28.plist"
+OLD29="$HOME/Library/LaunchAgents/wtf.fix1132.mac.29.plist"
+OLD30="$HOME/Library/LaunchAgents/wtf.fix1132.mac.30.plist"
+for agent in "$OLD_AGENT" "$OLD12" "$OLD13" "$OLD14" "$OLD15" "$OLD16" "$OLD17" "$OLD18" "$OLD19" "$OLD20" "$OLD21" "$OLD22" "$OLD23" "$OLD24" "$OLD25" "$OLD26" "$OLD27" "$OLD28" "$OLD29" "$OLD30"; do
+  /bin/launchctl bootout "gui/$(id -u)" "$agent" >/dev/null 2>&1 ||
+    /bin/launchctl unload "$agent" >/dev/null 2>&1 || true
+  rm -f "$agent"
+done
+
+if [ -d "$DEST" ]; then
+  printf '%s\n' "Replacing the existing copy in /Applications..."
+  if ! rm -rf "$DEST" 2>/dev/null; then
+    printf '%s\n' "That copy is locked. macOS will ask for your password."
+    if ! run_admin "/bin/rm -rf '$DEST'"; then
+      printf '%s\n' "Password refused. Opening a NEW Terminal so you can type it there."
+      open_fresh_terminal_for_replace
+      exit 1
+    fi
+  fi
+fi
+
+if [ -d "$DEST" ]; then
+  printf '%s\n' "Could not remove $DEST. Opening a NEW Terminal."
+  open_fresh_terminal_for_replace
+  exit 1
+fi
+
+if ! cp -R "$SOURCE" "$DEST" 2>/dev/null; then
+  printf '%s\n' "Need your password to copy into /Applications."
+  if ! run_admin "/bin/cp -R '$SOURCE' '$DEST' && /usr/sbin/chown -R $(id -un):staff '$DEST'"; then
+    printf '%s\n' "Could not copy. Opening a NEW Terminal."
+    open_fresh_terminal_for_replace
+    exit 1
+  fi
+fi
+
+allow_target "$DEST"
+
+printf '%s\n' "STEP 1 - Installed: $DEST"
+printf '%s\n' "STEP 2 - Cleared the download block"
+printf '%s\n' "LAUNCH - Opening 1132.WTF now"
+printf '%s\n' ""
+
+if open "$DEST"; then
+  printf '%s\n' "If macOS still blocks it:"
+  printf '%s\n' "  STEP 1 - Click Done (not Move to Trash)"
+  printf '%s\n' "  STEP 2 - System Settings → Privacy & Security → Open Anyway"
+  printf '%s\n' "  LAUNCH - Open 1132.WTF from Applications"
+else
+  printf '%s\n' "macOS blocked the open."
+  printf '%s\n' "  STEP 1 - System Settings → Privacy & Security → Open Anyway"
+  printf '%s\n' "  STEP 2 - Or right-click $DEST → Open"
+  printf '%s\n' "  LAUNCH - Open 1132.WTF from Applications"
+fi
+
+exit 0
