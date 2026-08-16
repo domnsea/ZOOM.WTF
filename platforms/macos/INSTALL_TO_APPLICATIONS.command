@@ -21,17 +21,18 @@ applescript_quote() {
 }
 
 run_admin() {
-  local script
-  script="$(applescript_quote "$1")"
-  /usr/bin/osascript -e "do shell script \"$script\" with administrator privileges"
+  /usr/bin/sudo -p "Password: " /bin/bash -c "$1"
 }
 
 # The .command launcher always does `script ; exit`, so anything pasted into
 # this window after a failure is thrown away. Open a real Terminal instead.
 open_fresh_terminal_for_replace() {
-  local cmd
-  cmd="sudo rm -rf /Applications/1132.WTF.app && sudo cp -R '$SOURCE' /Applications/1132.WTF.app && sudo chown -R $(id -un):staff /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app"
-  /usr/bin/osascript -e "tell application \"Terminal\" to do script \"$(applescript_quote "$cmd")\"" >/dev/null 2>&1 || true
+  local helper
+  helper="$(/usr/bin/mktemp /tmp/1132-replace.XXXXXX.command)"
+  printf '%s\n' "#!/bin/bash" >"$helper"
+  printf '%s\n' "sudo rm -rf /Applications/1132.WTF.app && sudo cp -R '$SOURCE' /Applications/1132.WTF.app && sudo chown -R $(id -un):staff /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app" >>"$helper"
+  /bin/chmod 700 "$helper"
+  /usr/bin/open -a Terminal "$helper"
   printf '%s\n' ""
   printf '%s\n' "A new Terminal window should be asking for your password."
   printf '%s\n' "Type it (nothing shows) and press Return."
@@ -75,7 +76,8 @@ OLD25="$HOME/Library/LaunchAgents/wtf.fix1132.mac.25.plist"
 OLD26="$HOME/Library/LaunchAgents/wtf.fix1132.mac.26.plist"
 OLD27="$HOME/Library/LaunchAgents/wtf.fix1132.mac.27.plist"
 OLD28="$HOME/Library/LaunchAgents/wtf.fix1132.mac.28.plist"
-for agent in "$OLD_AGENT" "$OLD12" "$OLD13" "$OLD14" "$OLD15" "$OLD16" "$OLD17" "$OLD18" "$OLD19" "$OLD20" "$OLD21" "$OLD22" "$OLD23" "$OLD24" "$OLD25" "$OLD26" "$OLD27" "$OLD28"; do
+OLD29="$HOME/Library/LaunchAgents/wtf.fix1132.mac.29.plist"
+for agent in "$OLD_AGENT" "$OLD12" "$OLD13" "$OLD14" "$OLD15" "$OLD16" "$OLD17" "$OLD18" "$OLD19" "$OLD20" "$OLD21" "$OLD22" "$OLD23" "$OLD24" "$OLD25" "$OLD26" "$OLD27" "$OLD28" "$OLD29"; do
   /bin/launchctl bootout "gui/$(id -u)" "$agent" >/dev/null 2>&1 ||
     /bin/launchctl unload "$agent" >/dev/null 2>&1 || true
   rm -f "$agent"
@@ -127,5 +129,4 @@ else
   printf '%s\n' "  LAUNCH - Open 1132.WTF from Applications"
 fi
 
-/usr/bin/osascript -e 'tell application "Terminal" to close (every window whose name contains "INSTALL_TO_APPLICATIONS")' >/dev/null 2>&1 || true
 exit 0

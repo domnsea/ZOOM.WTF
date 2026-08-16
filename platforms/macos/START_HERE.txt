@@ -1,15 +1,19 @@
-1132 FRESH 1.0.29 — Mac only
+1132 FRESH 1.0.30 — Mac only
 ============================
 
-One password. A new temp Zoom account.
-Zoom opens. Quit Zoom and that account
-is deleted. Do not switch networks.
+Uses sch + sudo. Not osascript.
 
-The lime banner must say 1132 FRESH 1.0.29.
+One password in Terminal. New temp Zoom
+account. Zoom opens. Quit Zoom and that
+account is deleted.
+
+The lime banner / Terminal line must say
+1132 FRESH 1.0.30.
 
 https://github.com/domnsea/ZOOM.WTF/raw/cursor/build-1132-wtf-all-platforms-c565/dist/1132-FRESH-macos.zip
 
 STEP 1 - Right-click "STEP 1 - OPEN FRESH ZOOM.command" → Open → Open
+         Type your Mac password in Terminal. Nothing shows. Return.
 STEP 2 - Join only in the window it opened.
 LAUNCH - Quit Zoom when done. The temp account is deleted.
 

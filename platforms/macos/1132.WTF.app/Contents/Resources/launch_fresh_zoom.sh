@@ -11,14 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 SELF="$SCRIPT_DIR/$(basename "$0")"
 
 if [ "$(id -u)" -ne 0 ]; then
-  SELF_Q="$(printf '%s' "$SELF" | sed "s/'/'\\''/g")"
-  CMD="/bin/bash '$SELF_Q'"
-  for a in "$@"; do
-    q="$(printf '%s' "$a" | sed "s/'/'\\''/g")"
-    CMD="$CMD '$q'"
-  done
-  /usr/bin/osascript -e "do shell script \"$(printf '%s' "$CMD" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')\" with administrator privileges"
-  exit $?
+  exec /bin/bash "$SCRIPT_DIR/sch" elevate "$SELF" "$@"
 fi
 
 CONSOLE_USER="$(/usr/bin/stat -f %Su /dev/console 2>/dev/null || true)"
@@ -229,9 +222,6 @@ unload_zoom_helpers() {
     /bin/launchctl bootout "gui/$CONSOLE_UID" "$agent" >/dev/null 2>&1 ||
       /bin/launchctl unload "$agent" >/dev/null 2>&1 || true
   done
-  /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/osascript -e \
-    'tell application "System Events" to delete (every login item whose name contains "zoom")' \
-    >/dev/null 2>&1 || true
 }
 
 # Same Aqua session Zoom will use. Always HOME=throwaway, never the login home.

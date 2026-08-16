@@ -16,32 +16,21 @@ log_line() {
   printf '%s | %s | %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" "$2" >> "$LOG_FILE"
 }
 
+SCH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sch"
+
 show_dialog() {
   local title="$1"
   local message="$2"
   local icon_kind="${3:-note}"
-  /usr/bin/osascript - "$title" "$message" "$icon_kind" <<'APPLESCRIPT' >/dev/null 2>&1 || true
-on run argv
-  set theTitle to item 1 of argv
-  set theMessage to item 2 of argv
-  set theIcon to item 3 of argv
-  if theIcon is "stop" then
-    display dialog theMessage with title theTitle buttons {"OK"} default button "OK" with icon stop
+  if [ "$icon_kind" = "stop" ]; then
+    /bin/bash "$SCH" stop "$title" "$message" || true
   else
-    display dialog theMessage with title theTitle buttons {"OK"} default button "OK" with icon note
-  end if
-end run
-APPLESCRIPT
+    /bin/bash "$SCH" say "$title" "$message" || true
+  fi
 }
 
 notify_user() {
-  local title="$1"
-  local message="$2"
-  /usr/bin/osascript - "$title" "$message" <<'APPLESCRIPT' >/dev/null 2>&1 || true
-on run argv
-  display notification (item 2 of argv) with title (item 1 of argv)
-end run
-APPLESCRIPT
+  /bin/bash "$SCH" note "$1" "$2" || true
 }
 
 find_zoom_app() {
@@ -72,9 +61,6 @@ stop_zoom_processes() {
   local i uid
   uid="$(id -u)"
   log_line "STOP" "Requesting clean Zoom shutdown for current desktop session"
-  /usr/bin/osascript <<'APPLESCRIPT' >/dev/null 2>&1 || true
-tell application "zoom.us" to quit
-APPLESCRIPT
   for i in {1..20}; do
     if ! zoom_processes_running; then
       log_line "STOP" "Zoom stopped cleanly"

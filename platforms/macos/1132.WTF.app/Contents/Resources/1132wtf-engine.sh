@@ -14,8 +14,8 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.29"
-BUNDLE_ID="wtf.fix1132.mac.29"
+APP_VERSION="1.0.30"
+BUNDLE_ID="wtf.fix1132.mac.30"
 
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
 LOG_DIR="$HOME/Library/Logs/$APP_NAME"
@@ -55,16 +55,9 @@ die() {
   exit 1
 }
 
-# Escape a string for safe embedding in an AppleScript double-quoted literal.
-applescript_quote() {
-  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
-}
-
-# Run a command as root through the macOS authentication dialog.
+# Run a command as root through sudo. Not osascript.
 run_admin() {
-  local script
-  script="$(applescript_quote "$1")"
-  /usr/bin/osascript -e "do shell script \"$script\" with administrator privileges"
+  /bin/bash "$(cd "$(dirname "$0")" && pwd)/sch" root "$1"
 }
 
 # ----------------------------------------------------------------- single run
@@ -532,7 +525,8 @@ do_v9_launch() {
   [ -f "$helper" ] || die "Missing v9 launcher: $helper"
   chmod +x "$helper" "$(dirname "$helper")/common.sh" \
     "$(dirname "$helper")/restore_profile.sh" \
-    "$(dirname "$helper")/monitor_zoom.sh" 2>/dev/null || true
+    "$(dirname "$helper")/monitor_zoom.sh" \
+    "$(dirname "$helper")/sch" 2>/dev/null || true
 
   local name
   name="$(resolve_display_name "${WTF1132_DISPLAY_NAME:-}")"

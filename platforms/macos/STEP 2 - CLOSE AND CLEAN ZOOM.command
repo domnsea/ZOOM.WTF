@@ -13,7 +13,7 @@ mkdir -p "$(dirname "$LOG")"
 printf '%s | STEP_2 | START | public_release=YES cleanup_requested=YES\n' "$(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG"
 
 if [[ ! -f "$COMMON" || ! -f "$RESTORE" ]]; then
-  /usr/bin/osascript -e 'display dialog "The cleanup files are missing. Re-extract the ZIP and keep the folder together." with title "1132.WTF" buttons {"OK"} default button "OK" with icon stop' >/dev/null 2>&1 || true
+  printf '%s\n' "The cleanup files are missing. Re-extract the ZIP and keep the folder together."
   exit 66
 fi
 

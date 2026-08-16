@@ -6,10 +6,6 @@ set -u
 
 DEST="/Applications/1132.WTF.app"
 
-applescript_quote() {
-  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
-}
-
 printf '%s\n' "=== Delete the locked old 1132.WTF in Applications ==="
 printf '%s\n' ""
 
@@ -23,9 +19,8 @@ if [ -f "$DEST/Contents/MacOS/applet" ]; then
   printf '%s\n' "This is the OLD Zoom.WTF applet. It must go."
 fi
 
-printf '%s\n' "macOS will ask for your password."
-script="$(applescript_quote "/usr/bin/killall -9 applet 1132.WTF 2>/dev/null || true; /bin/rm -rf '$DEST'")"
-if /usr/bin/osascript -e "do shell script \"$script\" with administrator privileges"; then
+printf '%s\n' "Type your Mac password. Nothing shows."
+if /usr/bin/sudo -p "Password: " /bin/bash -c "/usr/bin/killall -9 applet 1132.WTF 2>/dev/null || true; /bin/rm -rf '$DEST'"; then
   printf '%s\n' "STEP 1 - Old app deleted."
   printf '%s\n' "STEP 2 - Run INSTALL_TO_APPLICATIONS.command"
   printf '%s\n' "LAUNCH"

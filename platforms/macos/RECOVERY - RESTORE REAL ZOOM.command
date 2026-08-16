@@ -10,7 +10,7 @@ RESTORE="$ROOT/1132.WTF.app/Contents/Resources/restore_profile.sh"
 mkdir -p "$(dirname "$LOG")"
 printf '%s | RECOVERY | START | public_release=YES recovery_requested=YES\n' "$(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG"
 if [[ ! -f "$RESTORE" ]]; then
-  /usr/bin/osascript -e 'display dialog "The restore script is missing. Re-extract the ZIP and keep the folder together." with title "1132.WTF" buttons {"OK"} default button "OK" with icon stop' >/dev/null 2>&1 || true
+  printf '%s\n' "The restore script is missing. Re-extract the ZIP and keep the folder together."
   exit 66
 fi
 SETNAME="$ROOT/1132.WTF.app/Contents/Resources/1132wtf-setname.sh"
@@ -18,11 +18,11 @@ if [[ -d "$STATE" ]]; then
   /bin/bash "$RESTORE" "$STATE" "manual-recovery"
   status=$?
 else
-  /usr/bin/osascript -e 'display dialog "There is no active temporary Zoom profile. Your regular Zoom profile is already in place." with title "1132.WTF" buttons {"OK"} default button "OK" with icon note' >/dev/null 2>&1 || true
+  printf '%s\n' "There is no active temporary Zoom profile. Your regular Zoom profile is already in place."
   status=0
 fi
 if [[ -f "$SETNAME" ]]; then
-  /usr/bin/osascript -e "do shell script \"/bin/bash '$SETNAME' --restore\" with administrator privileges" >/dev/null 2>&1 || true
+  /bin/bash "$ROOT/1132.WTF.app/Contents/Resources/sch" elevate "$SETNAME" --restore >/dev/null 2>&1 || true
 fi
 /usr/bin/open -R "$LOG" >/dev/null 2>&1 || true
 exit "$status"

@@ -150,6 +150,8 @@ if wanted macos; then
   # The bundle will not launch without these bits set.
   chmod +x "$target/1132.WTF.app/Contents/MacOS/1132.WTF"
   chmod +x "$target/1132.WTF.app/Contents/Resources/"*.sh
+  chmod +x "$target/1132.WTF.app/Contents/Resources/sch"
+  chmod +x "$target/1132.WTF.app/Contents/Resources/term_step1.command"
   chmod +x "$target/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa"
   chmod +x "$target"/*.command "$target/allow-macos.sh"
   note "executable bits set on the app, helpers, and .command files"
