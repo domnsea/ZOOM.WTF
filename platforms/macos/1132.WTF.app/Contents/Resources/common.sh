@@ -16,21 +16,20 @@ log_line() {
   printf '%s | %s | %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" "$2" >> "$LOG_FILE"
 }
 
-SCH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sch"
-
 show_dialog() {
   local title="$1"
   local message="$2"
   local icon_kind="${3:-note}"
-  if [ "$icon_kind" = "stop" ]; then
-    /bin/bash "$SCH" stop "$title" "$message" || true
-  else
-    /bin/bash "$SCH" say "$title" "$message" || true
+  printf '\n=== %s ===\n%s\n\n' "$title" "$message"
+  if [ "$icon_kind" != "stop" ] && [ -t 0 ]; then
+    printf '%s' "Press Return. "
+    read -r _ || true
+    printf '\n'
   fi
 }
 
 notify_user() {
-  /bin/bash "$SCH" note "$1" "$2" || true
+  printf '%s — %s\n' "$1" "$2"
 }
 
 find_zoom_app() {

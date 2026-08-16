@@ -1,11 +1,8 @@
-THIS IS 1132 FRESH 1.0.30
+THIS IS 1132 FRESH 1.0.31
 =========================
 
 Lime green icon.
 Window title: 1132 FRESH
-Banner: 1132 FRESH 1.0.30   sch not osascript
 Zip name: 1132-FRESH-macos.zip
 
-Password is sudo in Terminal. Not osascript.
-
-If it does not say 1.0.30, that is the OLD app. Trash it.
+If it does not say 1.0.31, that is the OLD app. Trash it.

@@ -22,7 +22,7 @@ else
   status=0
 fi
 if [[ -f "$SETNAME" ]]; then
-  /bin/bash "$ROOT/1132.WTF.app/Contents/Resources/sch" elevate "$SETNAME" --restore >/dev/null 2>&1 || true
+  /usr/bin/sudo -p "Password: " /bin/bash "$SETNAME" --restore >/dev/null 2>&1 || true
 fi
 /usr/bin/open -R "$LOG" >/dev/null 2>&1 || true
 exit "$status"

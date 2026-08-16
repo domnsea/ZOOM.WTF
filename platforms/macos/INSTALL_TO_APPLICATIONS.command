@@ -77,7 +77,8 @@ OLD26="$HOME/Library/LaunchAgents/wtf.fix1132.mac.26.plist"
 OLD27="$HOME/Library/LaunchAgents/wtf.fix1132.mac.27.plist"
 OLD28="$HOME/Library/LaunchAgents/wtf.fix1132.mac.28.plist"
 OLD29="$HOME/Library/LaunchAgents/wtf.fix1132.mac.29.plist"
-for agent in "$OLD_AGENT" "$OLD12" "$OLD13" "$OLD14" "$OLD15" "$OLD16" "$OLD17" "$OLD18" "$OLD19" "$OLD20" "$OLD21" "$OLD22" "$OLD23" "$OLD24" "$OLD25" "$OLD26" "$OLD27" "$OLD28" "$OLD29"; do
+OLD30="$HOME/Library/LaunchAgents/wtf.fix1132.mac.30.plist"
+for agent in "$OLD_AGENT" "$OLD12" "$OLD13" "$OLD14" "$OLD15" "$OLD16" "$OLD17" "$OLD18" "$OLD19" "$OLD20" "$OLD21" "$OLD22" "$OLD23" "$OLD24" "$OLD25" "$OLD26" "$OLD27" "$OLD28" "$OLD29" "$OLD30"; do
   /bin/launchctl bootout "gui/$(id -u)" "$agent" >/dev/null 2>&1 ||
     /bin/launchctl unload "$agent" >/dev/null 2>&1 || true
   rm -f "$agent"

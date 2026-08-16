@@ -4,7 +4,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 SELF="$SCRIPT_DIR/$(basename "$0")"
 
 if [ "$(id -u)" -ne 0 ]; then
-  exec /bin/bash "$SCRIPT_DIR/sch" elevate "$SELF" "$@"
+  exec /usr/bin/sudo -p "Password: " /bin/bash "$SELF" "$@"
 fi
 
 CONSOLE_USER="$(/usr/bin/stat -f %Su /dev/console 2>/dev/null || true)"

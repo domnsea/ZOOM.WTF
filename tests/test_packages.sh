@@ -217,9 +217,9 @@ check_grep "macos v9 launch uses a disposable runtime home" "runtime-home" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos v9 restores the regular Zoom profile" "restore_profile.sh" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos app shows version 1.0.30 so an old copy is obvious" "1.0.30" \
+check_grep "macos app shows version 1.0.31 so an old copy is obvious" "1.0.31" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
-check_grep "macos uses sch instead of osascript to become root" "sch" \
+check_grep "macos uses sudo in Terminal to become root" "sudo -p" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos deletes the throwaway profile when Zoom quits" "delete_temp_user" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
@@ -333,9 +333,9 @@ if 'USER="$(id -un)"' in helper or "USER=\"$(id -un)\"" in helper:
 if "sysadminctl -addUser" not in helper:
     raise SystemExit("launch must create a throwaway Mac user")
 if "/usr/bin/osascript" in helper or "/usr/bin/osascript" in Path("platforms/macos/1132.WTF.app/Contents/Resources/common.sh").read_text() or "/usr/bin/osascript" in Path("platforms/macos/1132.WTF.app/Contents/Resources/restore_profile.sh").read_text():
-    raise SystemExit("launch path must use sch, not osascript")
-if "sch" not in helper:
-    raise SystemExit("launch must elevate with sch")
+    raise SystemExit("launch path must use sudo, not osascript")
+if "sudo -p" not in helper:
+    raise SystemExit("launch must elevate with sudo")
 if "create-keychain" not in helper or "unlock-keychain" not in helper:
     raise SystemExit("launch must create and unlock a throwaway login keychain")
 if "run_zoom_with_keychain.sh" not in helper:
