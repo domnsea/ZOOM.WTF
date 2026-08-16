@@ -1,0 +1,10 @@
+# ROOMS.txt — the directory remembers these names.
+# One room per line: NUMBER    NAME
+# If the matcher cannot find a name, the number shows up here alone.
+# Type the name next to it, save, and the directory keeps that name.
+#
+# Example:
+# 97312345678    Ballroom
+# 55566677788    Palace
+#
+# 2060220206 is not Ballroom (one-time ID). The 973 number is Ballroom.

@@ -1,0 +1,15 @@
+{
+  "rooms": [
+    {
+      "name": "Ballroom",
+      "website": "https://ballroom.wtf",
+      "aliases": ["ballroom.wtf", "BALLROOM", "Ballroom Zoom"],
+      "never_ids": ["2060220206"]
+    },
+    {
+      "name": "Example Palace",
+      "website": "https://example-palace.test",
+      "aliases": ["palace"]
+    }
+  ]
+}
