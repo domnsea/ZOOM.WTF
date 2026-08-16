@@ -84,10 +84,16 @@ POST_NAMES = (
 WEBSITE_SCORE = 100
 NAME_AS_WEBSITE_SCORE = 90
 KNOWN_MEETING_SCORE = 70
+PROMOTED_ID_SCORE = 120
 ALIAS_DOMAIN_SCORE = 80
 NAME_PHRASE_SCORE = 45
 ALIAS_PHRASE_SCORE = 40
 MIN_ASSIGN_SCORE = 45
+
+# 2060220206 was Ballroom once. It is not Ballroom. The 973 number being
+# promoted is Ballroom.
+STALE_BALLROOM_IDS = frozenset({"2060220206"})
+BALLROOM_PROMOTED_PREFIXES = ("973",)
 
 
 def utc_now_iso() -> str:
@@ -168,6 +174,35 @@ def compact_name(value: str) -> str:
     if s.startswith("the") and len(s) - 3 >= 4:
         s = s[3:]
     return s
+
+
+def meeting_id_token(value: str) -> str:
+    digits = re.sub(r"\D", "", value or "")
+    if 9 <= len(digits) <= 12:
+        return digits
+    return ""
+
+
+def looks_like_meeting_id(value: str) -> bool:
+    token = (value or "").strip()
+    if not token:
+        return False
+    if re.fullmatch(r"[\d][\d\s-]*[\d]", token) is None:
+        return False
+    return bool(meeting_id_token(token))
+
+
+def is_stale_ballroom_id(meeting_id: str) -> bool:
+    return meeting_id_token(meeting_id) in STALE_BALLROOM_IDS
+
+
+def is_promoted_ballroom_id(meeting_id: str) -> bool:
+    mid = meeting_id_token(meeting_id)
+    return bool(mid) and any(mid.startswith(prefix) for prefix in BALLROOM_PROMOTED_PREFIXES)
+
+
+def is_ballroom_name(name: str) -> bool:
+    return compact_name(name) in {"ballroom", "ballroomwtf"}
 
 
 def phrase_present(phrase: str, text: str) -> bool:
@@ -263,15 +298,35 @@ def _room_from_mapping(raw: dict[str, Any], index: int) -> dict[str, Any]:
         re.sub(r"\D", "", item)
         for item in _listish(raw.get("meeting_ids") or raw.get("meeting_id") or raw.get("ids"))
     ]
+    extra_id = meeting_id_token(str(raw.get("id") or ""))
+    if extra_id:
+        meeting_ids.append(extra_id)
     meeting_ids = [m for m in meeting_ids if 9 <= len(m) <= 12]
+    never_ids = [
+        re.sub(r"\D", "", item)
+        for item in _listish(raw.get("never_ids") or raw.get("stale_ids"))
+    ]
+    never_ids = [m for m in never_ids if 9 <= len(m) <= 12]
+    never_ids = sorted(set(never_ids) | set(STALE_BALLROOM_IDS))
+    meeting_ids = [m for m in meeting_ids if m not in never_ids and not is_stale_ballroom_id(m)]
+    name = str(name).strip()
+    for mid in list(meeting_ids):
+        if is_promoted_ballroom_id(mid):
+            name = "Ballroom"
+            if not website:
+                website = "https://ballroom.wtf"
+    meeting_ids = [m for m in dict.fromkeys(meeting_ids) if m not in never_ids]
     if not str(name).strip() and website:
         name = str(website)
     room = {
-        "id": str(raw.get("id") or compact_name(str(name)) or f"room-{index}"),
+        "id": str(raw.get("id") if raw.get("id") and not looks_like_meeting_id(str(raw.get("id"))) else "") 
+        or compact_name(str(name)) 
+        or f"room-{index}",
         "name": str(name).strip(),
         "website": str(website).strip(),
         "aliases": aliases,
         "meeting_ids": meeting_ids,
+        "never_ids": sorted(set(never_ids)),
     }
     return room
 
@@ -285,7 +340,15 @@ def _rooms_from_json(data: Any) -> list[dict[str, Any]]:
             return [_room_from_mapping(data, 0)]
         rooms = []
         for index, (name, value) in enumerate(data.items()):
-            if isinstance(value, dict):
+            if looks_like_meeting_id(str(name)):
+                mid = meeting_id_token(str(name))
+                if isinstance(value, dict):
+                    payload = {"meeting_ids": [mid], **value}
+                    if not payload.get("name"):
+                        payload["name"] = "Room"
+                else:
+                    payload = {"name": str(value), "meeting_ids": [mid]}
+            elif isinstance(value, dict):
                 payload = {"name": name, **value}
             else:
                 payload = {"name": name, "website": value}
@@ -319,7 +382,7 @@ def parse_key(source: Any) -> list[dict[str, Any]]:
         return parse_key(text)
     if isinstance(source, (dict, list)):
         rooms = _rooms_from_json(source)
-        return [room for room in rooms if room.get("name")]
+        return finalize_key_rooms([room for room in rooms if room.get("name")])
     text = str(source).strip()
     if not text:
         return []
@@ -345,19 +408,78 @@ def parse_key(source: Any) -> list[dict[str, Any]]:
             parts = [p.strip() for p in re.split(r"\s{2,}", line) if p.strip()]
             if len(parts) == 1:
                 bits = line.split()
-                if len(bits) >= 2 and "." in bits[-1] and not bits[-1].endswith("."):
+                if len(bits) >= 2 and looks_like_meeting_id(bits[0]):
+                    parts = [bits[0], " ".join(bits[1:])]
+                elif len(bits) >= 2 and "." in bits[-1] and not bits[-1].endswith("."):
                     parts = [" ".join(bits[:-1]), bits[-1]]
                 else:
                     parts = [line]
-        payload = {
-            "name": parts[0] if parts else "",
-            "website": parts[1] if len(parts) > 1 else "",
-            "aliases": parts[2] if len(parts) > 2 else "",
-        }
+        payload: dict[str, Any] = {}
+        if parts and looks_like_meeting_id(parts[0]):
+            payload = {
+                "meeting_ids": [meeting_id_token(parts[0])],
+                "name": " ".join(parts[1:]).strip() or parts[0],
+            }
+        elif len(parts) > 1 and looks_like_meeting_id(parts[1]) and "." not in parts[1]:
+            payload = {
+                "name": parts[0],
+                "meeting_ids": [meeting_id_token(parts[1])],
+                "website": parts[2] if len(parts) > 2 else "",
+            }
+        else:
+            payload = {
+                "name": parts[0] if parts else "",
+                "website": parts[1] if len(parts) > 1 else "",
+                "aliases": parts[2] if len(parts) > 2 else "",
+            }
         room = _room_from_mapping(payload, index)
         if room["name"]:
             rooms.append(room)
-    return rooms
+    return finalize_key_rooms(rooms)
+
+
+def finalize_key_rooms(rooms: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Drop 2060220206-as-Ballroom. The 973 number is Ballroom. Merge duplicates."""
+    merged: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for room in rooms:
+        mids = [m for m in (room.get("meeting_ids") or []) if not is_stale_ballroom_id(m)]
+        name = room.get("name") or ""
+        if is_ballroom_name(name) or any(is_promoted_ballroom_id(m) for m in mids):
+            name = "Ballroom"
+            if not room.get("website"):
+                room = {**room, "website": "https://ballroom.wtf"}
+        if is_stale_ballroom_id(name):
+            continue
+        if looks_like_meeting_id(name) and not mids:
+            continue
+        room = {
+            **room,
+            "name": name,
+            "meeting_ids": mids,
+            "never_ids": sorted(set(room.get("never_ids") or []) | set(STALE_BALLROOM_IDS)),
+            "id": compact_name(name) or room.get("id") or "room",
+        }
+        key = compact_name(name) or room["id"]
+        if key in merged:
+            existing = merged[key]
+            existing["meeting_ids"] = list(
+                dict.fromkeys([*(existing.get("meeting_ids") or []), *mids])
+            )
+            existing["aliases"] = list(
+                dict.fromkeys([*(existing.get("aliases") or []), *(room.get("aliases") or [])])
+            )
+            if not existing.get("website") and room.get("website"):
+                existing["website"] = room["website"]
+            existing["never_ids"] = sorted(
+                set(existing.get("never_ids") or [])
+                | set(room.get("never_ids") or [])
+                | set(STALE_BALLROOM_IDS)
+            )
+            continue
+        merged[key] = room
+        order.append(key)
+    return [merged[key] for key in order if merged[key].get("name")]
 
 
 def parse_posts(source: Any) -> list[dict[str, Any]]:
@@ -469,7 +591,12 @@ def score_room(post_text: str, room: dict[str, Any]) -> tuple[int, list[str]]:
             break
 
     meeting = extract_meeting_id(text)
-    if meeting and meeting in set(room.get("meeting_ids") or []):
+    if meeting and is_stale_ballroom_id(meeting) and is_ballroom_name(name):
+        pass
+    elif meeting and is_promoted_ballroom_id(meeting) and is_ballroom_name(name):
+        score = max(score, PROMOTED_ID_SCORE)
+        clues.append("promoted_id")
+    elif meeting and meeting in set(room.get("meeting_ids") or []) and meeting not in set(room.get("never_ids") or []):
         score = max(score, KNOWN_MEETING_SCORE)
         clues.append("meeting_id")
 
@@ -548,7 +675,48 @@ def build_directory(
         if not links:
             continue
         join_url = links[-1]
+        join_mid = extract_meeting_id(join_url) or extract_meeting_id(text)
         room, score, clues = best_room_for_post(text, rooms)
+        if join_mid and is_promoted_ballroom_id(join_mid):
+            ballroom = next((item for item in rooms if is_ballroom_name(item.get("name") or "")), None)
+            if ballroom is None:
+                ballroom = {
+                    "id": "ballroom",
+                    "name": "Ballroom",
+                    "website": "https://ballroom.wtf",
+                    "aliases": [],
+                    "meeting_ids": [join_mid],
+                    "never_ids": sorted(STALE_BALLROOM_IDS),
+                }
+                rooms.append(ballroom)
+                by_id[ballroom["id"]] = {
+                    "id": ballroom["id"],
+                    "name": ballroom["name"],
+                    "website": _canonical_website(ballroom),
+                    "status": "closed",
+                    "join_url": None,
+                    "room_number": None,
+                    "matched_by": [],
+                    "score": 0,
+                    "last_seen": None,
+                    "source": None,
+                    "excerpt": None,
+                }
+            room = ballroom
+            score = max(score, PROMOTED_ID_SCORE)
+            clues = sorted(set(list(clues) + ["promoted_id"]))
+        if room and is_ballroom_name(room.get("name") or "") and is_stale_ballroom_id(join_mid):
+            unmatched.append(
+                {
+                    "join_url": join_url,
+                    "room_number": join_mid or None,
+                    "excerpt": _excerpt(text, join_url),
+                    "source": post.get("source") or None,
+                    "ts": post.get("ts") or None,
+                    "reason": "stale id 2060220206 is not Ballroom",
+                }
+            )
+            continue
         excerpt = _excerpt(text, join_url)
         ts = post.get("ts") or ""
         if room is None:

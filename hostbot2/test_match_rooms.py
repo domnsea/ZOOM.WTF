@@ -197,5 +197,47 @@ class PublishCliTest(unittest.TestCase):
             self.assertEqual(open_names, {"Ballroom", "Example Palace"})
 
 
+class BallroomIdentityTest(unittest.TestCase):
+    def test_stale_2060220206_is_not_ballroom(self):
+        rooms = parse_key("2060220206 BALLROOM\n")
+        names = [r["name"] for r in rooms]
+        self.assertIn("Ballroom", names)
+        ballroom = next(r for r in rooms if r["name"] == "Ballroom")
+        self.assertNotIn("2060220206", ballroom.get("meeting_ids") or [])
+        self.assertNotEqual(ballroom["name"], "2060220206")
+        directory = build_directory(
+            "2060220206 BALLROOM\n",
+            [{"text": "BALLROOM https://us02web.zoom.us/j/2060220206"}],
+        )
+        ballroom = next(r for r in directory["rooms"] if r["name"] == "Ballroom")
+        self.assertNotEqual(ballroom.get("room_number"), "2060220206")
+        self.assertIsNone(ballroom.get("join_url"))
+        self.assertTrue(
+            any(u.get("room_number") == "2060220206" for u in directory["unmatched"])
+        )
+
+    def test_973_number_is_ballroom(self):
+        rooms = parse_key("97385123456 Palace\n")
+        self.assertEqual([r["name"] for r in rooms], ["Ballroom"])
+        self.assertIn("97385123456", rooms[0]["meeting_ids"])
+        directory = build_directory(
+            {"rooms": [{"name": "Palace", "website": "https://palace.party"}]},
+            [{"text": "open https://us02web.zoom.us/j/97385123456"}],
+        )
+        ballroom = next(r for r in directory["rooms"] if r["name"] == "Ballroom")
+        self.assertEqual(ballroom["status"], "open")
+        self.assertEqual(ballroom["room_number"], "97385123456")
+        self.assertIn("promoted_id", ballroom["matched_by"])
+
+    def test_website_still_does_not_revive_stale_id(self):
+        directory = build_directory(
+            KEY,
+            [{"text": "ballroom.wtf https://zoom.us/j/2060220206"}],
+        )
+        ballroom = next(r for r in directory["rooms"] if r["name"] == "Ballroom")
+        self.assertNotEqual(ballroom.get("room_number"), "2060220206")
+        self.assertIsNone(ballroom.get("join_url"))
+
+
 if __name__ == "__main__":
     unittest.main()

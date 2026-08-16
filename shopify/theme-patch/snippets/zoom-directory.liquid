@@ -10,6 +10,11 @@
     margin: 0 auto;
     padding: calc(var(--below-fixed, 120px) + 16px) 24px 80px;
   }
+  .generic-page .zoom-directory,
+  .zoom-directory--embedded {
+    max-width: none;
+    padding: 8px 0 24px;
+  }
   .zoom-directory[hidden] { display: none !important; }
   .zoom-directory__kicker {
     font-size: 10px;
@@ -156,12 +161,30 @@
   'use strict';
   const REFRESH_MS = 5 * 60 * 1000;
   const ASSET_URL = {{ 'zoom-directory.json' | asset_url | json }};
+  const GITHUB_FEEDS = [
+    'https://raw.githubusercontent.com/domnsea/ZOOM.WTF/cursor/zoom-directory-hostbot2-082d/shopify/theme-patch/assets/zoom-directory.json',
+    'https://raw.githubusercontent.com/domnsea/ZOOM.WTF/MAIN/shopify/theme-patch/assets/zoom-directory.json'
+  ];
   const NOISE = {
     'zoom.us': 1, 'www.zoom.us': 1, 'app.zoom.us': 1, 'zoom.com': 1,
     't.me': 1, 'telegram.me': 1, 'telegram.org': 1, 'discord.gg': 1, 'discord.com': 1,
     'youtube.com': 1, 'youtu.be': 1, 'twitter.com': 1, 'x.com': 1, 'instagram.com': 1,
     'facebook.com': 1, 'bit.ly': 1, 'soundcloud.com': 1, 'github.com': 1
   };
+  const STALE_BALLROOM_IDS = { '2060220206': 1 };
+
+  function isStaleBallroomId(id) {
+    return Boolean(STALE_BALLROOM_IDS[String(id || '').replace(/\D/g, '')]);
+  }
+
+  function isPromotedBallroomId(id) {
+    const mid = String(id || '').replace(/\D/g, '');
+    return mid.length >= 9 && mid.indexOf('973') === 0;
+  }
+
+  function isBallroomName(name) {
+    return compactName(name) === 'ballroom' || compactName(name) === 'ballroomwtf';
+  }
 
   function isDirectoryPage() {
     const path = (window.location.pathname || '').replace(/\/+$/, '');
@@ -183,6 +206,7 @@
       if (title) title.hidden = true;
       page.appendChild(mount);
     }
+    if (page) mount.classList.add('zoom-directory--embedded');
     mount.hidden = false;
     return mount;
   }
@@ -303,7 +327,12 @@
     }
     const mid = extractMeetingId(text);
     const ids = (room.meeting_ids || room.meetingIds || []).map(String);
-    if (mid && ids.indexOf(mid) !== -1) {
+    if (mid && isStaleBallroomId(mid) && isBallroomName(name)) {
+      // 2060220206 was Ballroom once. It is not Ballroom.
+    } else if (mid && isPromotedBallroomId(mid) && isBallroomName(name)) {
+      score = Math.max(score, 120);
+      clues.push('promoted_id');
+    } else if (mid && ids.indexOf(mid) !== -1 && !isStaleBallroomId(mid)) {
       score = Math.max(score, 70);
       clues.push('meeting_id');
     }
@@ -340,13 +369,30 @@
       const links = extractZoom(text);
       if (!links.length) return;
       const join = links[links.length - 1];
+      const joinMid = extractMeetingId(join) || extractMeetingId(text);
+      if (isStaleBallroomId(joinMid)) {
+        unmatched.push({ join_url: join, excerpt: text.slice(0, 160), reason: 'stale id 2060220206 is not Ballroom' });
+        return;
+      }
       let best = null;
       byName.forEach((room, idx) => {
         const scored = scoreRoom(text, keyRooms[idx]);
         if (!best || scored.score > best.score) best = { room: room, score: scored.score, clues: scored.clues };
       });
+      if (isPromotedBallroomId(joinMid)) {
+        let ballroom = byName.filter((room) => isBallroomName(room.name))[0];
+        if (!ballroom) {
+          ballroom = { id: 'ballroom', name: 'Ballroom', website: 'https://ballroom.wtf', status: 'closed', join_url: null, room_number: null, matched_by: [], score: 0, last_seen: null, source: null };
+          byName.unshift(ballroom);
+        }
+        best = { room: ballroom, score: 120, clues: ['promoted_id'] };
+      }
       if (!best || best.score < 45) {
         unmatched.push({ join_url: join, excerpt: text.slice(0, 160), reason: 'no key match' });
+        return;
+      }
+      if (isBallroomName(best.room.name) && isStaleBallroomId(joinMid)) {
+        unmatched.push({ join_url: join, excerpt: text.slice(0, 160), reason: 'stale id 2060220206 is not Ballroom' });
         return;
       }
       if (best.score >= best.room.score) {
@@ -402,7 +448,22 @@
     const stamp = document.querySelector('[data-dir-stamp]');
     const status = document.querySelector('[data-dir-status]');
     if (!grid) return;
-    const rooms = (directory && directory.rooms) || [];
+    const rooms = ((directory && directory.rooms) || []).filter((room) => {
+      const name = String(room.name || '');
+      if (/2060220206/.test(name)) return false;
+      const mid = String(room.room_number || '').replace(/\D/g, '');
+      if (isBallroomName(name) && isStaleBallroomId(mid)) return true;
+      return true;
+    }).map((room) => {
+      const mid = String(room.room_number || '').replace(/\D/g, '');
+      if (isBallroomName(room.name) && isStaleBallroomId(mid)) {
+        return Object.assign({}, room, { status: 'closed', join_url: null, room_number: null });
+      }
+      if (isPromotedBallroomId(mid)) {
+        return Object.assign({}, room, { name: 'Ballroom', website: room.website || 'https://ballroom.wtf' });
+      }
+      return room;
+    });
     const openCount = rooms.filter((r) => r.status === 'open' && r.join_url).length;
     if (openEl) openEl.textContent = String(openCount);
     if (stamp) {
@@ -438,32 +499,44 @@
     }).join('');
   }
 
-  function feedUrl() {
+  function bust(url) {
+    const join = String(url).indexOf('?') === -1 ? '?' : '&';
+    return url + join + 't=' + Date.now();
+  }
+
+  function feedCandidates() {
     const params = new URLSearchParams(window.location.search);
     const override = params.get('feed') || window.BALLROOM_DIRECTORY_URL;
-    const base = override || ASSET_URL || '/cdn/shop/t/192/assets/zoom-directory.json';
-    const join = String(base).indexOf('?') === -1 ? '?' : '&';
-    return base + join + 't=' + Date.now();
+    const list = [];
+    if (override) list.push(override);
+    if (ASSET_URL) list.push(ASSET_URL);
+    list.push('https://ballroom.wtf/cdn/shop/t/192/assets/zoom-directory.json');
+    GITHUB_FEEDS.forEach((url) => list.push(url));
+    return list.filter((url, i, arr) => url && arr.indexOf(url) === i);
   }
 
   async function refresh() {
     const meta = { fetchedAt: new Date().toISOString(), error: '' };
-    try {
-      const res = await fetch(feedUrl(), { cache: 'no-store' });
-      if (!res.ok) throw new Error('HOSTBOT2 feed HTTP ' + res.status);
-      const data = await res.json();
-      render(matchDirectory(data), meta);
-    } catch (err) {
-      meta.error = 'Could not refresh from HOSTBOT2. Retrying every 5 minutes.';
-      const grid = document.querySelector('[data-dir-grid]');
-      if (grid && !grid.children.length) {
-        render({ rooms: [] }, meta);
-      } else {
-        const status = document.querySelector('[data-dir-status]');
-        if (status) {
-          status.textContent = meta.error;
-          status.classList.add('is-error');
-        }
+    const urls = feedCandidates();
+    for (let i = 0; i < urls.length; i++) {
+      try {
+        const res = await fetch(bust(urls[i]), { cache: 'no-store' });
+        if (!res.ok) throw new Error('HOSTBOT2 feed HTTP ' + res.status);
+        const data = await res.json();
+        if (!data || typeof data !== 'object') throw new Error('bad feed');
+        render(matchDirectory(data), meta);
+        return;
+      } catch (_) {}
+    }
+    meta.error = 'Could not refresh from HOSTBOT2. Retrying every 5 minutes.';
+    const grid = document.querySelector('[data-dir-grid]');
+    if (grid && !grid.children.length) {
+      render({ rooms: [] }, meta);
+    } else {
+      const status = document.querySelector('[data-dir-status]');
+      if (status) {
+        status.textContent = meta.error;
+        status.classList.add('is-error');
       }
     }
   }

@@ -18,6 +18,9 @@ class DirectoryThemeTest(unittest.TestCase):
         self.assertIn("name_as_website", snippet)
         self.assertIn("cache: 'no-store'", snippet)
         self.assertIn("/pages/zoom-directory", snippet)
+        self.assertIn("2060220206", snippet)
+        self.assertIn("973", snippet)
+        self.assertIn("raw.githubusercontent.com", snippet)
 
     def test_apply_copies_files_and_injects_render(self):
         with tempfile.TemporaryDirectory() as tmp:

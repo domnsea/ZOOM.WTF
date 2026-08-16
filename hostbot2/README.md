@@ -9,7 +9,9 @@ HOSTBOT2 itself is not in this repo (it lived as a local file, `HOSTBOT2.html`).
 1. **The key already has the room names.** Do not invent rooms from posts. The directory lists every room on the key.
 2. **Posts usually name the room as a website.** `ballroom.wtf` in a Telegram/Discord post is Ballroom. That clue wins over a name mention.
 3. Other clues, in order: room website / domain, room name used as a domain, known meeting ID, aliases, room name as a phrase.
-4. The Shopify page **refreshes every 5 minutes**.
+4. **2060220206 is not Ballroom.** That ID was used one time. Do not show it as Ballroom.
+5. **The 973 number being promoted is Ballroom.** Meeting IDs that start with `973` map to Ballroom.
+6. The Shopify page **refreshes every 5 minutes**.
 
 ## Publish a feed
 

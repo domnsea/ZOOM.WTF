@@ -6,6 +6,8 @@ Right now that page is only the Shopify body text `DIRECTORY OF ZOOM ROOMS`. Thi
 
 Room identity comes from the HOSTBOT2 **key** (it already has the room names). A post usually names the room as a **website** — `ballroom.wtf` in the post means Ballroom. Website clues beat a stray name mention so rooms do not get mixed up.
 
+**2060220206 is not Ballroom** — that ID was used once. **The 973 number being promoted is Ballroom.**
+
 Shopify only goes live when you **upload the theme ZIP**. Editing this GitHub repo does not change ballroom.wtf by itself.
 
 ## 1. Patch the theme, then upload it
