@@ -1,9 +1,8 @@
 #!/bin/bash
 #
-# One password. Open Zoom as a throwaway Mac user whose short name is
-# not the logged-in account. If Zoom is still the login account, fail.
-# Do not fall back to opening Zoom as the Mac login — that is why Join
-# kept showing dustin.
+# Same Mac login. Blank Zoom profile. Open Zoom on this desktop.
+# Pre-saved Zoom settings are moved aside for this session and put
+# back when Zoom quits. No throwaway OS user. No keychain circus.
 #
 set -u
 
@@ -25,14 +24,35 @@ CONSOLE_UID="$(/usr/bin/id -u "$CONSOLE_USER")"
 CONSOLE_HOME="$(/usr/bin/dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | /usr/bin/awk '{print $2}')"
 [ -n "$CONSOLE_HOME" ] || CONSOLE_HOME="/Users/$CONSOLE_USER"
 export HOME="$CONSOLE_HOME"
+export CONSOLE_UID CONSOLE_USER CONSOLE_HOME
 
 # shellcheck source=common.sh
 source "$SCRIPT_DIR/common.sh"
 
-log_line "LAUNCH" "START console_uid=$CONSOLE_UID"
+log_line "LAUNCH" "START blank-profile console_uid=$CONSOLE_UID user=$CONSOLE_USER"
 
-# Current Zoom (7 / latest Workplace) is still 1132. Pin this session to
-# official Zoom 6.3.11 from zoom.us — not the copy in Applications.
+stop_leftover_watchers() {
+  local pid
+  pid="$(read_state_line "$ACTIVE_STATE/monitor.pid")"
+  case "$pid" in
+    '' | *[!0-9]*) ;;
+    *) /bin/kill -9 "$pid" >/dev/null 2>&1 || true ;;
+  esac
+  /usr/bin/pkill -9 -f "launch_fresh_zoom.sh --watch" >/dev/null 2>&1 || true
+  /usr/bin/pkill -9 -f "/monitor_zoom.sh " >/dev/null 2>&1 || true
+}
+
+delete_temp_user() {
+  local user="$1"
+  case "$user" in
+    "$CONSOLE_USER" | root | daemon | nobody | "" ) return 0 ;;
+  esac
+  if /usr/bin/dscl . -read "/Users/$user" >/dev/null 2>&1; then
+    /usr/sbin/sysadminctl -deleteUser "$user" >/dev/null 2>&1 || true
+  fi
+  /bin/rm -rf "/Users/$user" >/dev/null 2>&1 || true
+}
+
 ZOOM6_VERSION="6.3.11.50104"
 ZOOM6_CACHE="/Library/Application Support/1132.WTF/zoom-6.3.11"
 ZOOM6_APP="$ZOOM6_CACHE/zoom.us.app"
@@ -73,15 +93,28 @@ extract_zoom6_pkg() {
   return 0
 }
 
-ensure_zoom6() {
-  if zoom6_ready; then
-    log_line "ZOOM6" "using cached Zoom 6.3.11 at $ZOOM6_APP"
+# Open whatever Zoom is already on this Mac. Only download 6.3.11 if
+# there is no Zoom.app at all. Waiting on a 150 MB fetch is why STEP 1
+# felt stuck.
+resolve_zoom_app() {
+  local found
+  found="$(find_zoom_app || true)"
+  if [ -n "$found" ] && [ -x "$found/Contents/MacOS/zoom.us" ]; then
+    ZOOM_APP="$found"
+    log_line "LAUNCH" "using installed Zoom $ZOOM_APP"
     return 0
   fi
-  notify_user "1132.WTF" "Downloading Zoom 6.3.11 from zoom.us"
-  show_dialog "1132.WTF" "This run uses Zoom 6.3.11, not the current Zoom in Applications.
-
-The first run downloads it from zoom.us (~150 MB). Wait. Do not open the Zoom in Applications." "note"
+  if [ -n "$found" ] && [ -x "$found/Contents/MacOS/ZoomOpener" ]; then
+    ZOOM_APP="$found"
+    log_line "LAUNCH" "using installed Zoom $ZOOM_APP"
+    return 0
+  fi
+  if zoom6_ready; then
+    ZOOM_APP="$ZOOM6_APP"
+    log_line "ZOOM6" "using cached Zoom 6.3.11"
+    return 0
+  fi
+  notify_user "1132.WTF" "No Zoom.app on this Mac. Downloading Zoom 6.3.11 from zoom.us"
   local arch url tmp
   arch="$(/usr/bin/uname -m)"
   url="https://zoom.us/client/${ZOOM6_VERSION}/zoomusInstallerFull.pkg"
@@ -89,99 +122,25 @@ The first run downloads it from zoom.us (~150 MB). Wait. Do not open the Zoom in
     url="${url}?archType=arm64"
   fi
   tmp="$(/usr/bin/mktemp -d /tmp/1132zoom6.XXXXXX)"
-  log_line "ZOOM6" "download $url"
   if ! /usr/bin/curl -fL --retry 3 --connect-timeout 20 --max-time 600 -o "$tmp/zoom.pkg" "$url"; then
     /bin/rm -rf "$tmp"
-    show_dialog "1132.WTF" "Could not download Zoom 6.3.11 from zoom.us. Check the network and run STEP 1 again. The current Zoom in Applications was not used." "stop"
+    show_dialog "1132.WTF" "No Zoom.app in Applications, and Zoom 6.3.11 could not be downloaded. Install Zoom, then run STEP 1 again." "stop"
     exit 69
   fi
-  if ! extract_zoom6_pkg "$tmp/zoom.pkg" "$tmp/extract"; then
+  if ! extract_zoom6_pkg "$tmp/zoom.pkg" "$tmp/extract" || ! zoom6_ready; then
     /bin/rm -rf "$tmp"
-    show_dialog "1132.WTF" "Downloaded Zoom 6.3.11 but could not unpack it. Run STEP 1 again." "stop"
+    show_dialog "1132.WTF" "Could not unpack Zoom. Install Zoom in Applications, then run STEP 1 again." "stop"
     exit 69
   fi
   /bin/rm -rf "$tmp"
-  if ! zoom6_ready; then
-    show_dialog "1132.WTF" "Zoom 6.3.11 did not install. The current Zoom in Applications was not used." "stop"
-    exit 69
-  fi
-  log_line "ZOOM6" "installed Zoom 6.3.11"
-}
-
-ensure_zoom6
-ZOOM_APP="$ZOOM6_APP"
-ZOOM_BIN="$ZOOM_APP/Contents/MacOS/zoom.us"
-if [[ ! -x "$ZOOM_BIN" ]]; then
-  show_dialog "1132.WTF" "Zoom 6.3.11 is missing its executable. Run STEP 1 again." "stop"
-  exit 69
-fi
-log_line "LAUNCH" "ZOOM_BIN=$ZOOM_BIN version=6.3.11"
-
-FIRSTS=(Alex Sam Jordan Casey Riley Quinn Avery Morgan Taylor Jamie Drew Reese Kai Rowan Sky Finn)
-LASTS=(Chen Patel Garcia Kim Novak Silva Haddad Okafor Ivanov Dubois Rossi Nakamura Andersson Costa Weber)
-
-name_is_login() {
-  local raw lc me
-  raw="$(printf '%s' "${1:-}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-  lc="$(printf '%s' "$raw" | /usr/bin/tr '[:upper:]' '[:lower:]')"
-  me="$(printf '%s' "$CONSOLE_USER" | /usr/bin/tr '[:upper:]' '[:lower:]')"
-  case "$lc" in
-    "" | guest | user | root | daemon | nobody | "$me" | dustin) return 0 ;;
-  esac
-  return 1
-}
-
-pick_identity() {
-  local first last num short full n
-  n=0
-  while [ "$n" -lt 8 ]; do
-    first="${FIRSTS[RANDOM % ${#FIRSTS[@]}]}"
-    last="${LASTS[RANDOM % ${#LASTS[@]}]}"
-    num="$(printf '%03d' $((RANDOM % 1000)))"
-    short="$(printf '%s%s%s' "$first" "$last" "$num" | /usr/bin/tr '[:upper:]' '[:lower:]')"
-    full="$first $last $num"
-    if name_is_login "$short" || name_is_login "$full"; then
-      n=$((n + 1))
-      continue
-    fi
-    if /usr/bin/dscl . -read "/Users/$short" >/dev/null 2>&1; then
-      n=$((n + 1))
-      continue
-    fi
-    printf '%s\t%s\n' "$short" "$full"
-    return 0
-  done
-  return 1
-}
-
-delete_temp_user() {
-  local user="$1"
-  case "$user" in
-    "$CONSOLE_USER" | root | daemon | nobody | "" ) return 0 ;;
-  esac
-  if /usr/bin/dscl . -read "/Users/$user" >/dev/null 2>&1; then
-    /usr/sbin/sysadminctl -deleteUser "$user" >/dev/null 2>&1 || true
-  fi
-  /bin/rm -rf "/Users/$user" >/dev/null 2>&1 || true
-}
-
-# A leftover --watch from the last STEP 1 will killall zoom.us after this
-# run opens Zoom. Kill it before creating a new session.
-stop_leftover_watchers() {
-  local pid
-  pid="$(read_state_line "$ACTIVE_STATE/monitor.pid")"
-  case "$pid" in
-    '' | *[!0-9]*) ;;
-    *) /bin/kill -9 "$pid" >/dev/null 2>&1 || true ;;
-  esac
-  /usr/bin/pkill -9 -f "launch_fresh_zoom.sh --watch" >/dev/null 2>&1 || true
-  /usr/bin/pkill -9 -f "/monitor_zoom.sh " >/dev/null 2>&1 || true
+  ZOOM_APP="$ZOOM6_APP"
 }
 
 zoom_for_uid() {
   local uid="$1"
   /usr/bin/pgrep -u "$uid" -x "zoom.us" >/dev/null 2>&1 && return 0
   /usr/bin/pgrep -u "$uid" -f "zoom.us.app/Contents/MacOS" >/dev/null 2>&1 && return 0
+  /usr/bin/pgrep -u "$uid" -f "Zoom Workplace.app/Contents/MacOS" >/dev/null 2>&1 && return 0
   return 1
 }
 
@@ -195,31 +154,6 @@ wait_for_uid_zoom() {
     waited=$((waited + 1))
   done
   return 1
-}
-
-kill_login_zoom() {
-  if zoom_for_uid "$CONSOLE_UID"; then
-    log_line "LAUNCH" "KILL login-account Zoom so it cannot show the Mac login name"
-    /usr/bin/pgrep -u "$CONSOLE_UID" -x "zoom.us" | while read -r pid; do
-      /bin/kill -9 "$pid" 2>/dev/null || true
-    done
-    /usr/bin/pgrep -u "$CONSOLE_UID" -f "zoom.us.app/Contents/MacOS" | while read -r pid; do
-      /bin/kill -9 "$pid" 2>/dev/null || true
-    done
-  fi
-  /usr/bin/killall -9 ZoomOpener ZoomAutoUpdater ZoomDaemon us.zoom.ZoomDaemon >/dev/null 2>&1 || true
-}
-
-# After a failed throwaway launch, restore the regular profile but do not
-# let LaunchServices reopen Zoom as the Mac login (that is the "same
-# dustin profile" bug after the keychain dialogs).
-hold_zoom_closed() {
-  local i
-  for i in 1 2 3 4 5 6 7 8 9 10; do
-    /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost ZoomDaemon >/dev/null 2>&1 || true
-    kill_login_zoom
-    /bin/sleep 1
-  done
 }
 
 unload_zoom_helpers() {
@@ -237,145 +171,63 @@ unload_zoom_helpers() {
   done
 }
 
-# Same Aqua session Zoom will use. Always HOME=throwaway, never the login home.
-as_temp() {
-  /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/sudo -u "$TEMP_USER" -H /usr/bin/env \
-    HOME="$TEMP_HOME" \
-    CFFIXED_USER_HOME="$TEMP_HOME" \
-    TMPDIR="$TEMP_HOME/tmp/" \
-    USER="$TEMP_USER" \
-    LOGNAME="$TEMP_USER" \
+# This desktop session. Isolated HOME so Zoom cannot see the saved profile.
+as_console() {
+  /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/sudo -u "$CONSOLE_USER" -H /usr/bin/env \
+    HOME="$RUNTIME_HOME" \
+    CFFIXED_USER_HOME="$RUNTIME_HOME" \
+    CFPREFERENCES_AVOID_DAEMON=1 \
+    TMPDIR="$RUNTIME_HOME/tmp/" \
+    USER="$CONSOLE_USER" \
+    LOGNAME="$CONSOLE_USER" \
     "$@"
 }
 
-# security(1) without the Aqua bootstrap. Used to create the keychain file
-# when launchctl-asuser create-keychain writes it somewhere Zoom cannot see.
-sudo_temp() {
-  /usr/bin/sudo -u "$TEMP_USER" -H /usr/bin/env \
-    HOME="$TEMP_HOME" \
-    CFFIXED_USER_HOME="$TEMP_HOME" \
-    TMPDIR="$TEMP_HOME/tmp/" \
-    USER="$TEMP_USER" \
-    LOGNAME="$TEMP_USER" \
-    "$@"
+wipe_user_zoom_keychain() {
+  local item n
+  for item in \
+    "Zoom Safe Meeting Storage" \
+    "zoom.us" \
+    "Zoom" \
+    "us.zoom.xos" \
+    "Zoom SSO" \
+    "ZoomChat" \
+    "ZoomAutoUpdater" \
+    "us.zoom.updater" \
+    "us.zoom.ZoomDaemon"
+  do
+    n=0
+    while [ "$n" -lt 40 ]; do
+      /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/sudo -u "$CONSOLE_USER" -H \
+        /usr/bin/security delete-generic-password -l "$item" >/dev/null 2>&1 || break
+      n=$((n + 1))
+    done
+    n=0
+    while [ "$n" -lt 40 ]; do
+      /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/sudo -u "$CONSOLE_USER" -H \
+        /usr/bin/security delete-generic-password -s "$item" >/dev/null 2>&1 || break
+      n=$((n + 1))
+    done
+  done
+  log_line "LAUNCH" "login keychain Zoom items removed for this session"
 }
 
-register_temp_keychain() {
-  local kc="$1"
-  local pass="$2"
-  /usr/bin/security default-keychain -d user -s "$kc" >/dev/null 2>&1 || true
-  /usr/bin/security list-keychains -d user -s "$kc" /Library/Keychains/System.keychain >/dev/null 2>&1 || true
-  /usr/bin/security unlock-keychain -p "$pass" "$kc" >/dev/null 2>&1 || true
-  /usr/bin/security set-keychain-settings -u "$kc" >/dev/null 2>&1 || true
-}
-
-# Same registration, but as the throwaway uid (no Aqua). Zoom still needs
-# run_zoom_with_keychain.sh at launch; this just makes the file usable.
-register_temp_keychain_as_user() {
-  local kc="$1"
-  local pass="$2"
-  sudo_temp /usr/bin/security default-keychain -d user -s "$kc" >/dev/null 2>&1 || true
-  sudo_temp /usr/bin/security list-keychains -d user -s "$kc" /Library/Keychains/System.keychain >/dev/null 2>&1 || true
-  sudo_temp /usr/bin/security unlock-keychain -p "$pass" "$kc" >/dev/null 2>&1 || true
-  sudo_temp /usr/bin/security set-keychain-settings -u "$kc" >/dev/null 2>&1 || true
-}
-
-# Hidden users created with sysadminctl never get a login keychain until a
-# GUI login. Zoom then shows "A keychain cannot be found to store Zoom".
-# Create login.keychain-db (and the legacy login.keychain name) in the
-# throwaway home, put System.keychain on the search list, and leave it
-# unlocked. Zoom is started by run_zoom_with_keychain.sh so the unlock
-# happens in the same security session as Zoom.
-prepare_temp_keychain() {
-  local kcdir="$TEMP_HOME/Library/Keychains"
-  local kc="$kcdir/login.keychain-db"
-  local kc_old="$kcdir/login.keychain"
-  local meta="$kcdir/metadata.keychain-db"
-  local pass="$PASSWORD"
-  local listed=""
-
-  /bin/mkdir -p "$kcdir" "$TEMP_HOME/Library/Preferences" "$TEMP_HOME/tmp"
-  /bin/chmod 700 "$kcdir"
-  /usr/sbin/chown -R "$TEMP_USER:staff" "$TEMP_HOME/Library" "$TEMP_HOME/tmp" >/dev/null 2>&1 || true
-  /bin/rm -f "$kc" "$kc_old" 2>/dev/null || true
-
-  # File first, as root, at the exact path Zoom opens via HOME.
-  if ! /usr/bin/security create-keychain -p "$pass" "$kc" >/dev/null 2>&1; then
-    log_line "LAUNCH" "root create-keychain failed; trying throwaway uid"
-    sudo_temp /usr/bin/security create-keychain -p "$pass" "$kc" >/dev/null 2>&1 || true
-  fi
-  if [ ! -f "$kc" ]; then
-    /usr/bin/security create-keychain -p "$pass" "$kc_old" >/dev/null 2>&1 ||
-      sudo_temp /usr/bin/security create-keychain -p "$pass" "$kc_old" >/dev/null 2>&1 || true
-  fi
-  if [ -f "$kc" ] && [ ! -f "$kc_old" ]; then
-    /bin/cp -p "$kc" "$kc_old" 2>/dev/null || true
-  elif [ -f "$kc_old" ] && [ ! -f "$kc" ]; then
-    /bin/cp -p "$kc_old" "$kc" 2>/dev/null || true
-  fi
-  if [ ! -f "$kc" ] && [ ! -f "$kc_old" ]; then
-    log_line "LAUNCH" "WARNING could not create throwaway login keychain"
-    return 1
-  fi
-  [ -f "$kc" ] || kc="$kc_old"
-
-  if [ ! -f "$meta" ]; then
-    /usr/bin/security create-keychain -p "$pass" "$meta" >/dev/null 2>&1 || true
-  fi
-
-  /usr/sbin/chown -R "$TEMP_USER:staff" "$kcdir" >/dev/null 2>&1 || true
-  /bin/chmod 700 "$kcdir"
-  /bin/chmod 600 "$kc" 2>/dev/null || true
-  [ -f "$kc_old" ] && /bin/chmod 600 "$kc_old" 2>/dev/null || true
-  [ -f "$meta" ] && /bin/chmod 600 "$meta" 2>/dev/null || true
-
-  register_temp_keychain "$kc" "$pass"
-  register_temp_keychain_as_user "$kc" "$pass"
-  as_temp /usr/bin/security default-keychain -d user -s "$kc" >/dev/null 2>&1 || true
-  as_temp /usr/bin/security list-keychains -d user -s "$kc" /Library/Keychains/System.keychain >/dev/null 2>&1 || true
-  as_temp /usr/bin/security unlock-keychain -p "$pass" "$kc" >/dev/null 2>&1 || true
-  as_temp /usr/bin/security set-keychain-settings -u "$kc" >/dev/null 2>&1 || true
-  as_temp /usr/bin/security set-key-partition-list -S "apple-tool:,apple:,codesign:" -s -k "$pass" "$kc" >/dev/null 2>&1 || true
-
-  listed="$(sudo_temp /usr/bin/security list-keychains -d user 2>/dev/null || true)"
-  log_line "LAUNCH" "KEYCHAIN ready path=$kc list=$(printf '%s' "$listed" | /usr/bin/tr '\n' ' ')"
-  if [ ! -f "$kc" ]; then
-    return 1
-  fi
-  return 0
-}
-
-seed_zoom_prefs() {
-  as_temp /usr/bin/defaults write us.zoom.xos ZoomDisplayName "$DISPLAY_NAME" >/dev/null 2>&1 || true
-  as_temp /usr/bin/defaults write us.zoom.xos UserName "$DISPLAY_NAME" >/dev/null 2>&1 || true
-  as_temp /usr/bin/defaults write us.zoom.xos nologin -bool true >/dev/null 2>&1 || true
-  as_temp /usr/bin/defaults write us.zoom.xos AutoLogin -bool false >/dev/null 2>&1 || true
-  as_temp /usr/bin/defaults write us.zoom.xos zDisableAutoUpdate -bool true >/dev/null 2>&1 || true
-  as_temp /usr/bin/defaults write us.zoom.xos AutoUpdate -bool false >/dev/null 2>&1 || true
-  /usr/sbin/chown -R "$TEMP_USER:staff" "$TEMP_HOME/Library/Preferences" >/dev/null 2>&1 || true
-}
-
-fail_throwaway_launch() {
+fail_blank_launch() {
   local reason="$1"
   log_line "LAUNCH" "FAILED $reason"
-  delete_temp_user "$TEMP_USER"
   /bin/bash "$SCRIPT_DIR/restore_profile.sh" "$ACTIVE_STATE" "launch-failed" || true
   /bin/rmdir "$LOCK_DIR" 2>/dev/null || true
-  hold_zoom_closed
-  show_dialog "1132.WTF" "Zoom did not stay open as the throwaway user. A new login keychain was created for that user; if Zoom still said none were found, run STEP 1 again. It was not left open as your Mac login. Regular Zoom was restored and kept closed." "stop"
+  show_dialog "1132.WTF" "Zoom did not stay open. Regular Zoom settings were put back. Run STEP 1 again." "stop"
   exit 72
 }
 
 if [ "${1:-}" = "--watch" ]; then
   STATE_DIR="${2:-$ACTIVE_STATE}"
-  TEMP_USER="${3:-}"
-  TEMP_UID="${4:-}"
-  log_line "WATCH" "waiting for throwaway Zoom to quit"
+  log_line "WATCH" "waiting for blank-profile Zoom to quit"
   appeared=0
   waited=0
   while [ "$waited" -lt 180 ]; do
-    kill_login_zoom
-    if [ -n "$TEMP_UID" ] && zoom_for_uid "$TEMP_UID"; then
+    if zoom_for_uid "$CONSOLE_UID"; then
       appeared=1
       break
     fi
@@ -383,31 +235,23 @@ if [ "${1:-}" = "--watch" ]; then
     waited=$((waited + 1))
   done
   if [ "$appeared" -eq 1 ]; then
-    while zoom_for_uid "$TEMP_UID"; do
-      kill_login_zoom
-      /usr/bin/killall -9 ZoomDaemon us.zoom.ZoomDaemon >/dev/null 2>&1 || true
+    while zoom_for_uid "$CONSOLE_UID"; do
+      /usr/bin/killall -9 ZoomDaemon us.zoom.ZoomDaemon ZoomOpener ZoomAutoUpdater >/dev/null 2>&1 || true
       /bin/sleep 2
     done
   fi
-  /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost ZoomDaemon >/dev/null 2>&1 || true
-  [ -n "$TEMP_USER" ] && delete_temp_user "$TEMP_USER"
   export HOME="$CONSOLE_HOME"
   /bin/bash "$SCRIPT_DIR/restore_profile.sh" "$STATE_DIR" "zoom-closed" || true
-  log_line "WATCH" "DONE throwaway user removed and regular profile restored"
+  log_line "WATCH" "DONE blank profile deleted and regular Zoom restored"
   exit 0
 fi
-
-REQUESTED_NAME="$(printf '%s' "${1:-}" | /usr/bin/tr -cd 'A-Za-z0-9 ._-')"
 
 /usr/bin/killall -9 zoom.us ZoomOpener ZoomAutoUpdater CptHost aomhost ZoomDaemon >/dev/null 2>&1 || true
 /usr/bin/pkill -9 -f "/zoom.us.app/" >/dev/null 2>&1 || true
 unload_zoom_helpers
 /bin/sleep 1
 
-# Leftover ~/Library/Application Support/1132.WTF/active from a previous
-# run must not abort this one. Missing net.computer files are normal now
-# (STEP 1 no longer rotates MAC/hostname). Clear the old watcher and
-# lock, restore the regular profile quietly, then open a new Zoom.
+# Put Applications Zoom back if an older build hid it, then open it.
 stop_leftover_watchers
 if [[ -d "$ACTIVE_STATE" ]]; then
   log_line "LAUNCH" "RECOVERY leftover session"
@@ -416,6 +260,20 @@ if [[ -d "$ACTIVE_STATE" ]]; then
   /bin/bash "$SCRIPT_DIR/restore_profile.sh" "$ACTIVE_STATE" "startup-recovery" || true
   printf '%s\n' "Previous session cleaned up. Opening a new Zoom..."
 fi
+
+resolve_zoom_app
+ZOOM_BIN=""
+if [ -x "$ZOOM_APP/Contents/MacOS/zoom.us" ]; then
+  ZOOM_BIN="$ZOOM_APP/Contents/MacOS/zoom.us"
+elif [ -x "$ZOOM_APP/Contents/MacOS/ZoomOpener" ]; then
+  ZOOM_BIN="$ZOOM_APP/Contents/MacOS/ZoomOpener"
+fi
+if [ -z "$ZOOM_BIN" ]; then
+  show_dialog "1132.WTF" "Zoom.app is missing its executable. Install Zoom, then run STEP 1 again." "stop"
+  exit 69
+fi
+log_line "LAUNCH" "ZOOM_BIN=$ZOOM_BIN"
+
 /bin/rm -rf "$LOCK_DIR" >/dev/null 2>&1 || true
 
 if ! /bin/mkdir "$LOCK_DIR" 2>/dev/null; then
@@ -423,8 +281,9 @@ if ! /bin/mkdir "$LOCK_DIR" 2>/dev/null; then
   exit 75
 fi
 
-/bin/mkdir -p "$ACTIVE_STATE/backup" "$ACTIVE_STATE/runtime-home" "$ACTIVE_STATE/runtime-scripts"
-/bin/chmod 700 "$ACTIVE_STATE" "$ACTIVE_STATE/backup" "$ACTIVE_STATE/runtime-home"
+RUNTIME_HOME="$ACTIVE_STATE/runtime-home"
+/bin/mkdir -p "$ACTIVE_STATE/backup" "$RUNTIME_HOME" "$ACTIVE_STATE/runtime-scripts"
+/bin/chmod 700 "$ACTIVE_STATE" "$ACTIVE_STATE/backup" "$RUNTIME_HOME"
 /bin/cp "$SCRIPT_DIR/common.sh" "$ACTIVE_STATE/runtime-scripts/common.sh"
 /bin/cp "$SCRIPT_DIR/restore_profile.sh" "$ACTIVE_STATE/runtime-scripts/restore_profile.sh"
 /bin/chmod 700 "$ACTIVE_STATE/runtime-scripts/"*.sh
@@ -450,114 +309,55 @@ done < "$TARGETS_FILE"
 kill_preferences_cache
 log_line "LAUNCH" "PROFILE_READY protected_items=$MOVED"
 
+# Machine Zoom tokens only. Do not hide Applications Zoom — that is what
+# we are about to open.
 stash_system_zoom "$ACTIVE_STATE"
+wipe_user_zoom_keychain
 
-IDENT="$(pick_identity)" || {
-  /bin/bash "$SCRIPT_DIR/restore_profile.sh" "$ACTIVE_STATE" "identity-failed" || true
-  /bin/rmdir "$LOCK_DIR" 2>/dev/null || true
-  show_dialog "1132.WTF" "Could not create a throwaway Zoom user. Regular Zoom was left in place." "stop"
-  exit 71
-}
-TEMP_USER="$(printf '%s\n' "$IDENT" | /usr/bin/awk -F'\t' '{print $1}')"
-DISPLAY_NAME="$(printf '%s\n' "$IDENT" | /usr/bin/awk -F'\t' '{print $2}')"
-if ! name_is_login "$REQUESTED_NAME"; then
-  DISPLAY_NAME="$REQUESTED_NAME"
-fi
-PASSWORD="$(/usr/bin/openssl rand -base64 24 | /usr/bin/tr -d '/+=' | /usr/bin/head -c 20)"
-
-if ! /usr/sbin/sysadminctl -addUser "$TEMP_USER" -fullName "$DISPLAY_NAME" -password "$PASSWORD" >/dev/null 2>&1; then
-  /bin/bash "$SCRIPT_DIR/restore_profile.sh" "$ACTIVE_STATE" "adduser-failed" || true
-  /bin/rmdir "$LOCK_DIR" 2>/dev/null || true
-  show_dialog "1132.WTF" "Could not create a throwaway Zoom user. Regular Zoom was left in place." "stop"
-  exit 71
-fi
-/usr/bin/dscl . -create "/Users/$TEMP_USER" IsHidden 1 >/dev/null 2>&1 || true
-/usr/bin/dscl . -create "/Users/$TEMP_USER" RealName "$DISPLAY_NAME" >/dev/null 2>&1 || true
-/usr/bin/dscl . -create "/Users/$TEMP_USER" UserShell /bin/bash >/dev/null 2>&1 || true
-/usr/sbin/createhomedir -c -u "$TEMP_USER" >/dev/null 2>&1 || true
-TEMP_HOME="$(/usr/bin/dscl . -read "/Users/$TEMP_USER" NFSHomeDirectory 2>/dev/null | /usr/bin/awk '{print $2}')"
-[ -n "$TEMP_HOME" ] || TEMP_HOME="/Users/$TEMP_USER"
 /bin/mkdir -p \
-  "$TEMP_HOME/tmp" \
-  "$TEMP_HOME/Library/Application Support" \
-  "$TEMP_HOME/Library/Preferences" \
-  "$TEMP_HOME/Library/Caches" \
-  "$TEMP_HOME/Library/Logs" \
-  "$TEMP_HOME/Library/Keychains"
-/usr/sbin/chown -R "$TEMP_USER:staff" "$TEMP_HOME" >/dev/null 2>&1 || true
-TEMP_UID="$(/usr/bin/id -u "$TEMP_USER")"
-printf '%s\n' "$TEMP_USER" >"$ACTIVE_STATE/temp.user"
-printf '%s\n' "$DISPLAY_NAME" >"$ACTIVE_STATE/display.name"
-printf '%s\n' "$DISPLAY_NAME" >"$LOG_DIR/last_display_name.txt"
-log_line "LAUNCH" "THROWAY_USER uid=$TEMP_UID short=$TEMP_USER display=$DISPLAY_NAME"
+  "$RUNTIME_HOME/tmp" \
+  "$RUNTIME_HOME/Library/Application Support" \
+  "$RUNTIME_HOME/Library/Preferences" \
+  "$RUNTIME_HOME/Library/Caches" \
+  "$RUNTIME_HOME/Library/Logs" \
+  "$RUNTIME_HOME/Library/Keychains"
+/usr/sbin/chown -R "$CONSOLE_USER:staff" "$RUNTIME_HOME" >/dev/null 2>&1 || true
 
-if ! prepare_temp_keychain; then
-  fail_throwaway_launch "throwaway keychain was not created"
-fi
-seed_zoom_prefs
-# One password. New temp account. Open Zoom. Delete the account on quit.
-# Do not ask them to switch networks. Do not spoof the Wi-Fi MAC.
+# Empty profile. No ZoomDisplayName, no saved rooms, no signed-in account.
+log_line "LAUNCH" "launchctl asuser $CONSOLE_UID sudo -u $CONSOLE_USER blank HOME=$RUNTIME_HOME"
+as_console "$ZOOM_BIN" >/dev/null 2>&1 &
 
-# Aqua session of the logged-in desktop, process uid of the throwaway user.
-# Always pass the throwaway HOME. Never launch with the login account home.
-launch_as_temp() {
-  log_line "LAUNCH" "launchctl asuser $CONSOLE_UID sudo -u $TEMP_USER $*"
-  as_temp "$@" >/dev/null 2>&1 &
-}
-
-# Copy the unlock wrapper into the throwaway home so that user can exec it.
-ZOOM_KC_RUN="$TEMP_HOME/tmp/run_zoom_with_keychain.sh"
-/bin/cp "$SCRIPT_DIR/run_zoom_with_keychain.sh" "$ZOOM_KC_RUN"
-/usr/sbin/chown "$TEMP_USER:staff" "$ZOOM_KC_RUN" >/dev/null 2>&1 || true
-/bin/chmod 700 "$ZOOM_KC_RUN"
-
-# Unlock the new login keychain in the same process that execs Zoom.
-# Creating it earlier is not enough — Zoom said none were found.
-launch_as_temp /bin/bash "$ZOOM_KC_RUN" "$PASSWORD" "$ZOOM_BIN"
-
-if ! wait_for_uid_zoom "$TEMP_UID" 12; then
-  log_line "LAUNCH" "retry sudo -u with throwaway env and keychain unlock"
-  launch_as_temp /usr/bin/env \
-    HOME="$TEMP_HOME" \
-    CFFIXED_USER_HOME="$TEMP_HOME" \
-    CFPREFERENCES_AVOID_DAEMON=1 \
-    USER="$TEMP_USER" \
-    LOGNAME="$TEMP_USER" \
-    /bin/bash "$ZOOM_KC_RUN" "$PASSWORD" "$ZOOM_BIN"
-  wait_for_uid_zoom "$TEMP_UID" 10 || true
+if ! wait_for_uid_zoom "$CONSOLE_UID" 12; then
+  log_line "LAUNCH" "retry blank-profile Zoom"
+  as_console "$ZOOM_BIN" >/dev/null 2>&1 &
+  wait_for_uid_zoom "$CONSOLE_UID" 10 || true
 fi
 
-kill_login_zoom
-
-if ! zoom_for_uid "$TEMP_UID"; then
-  fail_throwaway_launch "Zoom did not start as the throwaway user"
+if ! zoom_for_uid "$CONSOLE_UID"; then
+  fail_blank_launch "Zoom did not start on this desktop"
 fi
 
-# Keychain dialogs used to kill throwaway Zoom in a few seconds, then the
-# restored login profile reopened. Wait until this instance stays up.
 stable=0
 waited=0
-while [ "$waited" -lt 12 ]; do
-  kill_login_zoom
-  if zoom_for_uid "$TEMP_UID"; then
+while [ "$waited" -lt 8 ]; do
+  if zoom_for_uid "$CONSOLE_UID"; then
     stable=$((stable + 1))
   else
-    fail_throwaway_launch "throwaway Zoom exited during startup (keychain)"
+    fail_blank_launch "Zoom exited during startup"
   fi
   /bin/sleep 1
   waited=$((waited + 1))
 done
 
-log_line "LAUNCH" "OK Zoom is running as throwaway uid=$TEMP_UID stable=$stable name-ready=YES"
-/usr/bin/nohup /bin/bash "$SELF" --watch "$ACTIVE_STATE" "$TEMP_USER" "$TEMP_UID" >>"$LOG_FILE" 2>&1 &
+log_line "LAUNCH" "OK Zoom is running as $CONSOLE_USER uid=$CONSOLE_UID stable=$stable blank-profile=YES"
+/usr/bin/nohup /bin/bash "$SELF" --watch "$ACTIVE_STATE" >>"$LOG_FILE" 2>&1 &
 printf '%s\n' "$!" >"$ACTIVE_STATE/monitor.pid"
-printf '%s' "$DISPLAY_NAME" | /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/pbcopy >/dev/null 2>&1 || true
-notify_user "1132.WTF" "Fresh Zoom is opening as $DISPLAY_NAME"
-show_dialog "1132.WTF" "Zoom is open as:
+notify_user "1132.WTF" "Fresh Zoom is opening. Join in THIS window."
+show_dialog "1132.WTF" "Zoom is open on a blank profile.
 
-$DISPLAY_NAME
+No saved rooms, no signed-in account, no old settings.
 
-That is a new temp account. Join in THIS window.
+Join in THIS window.
 
-When you quit Zoom, the temp account is deleted and your regular Zoom is put back." "note"
+When you quit Zoom, your regular Zoom is put back." "note"
 exit 0

@@ -53,7 +53,8 @@ find_zoom_app() {
 
 zoom_processes_running() {
   local uid
-  uid="$(id -u)"
+  uid="${CONSOLE_UID:-}"
+  [ -n "$uid" ] || uid="$(/usr/bin/stat -f %u /dev/console 2>/dev/null || /usr/bin/id -u)"
   /bin/ps -axo uid=,command= | /usr/bin/awk -v uid="$uid" '
     $1 == uid {
       line=$0
@@ -463,8 +464,8 @@ stash_one_path() {
   return 1
 }
 
-# Hide Applications Zoom and every machine-level Zoom token that marks
-# this Mac (daemon, /Library, /var/root). Restored when Zoom quits.
+# Hide machine-level Zoom tokens (daemon, /Library, /var/root). Do not
+# hide Applications Zoom — STEP 1 opens that copy on a blank profile.
 stash_system_zoom() {
   local state="$1"
   local dest="$state/stashed-apps"
@@ -473,10 +474,6 @@ stash_system_zoom() {
   : >"$state/stashed-apps.list"
   bootout_zoom_system_jobs
   for src in \
-    "/Applications/zoom.us.app" \
-    "/Applications/Zoom Workplace.app" \
-    "$HOME/Applications/zoom.us.app" \
-    "$HOME/Applications/Zoom Workplace.app" \
     "/Library/Application Support/zoom.us" \
     "/Library/Application Support/Zoom" \
     "/Library/Logs/zoom.us" \

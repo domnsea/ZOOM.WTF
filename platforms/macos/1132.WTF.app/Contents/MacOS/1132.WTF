@@ -10,7 +10,7 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.33"
+APP_VERSION="1.0.34"
 APP_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 export APP_ROOT
 ENGINE="$APP_ROOT/Contents/Resources/1132wtf-engine.sh"
@@ -45,7 +45,8 @@ OLD_AGENT29="$HOME/Library/LaunchAgents/wtf.fix1132.mac.29.plist"
 OLD_AGENT30="$HOME/Library/LaunchAgents/wtf.fix1132.mac.30.plist"
 OLD_AGENT31="$HOME/Library/LaunchAgents/wtf.fix1132.mac.31.plist"
 OLD_AGENT32="$HOME/Library/LaunchAgents/wtf.fix1132.mac.32.plist"
-for agent in "$OLD_AGENT" "$OLD_AGENT12" "$OLD_AGENT13" "$OLD_AGENT14" "$OLD_AGENT15" "$OLD_AGENT16" "$OLD_AGENT17" "$OLD_AGENT18" "$OLD_AGENT19" "$OLD_AGENT20" "$OLD_AGENT21" "$OLD_AGENT22" "$OLD_AGENT23" "$OLD_AGENT24" "$OLD_AGENT25" "$OLD_AGENT26" "$OLD_AGENT27" "$OLD_AGENT28" "$OLD_AGENT29" "$OLD_AGENT30" "$OLD_AGENT31" "$OLD_AGENT32"; do
+OLD_AGENT33="$HOME/Library/LaunchAgents/wtf.fix1132.mac.33.plist"
+for agent in "$OLD_AGENT" "$OLD_AGENT12" "$OLD_AGENT13" "$OLD_AGENT14" "$OLD_AGENT15" "$OLD_AGENT16" "$OLD_AGENT17" "$OLD_AGENT18" "$OLD_AGENT19" "$OLD_AGENT20" "$OLD_AGENT21" "$OLD_AGENT22" "$OLD_AGENT23" "$OLD_AGENT24" "$OLD_AGENT25" "$OLD_AGENT26" "$OLD_AGENT27" "$OLD_AGENT28" "$OLD_AGENT29" "$OLD_AGENT30" "$OLD_AGENT31" "$OLD_AGENT32" "$OLD_AGENT33"; do
   /bin/launchctl bootout "gui/$(id -u)" "$agent" >/dev/null 2>&1 ||
     /bin/launchctl unload "$agent" >/dev/null 2>&1 || true
   rm -f "$agent"

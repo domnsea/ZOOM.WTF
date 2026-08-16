@@ -14,7 +14,7 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.33"
+APP_VERSION="1.0.34"
 BUNDLE_ID="wtf.fix1132.mac.31"
 
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
@@ -515,9 +515,8 @@ assert_safe_user() {
   esac
 }
 
-# Open Zoom as a throwaway Mac user on this desktop. Join then cannot
-# show the Mac login name. If that throwaway Zoom never appears, fail.
-# Do not fall back to opening Zoom as the logged-in account.
+# Open Zoom on this desktop with a blank profile. Pre-saved Zoom
+# settings are moved aside. If Zoom never appears, fail.
 do_v9_launch() {
   local helper
   helper="$(cd "$(dirname "$0")" && pwd)/launch_fresh_zoom.sh"
@@ -539,19 +538,19 @@ do_v9_launch() {
     log INFO "Meeting number is on the clipboard. Paste it into Zoom Join."
   fi
 
-  log ACTION "Opening factory-fresh Zoom on this desktop as a throwaway user."
-  log INFO "macOS will ask for your password once so Zoom cannot use your Mac login name."
+  log ACTION "Opening factory-fresh Zoom on this desktop with no saved settings."
+  log INFO "macOS will ask for your password once so the old Zoom profile can be moved aside."
 
   if ! /bin/bash "$helper" "$name"; then
-    die "Fresh Zoom did not start as a throwaway user, so it was not opened as your Mac login. See $HOME/Library/Logs/1132.WTF/launch.log"
+    die "Fresh Zoom did not start. See $HOME/Library/Logs/1132.WTF/launch.log"
   fi
   name="$(/usr/bin/tr -d '\r\n' <"$LOG_DIR/last_display_name.txt" 2>/dev/null || true)"
-  [ -n "$name" ] || name="the throwaway Zoom user"
+  [ -n "$name" ] || name="this desktop"
   if [ -z "$meeting" ]; then
     printf '%s' "$name" | /usr/bin/pbcopy >/dev/null 2>&1 || true
   fi
-  log OK "Fresh Zoom is opening as '$name'."
-  log DONE "Close Zoom completely, or run STEP 2, to delete the throwaway user and restore your regular Zoom."
+  log OK "Fresh Zoom is opening."
+  log DONE "Close Zoom completely, or run STEP 2, to restore your regular Zoom."
 }
 
 do_deep_fix() {

@@ -217,21 +217,17 @@ check_grep "macos v9 launch uses a disposable runtime home" "runtime-home" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos v9 restores the regular Zoom profile" "restore_profile.sh" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos app shows version 1.0.33 so an old copy is obvious" "1.0.33" \
+check_grep "macos app shows version 1.0.34 so an old copy is obvious" "1.0.34" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
 check_grep "macos zip filename includes the app version so Safari cannot reuse the old download" '1132-FRESH-${mac_ver}-macos' \
   tools/build_all.sh
-check_grep "macos START_HERE downloads a versioned zip" "1132-FRESH-1.0.33-macos.zip" \
+check_grep "macos START_HERE downloads a versioned zip" "1132-FRESH-1.0.34-macos.zip" \
   platforms/macos/START_HERE.txt
 check_grep "macos uses sudo in Terminal to become root" "sudo -p" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos deletes the throwaway profile when Zoom quits" "delete_temp_user" \
+check_grep "macos deletes leftover throwaway users from older builds" "delete_temp_user" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos creates login.keychain-db for the throwaway user" "login.keychain-db" \
-  platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos puts System.keychain on the throwaway search list" "/Library/Keychains/System.keychain" \
-  platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos unlocks the new keychain in the Zoom process" "run_zoom_with_keychain.sh" \
+check_grep "macos opens Zoom on this desktop login" "CONSOLE_USER" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos turns IPv6 off for the Zoom session" "setv6off" \
   platforms/macos/1132.WTF.app/Contents/Resources/common.sh
@@ -247,11 +243,7 @@ check_grep "macos removes Zoom items from the System keychain" "System.keychain"
   platforms/macos/1132.WTF.app/Contents/Resources/common.sh
 check_grep "macos refuses to open Zoom on the same public IP" "require_new_public_ip" \
   platforms/macos/1132.WTF.app/Contents/Resources/common.sh
-check_grep "macos hides Applications Zoom for the session" "stash_system_zoom" \
-  platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos pins official Zoom 6.3.11" "6.3.11.50104" \
-  platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos downloads Zoom 6 from zoom.us" "zoomusInstallerFull.pkg" \
+check_grep "macos hides machine Zoom tokens but not Applications Zoom" "stash_system_zoom" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos rotates a locally administered Wi-Fi MAC" "net_random_mac" \
   platforms/macos/1132.WTF.app/Contents/Resources/common.sh
@@ -265,17 +257,11 @@ check_grep "macos leftover restore is quiet so STEP 1 does not look finished" "s
   platforms/macos/1132.WTF.app/Contents/Resources/restore_profile.sh
 check_grep "macos restores the original MAC when Zoom quits" "restore_network" \
   platforms/macos/1132.WTF.app/Contents/Resources/restore_profile.sh
-check_grep "macos launch creates a throwaway login keychain" "create-keychain" \
-  platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos launch unlocks the throwaway keychain" "unlock-keychain" \
+check_grep "macos launch uses an empty runtime home" "runtime-home" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos session sets the Mac full name so Zoom Join is not the login" "RealName" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-setname.sh
-check_grep "macos launch creates a throwaway user" "sysadminctl -addUser" \
-  platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos launch uses launchctl asuser" "launchctl asuser" \
-  platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos launch uses sudo -u for the throwaway uid" "sudo -u" \
+check_grep "macos launch uses this Mac login" "sudo -u" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos window title is 1132 FRESH" "1132 FRESH" \
   platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa
@@ -323,14 +309,15 @@ if grep -vE '^[[:space:]]*#' platforms/macos/1132.WTF.app/Contents/Resources/113
 else
   pass "macos session helper does not kill Zoom"
 fi
-# STEP 1 / STEP 2 create a temporary Mac user, open Zoom on that empty
-# profile, then delete the user when Zoom quits. Never a web page.
+# STEP 1 opens Zoom on this Mac login with an empty profile, then
+# restores regular Zoom when Zoom quits. Never a web page.
 python_check <<'PY'
 from pathlib import Path
 engine = Path("platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-engine.sh").read_text()
 helper = Path("platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh").read_text()
 launcher = Path("platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF").read_text()
 gui = Path("platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa").read_text()
+common = Path("platforms/macos/1132.WTF.app/Contents/Resources/common.sh").read_text()
 start = engine.find("do_fix()")
 end = engine.find("\nlist_backups()", start)
 block = engine[start:end]
@@ -341,59 +328,51 @@ if "launch_zoom_temp_profile" in engine or "launch_zoom_clean" in engine:
 if "CFFIXED_USER_HOME" not in helper:
     raise SystemExit("v9 launch must set CFFIXED_USER_HOME")
 if 'USER="$(id -un)"' in helper or "USER=\"$(id -un)\"" in helper:
-    raise SystemExit("v9 launch must not pass the Mac login as USER")
-if "sysadminctl -addUser" not in helper:
-    raise SystemExit("launch must create a throwaway Mac user")
-if "/usr/bin/osascript" in helper or "/usr/bin/osascript" in Path("platforms/macos/1132.WTF.app/Contents/Resources/common.sh").read_text() or "/usr/bin/osascript" in Path("platforms/macos/1132.WTF.app/Contents/Resources/restore_profile.sh").read_text():
+    raise SystemExit("v9 launch must not pass USER=$(id -un)")
+if "sysadminctl -addUser" in helper:
+    raise SystemExit("launch must not create a throwaway Mac user")
+if "/usr/bin/osascript" in helper or "/usr/bin/osascript" in common or "/usr/bin/osascript" in Path("platforms/macos/1132.WTF.app/Contents/Resources/restore_profile.sh").read_text():
     raise SystemExit("launch path must use sudo, not osascript")
 if "sudo -p" not in helper:
     raise SystemExit("launch must elevate with sudo")
-if "create-keychain" not in helper or "unlock-keychain" not in helper:
-    raise SystemExit("launch must create and unlock a throwaway login keychain")
-if "run_zoom_with_keychain.sh" not in helper:
-    raise SystemExit("launch must unlock the new keychain in the same process as Zoom")
+if "create-keychain" in helper:
+    raise SystemExit("launch must not build a throwaway keychain")
 if "-w \"none\"" in helper:
     raise SystemExit("launch must not store a Zoom password of none")
-wrapper = Path("platforms/macos/1132.WTF.app/Contents/Resources/run_zoom_with_keychain.sh").read_text()
-if "unlock-keychain" not in wrapper or "exec" not in wrapper:
-    raise SystemExit("keychain wrapper must unlock then exec Zoom")
-if "/Library/Keychains/System.keychain" not in helper:
-    raise SystemExit("throwaway search list must include System.keychain")
-if "hold_zoom_closed" not in helper:
-    raise SystemExit("launch must keep Zoom closed after a failed throwaway start")
 if "save_and_rotate_network" in helper:
     raise SystemExit("launch must not spoof the Wi-Fi MAC")
 if "require_new_public_ip" in helper:
     raise SystemExit("launch must not ask them to switch networks")
 if "hotspot" in helper.lower():
     raise SystemExit("launch must not mention a hotspot")
-if "read_state_line" not in Path("platforms/macos/1132.WTF.app/Contents/Resources/common.sh").read_text():
+if "read_state_line" not in common:
     raise SystemExit("common.sh must read leftover net files only if they exist")
 if "stop_leftover_watchers" not in helper or "Opening a new Zoom" not in helper:
     raise SystemExit("leftover session cleanup must continue and open a new Zoom")
 restore = Path("platforms/macos/1132.WTF.app/Contents/Resources/restore_profile.sh").read_text()
 if "startup-recovery" not in restore:
     raise SystemExit("restore must stay quiet during leftover STEP 1 recovery")
-if ' <"$state/net.computer"' in Path("platforms/macos/1132.WTF.app/Contents/Resources/common.sh").read_text():
+if ' <"$state/net.computer"' in common:
     raise SystemExit("restore_network must not redirect a missing net.computer")
-if "delete_temp_user" not in helper:
-    raise SystemExit("launch must delete the throwaway profile when Zoom quits")
-if "6.3.11.50104" not in helper or "zoomusInstallerFull.pkg" not in helper:
-    raise SystemExit("launch must download official Zoom 6.3.11 instead of Applications Zoom")
+if "RUNTIME_HOME" not in helper or "blank HOME" not in helper:
+    raise SystemExit("launch must open Zoom on an empty runtime home")
 if "stash_system_zoom" not in helper:
-    raise SystemExit("launch must hide Applications Zoom so the old client cannot open")
+    raise SystemExit("launch must stash machine Zoom tokens")
+stash = common[common.find("stash_system_zoom"):common.find("relink_zoom_helpers")]
+if '"/Applications/zoom.us.app"' in stash:
+    raise SystemExit("must not hide Applications Zoom; that is the app STEP 1 opens")
 if "bootout_zoom_system_jobs" not in helper:
     raise SystemExit("launch must unload ZoomDaemon so this Mac's machine token is gone")
-if "PrivilegedHelperTools/us.zoom.ZoomDaemon" not in Path("platforms/macos/1132.WTF.app/Contents/Resources/common.sh").read_text():
+if "PrivilegedHelperTools/us.zoom.ZoomDaemon" not in common:
     raise SystemExit("machine wipe must hide ZoomDaemon")
 if "sudo -u" not in helper or "launchctl asuser" not in helper:
-    raise SystemExit("launch must use launchctl asuser + sudo -u so Zoom is not the login uid")
+    raise SystemExit("launch must use launchctl asuser + sudo -u so Zoom has a window")
 if "pgrep -u" not in helper:
-    raise SystemExit("launch must verify Zoom is running as the throwaway uid")
+    raise SystemExit("launch must verify Zoom is running on this desktop")
 if "exit 72" not in helper:
-    raise SystemExit("launch must fail if Zoom is still the Mac login")
+    raise SystemExit("launch must fail if Zoom did not stay open")
 if "1132wtf-setname" in helper:
-    raise SystemExit("launch must not use RealName swap; Zoom Join follows the process uid")
+    raise SystemExit("launch must not use RealName swap")
 if "resolve_display_name" not in engine or "random_display_name" not in engine:
     raise SystemExit("engine must pick a new random Zoom name each launch")
 if "setStringValue('Guest')" in gui:
