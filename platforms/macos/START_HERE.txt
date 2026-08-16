@@ -1,17 +1,20 @@
-1132 FRESH 1.0.26 — Mac only
+1132 FRESH 1.0.27 — Mac only
 ============================
 
-Zoom said no keychain was found. 1.0.26 creates
-a login keychain for the throwaway user and
-unlocks it in the same process that opens Zoom.
+The last run said no IP was found. That lookup
+ran as root and often cannot see the network.
 
-The lime banner must say 1132 FRESH 1.0.26.
+1.0.27 reads the public IP as your Mac login,
+retries for ~30 seconds after you click OK, and
+still opens Zoom if the IP cannot be read.
+
+The lime banner must say 1132 FRESH 1.0.27.
 
 https://github.com/domnsea/ZOOM.WTF/releases/latest/download/1132-FRESH-macos.zip
 
 STEP 1 - Right-click "STEP 1 - OPEN FRESH ZOOM.command" → Open → Open
-         When it shows the IP, connect ONLY a phone hotspot. Turn home Wi-Fi off.
+         When it asks, connect ONLY a phone hotspot. Then OK.
 STEP 2 - Join only in the window it opened.
-LAUNCH - Banner must say 1132 FRESH 1.0.26.
+LAUNCH - Banner must say 1132 FRESH 1.0.27.
 
 sudo rm -rf /Applications/1132.WTF.app && sudo cp -R "$HOME/Downloads/1132-FRESH-macos/1132.WTF.app" /Applications/1132.WTF.app && sudo chown -R "$(whoami):staff" /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app

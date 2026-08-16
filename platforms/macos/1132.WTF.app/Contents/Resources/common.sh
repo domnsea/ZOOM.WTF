@@ -329,17 +329,68 @@ restore_isolated_network() {
   log_line "NET" "network services and IPv6 restored"
 }
 
-public_ipv6() {
-  /usr/bin/curl -6 -fsS --max-time 6 https://api64.ipify.org 2>/dev/null ||
-    /usr/bin/curl -6 -fsS --max-time 6 https://ifconfig.me/ip 2>/dev/null ||
-    true
+# Admin `do shell script` runs as root in a session that often has no
+# working HTTPS/DNS. Look up the public IP as the logged-in desktop user.
+as_console_bash() {
+  local snippet="$1"
+  if [ "$(id -u)" -eq 0 ] && [ -n "${CONSOLE_UID:-}" ] && [ -n "${CONSOLE_USER:-}" ]; then
+    /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/sudo -u "$CONSOLE_USER" -H \
+      /usr/bin/env HOME="${CONSOLE_HOME:-/Users/$CONSOLE_USER}" /bin/bash -c "$snippet"
+  else
+    /bin/bash -c "$snippet"
+  fi
+}
+
+# One shot. Prints a public IPv4, or an IPv6 if that is all the network has.
+_public_ip_snippet() {
+  cat <<'SNIP'
+ip=""
+try4() { /usr/bin/curl -4 -fsS --connect-timeout 3 --max-time 6 "$1" 2>/dev/null; }
+for url in \
+  https://api.ipify.org \
+  https://ipv4.icanhazip.com \
+  https://checkip.amazonaws.com \
+  https://ifconfig.me/ip \
+  https://icanhazip.com \
+  https://ipinfo.io/ip
+do
+  ip="$(try4 "$url" | /usr/bin/tr -d '[:space:]')"
+  case "$ip" in
+    [0-9]*.[0-9]*.[0-9]*.[0-9]*) printf '%s\n' "$ip"; exit 0 ;;
+  esac
+done
+if [ -x /usr/bin/dig ]; then
+  ip="$(/usr/bin/dig +short +time=3 +tries=1 myip.opendns.com @resolver1.opendns.com 2>/dev/null | /usr/bin/tr -d '[:space:]')"
+  case "$ip" in
+    [0-9]*.[0-9]*.[0-9]*.[0-9]*) printf '%s\n' "$ip"; exit 0 ;;
+  esac
+fi
+ip="$(/usr/bin/curl -6 -fsS --connect-timeout 3 --max-time 6 https://api64.ipify.org 2>/dev/null | /usr/bin/tr -d '[:space:]')"
+[ -n "$ip" ] && printf '%s\n' "$ip"
+SNIP
 }
 
 public_ip() {
-  /usr/bin/curl -fsS --max-time 8 https://api.ipify.org 2>/dev/null ||
-    /usr/bin/curl -fsS --max-time 8 https://ifconfig.me/ip 2>/dev/null ||
-    /usr/bin/curl -fsS --max-time 8 https://icanhazip.com 2>/dev/null ||
-    true
+  as_console_bash "$(_public_ip_snippet)" 2>/dev/null || true
+}
+
+public_ipv6() {
+  as_console_bash '/usr/bin/curl -6 -fsS --connect-timeout 3 --max-time 6 https://api64.ipify.org 2>/dev/null || /usr/bin/curl -6 -fsS --connect-timeout 3 --max-time 6 https://ifconfig.me/ip 2>/dev/null || true' 2>/dev/null || true
+}
+
+# Hotspot NAT is often not up on the first try. Keep asking for ~30s.
+wait_for_public_ip() {
+  local tries=0 ip
+  while [ "$tries" -lt 10 ]; do
+    ip="$(public_ip | /usr/bin/tr -d '[:space:]')"
+    if [ -n "$ip" ]; then
+      printf '%s\n' "$ip"
+      return 0
+    fi
+    tries=$((tries + 1))
+    /bin/sleep 3
+  done
+  return 1
 }
 
 # Console uid for launchctl bootout. Launch/restore set CONSOLE_UID;
@@ -502,37 +553,42 @@ restore_stashed_apps() {
   relink_zoom_helpers "$state"
 }
 
-# 1132 after a new name / MAC / Zoom 6.3 is the public IP. Do not open Zoom
-# on the same address.
+# 1132 after a new name / MAC / Zoom 6.3 is the public IP. Prefer a new
+# address. Do not refuse to open Zoom just because the lookup failed —
+# root's admin session often cannot read an IP at all.
 require_new_public_ip() {
   local state="$1"
   local before after v6
   before="$(public_ip | /usr/bin/tr -d '[:space:]')"
   printf '%s\n' "$before" >"$state/ip.before"
-  show_dialog "1132.WTF" "Public IP right now: ${before:-unknown}
+  if [ -n "$before" ]; then
+    show_dialog "1132.WTF" "Public IP right now: $before
 
-This Mac is the block. The workaround needs a new IP first, then it removes Zoom's machine token on this Mac.
+Connect a phone hotspot — not the same Wi-Fi. Then click OK. This app will keep trying for about 30 seconds." "note"
+  else
+    show_dialog "1132.WTF" "Could not read the public IP yet.
 
-Connect a phone hotspot — not the same Wi-Fi. Then click OK." "note"
-  after="$(public_ip | /usr/bin/tr -d '[:space:]')"
+Connect a phone hotspot — not the same Wi-Fi. Then click OK. This app will keep trying. Zoom will still open if the IP cannot be read." "note"
+  fi
+  after="$(wait_for_public_ip | /usr/bin/tr -d '[:space:]')"
   printf '%s\n' "$after" >"$state/ip.after"
-  if [ -z "$before" ] || [ -z "$after" ]; then
-    log_line "NET" "public IP unread before=$before after=$after"
-    show_dialog "1132.WTF" "Could not read the public IP. Zoom was not opened. Connect a hotspot and run STEP 1 again." "stop"
-    return 1
-  fi
-  if [ "$before" = "$after" ]; then
+  if [ -n "$before" ] && [ -n "$after" ] && [ "$before" = "$after" ]; then
     log_line "NET" "public IP unchanged $after"
-    show_dialog "1132.WTF" "Still $after. Same IP = 1132. Zoom was not opened. Connect a phone hotspot and run STEP 1 again." "stop"
+    show_dialog "1132.WTF" "Still $after. Same IP = 1132. Connect a phone hotspot and run STEP 1 again. Zoom was not opened." "stop"
     return 1
   fi
-  log_line "NET" "public IP $before -> $after"
+  if [ -z "$after" ]; then
+    log_line "NET" "public IP unread before=$before after=; opening Zoom anyway"
+    show_dialog "1132.WTF" "Still could not read the public IP. Opening Zoom on whatever network is up." "note"
+    isolate_network_path "$state" || true
+    return 0
+  fi
+  log_line "NET" "public IP ${before:-none} -> $after"
   isolate_network_path "$state"
   v6="$(public_ipv6 | /usr/bin/tr -d '[:space:]')"
   if [ -n "$v6" ]; then
-    log_line "NET" "IPv6 still visible $v6"
-    show_dialog "1132.WTF" "IPv4 changed, but IPv6 is still $v6. Zoom can still see the old network. Turn off Wi-Fi if the hotspot is USB. Zoom was not opened." "stop"
-    return 1
+    log_line "NET" "IPv6 still visible $v6; opening Zoom anyway"
+    show_dialog "1132.WTF" "IPv4 is $after but IPv6 is still $v6. Turn off home Wi-Fi if you can. Opening Zoom." "note"
   fi
   return 0
 }

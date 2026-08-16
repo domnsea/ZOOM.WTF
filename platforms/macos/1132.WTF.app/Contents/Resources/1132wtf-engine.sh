@@ -14,8 +14,8 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.26"
-BUNDLE_ID="wtf.fix1132.mac.26"
+APP_VERSION="1.0.27"
+BUNDLE_ID="wtf.fix1132.mac.27"
 
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
 LOG_DIR="$HOME/Library/Logs/$APP_NAME"

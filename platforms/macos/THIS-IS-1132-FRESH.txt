@@ -1,13 +1,13 @@
-THIS IS 1132 FRESH 1.0.26
+THIS IS 1132 FRESH 1.0.27
 =========================
 
 Lime green icon.
 Window title: 1132 FRESH
-Banner: 1132 FRESH 1.0.26   new login keychain
+Banner: 1132 FRESH 1.0.27   IP lookup fix
 Zip name: 1132-FRESH-macos.zip
 
-Creates a login keychain for the throwaway Zoom
-user and unlocks it when Zoom starts. That is
-why the last run said none were found.
+Reads the public IP as the logged-in user.
+Retries after the hotspot. Opens Zoom even
+if the IP still cannot be read.
 
-If the banner does not say 1.0.26, that is the OLD app. Trash it.
+If the banner does not say 1.0.27, that is the OLD app. Trash it.
