@@ -217,14 +217,16 @@ check_grep "macos v9 launch uses a disposable runtime home" "runtime-home" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos v9 restores the regular Zoom profile" "restore_profile.sh" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos app shows version 1.0.27 so an old copy is obvious" "1.0.27" \
+check_grep "macos app shows version 1.0.28 so an old copy is obvious" "1.0.28" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
 check_grep "macos reads the public IP as the logged-in user" "as_console_bash" \
   platforms/macos/1132.WTF.app/Contents/Resources/common.sh
 check_grep "macos retries the public IP after the hotspot" "wait_for_public_ip" \
   platforms/macos/1132.WTF.app/Contents/Resources/common.sh
-check_grep "macos still opens Zoom if the public IP cannot be read" "opening Zoom anyway" \
-  platforms/macos/1132.WTF.app/Contents/Resources/common.sh
+check_grep "macos creates the blank profile only after the hotspot prompt" "require_new_public_ip" \
+  platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
+check_grep "macos deletes the throwaway profile when Zoom quits" "delete_temp_user" \
+  platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos creates login.keychain-db for the throwaway user" "login.keychain-db" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos puts System.keychain on the throwaway search list" "/Library/Keychains/System.keychain" \
@@ -347,16 +349,18 @@ if "/Library/Keychains/System.keychain" not in helper:
     raise SystemExit("throwaway search list must include System.keychain")
 if "hold_zoom_closed" not in helper:
     raise SystemExit("launch must keep Zoom closed after a failed throwaway start")
-if "save_and_rotate_network" not in helper:
-    raise SystemExit("launch must rotate MAC and computer name for the session")
+if "save_and_rotate_network" in helper:
+    raise SystemExit("launch must not spoof the Wi-Fi MAC; that is tampering Zoom can see")
+if helper.find("require_new_public_ip") > helper.find("sysadminctl -addUser"):
+    raise SystemExit("hotspot must be ready before the blank Zoom profile is created")
+if "delete_temp_user" not in helper:
+    raise SystemExit("launch must delete the throwaway profile when Zoom quits")
 if "6.3.11.50104" not in helper or "zoomusInstallerFull.pkg" not in helper:
     raise SystemExit("launch must download official Zoom 6.3.11 instead of Applications Zoom")
 if "require_new_public_ip" not in helper:
-    raise SystemExit("launch must refuse Zoom until the public IP changes")
+    raise SystemExit("launch must wait for the hotspot before creating the blank profile")
 if "as_console_bash" not in Path("platforms/macos/1132.WTF.app/Contents/Resources/common.sh").read_text():
     raise SystemExit("public IP lookup must run as the logged-in user, not root")
-if "opening Zoom anyway" not in Path("platforms/macos/1132.WTF.app/Contents/Resources/common.sh").read_text():
-    raise SystemExit("unread public IP must not block Zoom")
 if "stash_system_zoom" not in helper:
     raise SystemExit("launch must hide Applications Zoom so the old client cannot open")
 if "bootout_zoom_system_jobs" not in helper:

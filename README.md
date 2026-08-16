@@ -59,7 +59,7 @@ STEP 1 - Right-click `INSTALL_TO_APPLICATIONS.command` → Open → Open
 
 STEP 2 - Click **STEP 1 - Fix Zoom**
 
-LAUNCH - Window must say **1132 FRESH 1.0.27**. Use **STEP 1 - OPEN FRESH ZOOM.command**. Lime icon.
+LAUNCH - Window must say **1132 FRESH 1.0.28**. Use **STEP 1 - OPEN FRESH ZOOM.command**. Lime icon.
 
 ### Linux
 

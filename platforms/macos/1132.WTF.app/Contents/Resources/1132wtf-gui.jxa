@@ -10,7 +10,7 @@ var retained = {}
 
 function run(argv) {
   var iconPath = argv.length ? argv[0] : ''
-  var version = argv.length > 1 ? argv[1] : '1.0.27'
+  var version = argv.length > 1 ? argv[1] : '1.0.28'
 
   var items = [
     'STEP 1 - Fix Zoom',
@@ -25,7 +25,7 @@ function run(argv) {
   $.NSApplication.sharedApplication.activateIgnoringOtherApps(true)
 
   var banner = $.NSTextField.alloc.initWithFrame($.NSMakeRect(0, 284, 448, 32))
-  banner.setStringValue('1132 FRESH 1.0.27   IP lookup fix')
+  banner.setStringValue('1132 FRESH 1.0.28   blank profile')
   banner.setFont($.NSFont.boldSystemFontOfSize(16))
   banner.setDrawsBackground(true)
   banner.setBackgroundColor($.NSColor.colorWithCalibratedRedGreenBlueAlpha(0.78, 1.0, 0.0, 1.0))
@@ -80,7 +80,7 @@ function run(argv) {
   alert.setMessageText('1132 FRESH')
   alert.setInformativeText(
     'v' + version + '\n' +
-    'STEP 1 looks up the public IP as your Mac login (root often cannot see it), creates a login keychain, then opens Zoom 6.3.11. Zoom still opens if the IP cannot be read. STEP 2 puts them back.'
+    'STEP 1: connect a hotspot, then a blank Zoom profile is created that has never seen your old IP. Quit Zoom and that profile is deleted. STEP 2 restores regular Zoom.'
   )
   if (iconPath) {
     var icon = $.NSImage.alloc.initWithContentsOfFile(iconPath)

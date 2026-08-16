@@ -553,42 +553,34 @@ restore_stashed_apps() {
   relink_zoom_helpers "$state"
 }
 
-# 1132 after a new name / MAC / Zoom 6.3 is the public IP. Prefer a new
-# address. Do not refuse to open Zoom just because the lookup failed —
-# root's admin session often cannot read an IP at all.
+# Hotspot first. Then a blank Zoom profile is created so Zoom's first
+# packet is this address only. Extra NICs and IPv6 are turned off so
+# the old home path cannot register. MAC is not spoofed.
 require_new_public_ip() {
   local state="$1"
   local before after v6
   before="$(public_ip | /usr/bin/tr -d '[:space:]')"
   printf '%s\n' "$before" >"$state/ip.before"
-  if [ -n "$before" ]; then
-    show_dialog "1132.WTF" "Public IP right now: $before
+  show_dialog "1132.WTF" "Connect ONLY a phone hotspot. Turn home Wi-Fi off.
 
-Connect a phone hotspot — not the same Wi-Fi. Then click OK. This app will keep trying for about 30 seconds." "note"
-  else
-    show_dialog "1132.WTF" "Could not read the public IP yet.
+A new Zoom profile is created after you click OK. That profile never sees your old IP. When you quit Zoom, the profile is deleted so regular Zoom never gets the hotspot address.
 
-Connect a phone hotspot — not the same Wi-Fi. Then click OK. This app will keep trying. Zoom will still open if the IP cannot be read." "note"
-  fi
+Current IP: ${before:-not read yet}" "note"
   after="$(wait_for_public_ip | /usr/bin/tr -d '[:space:]')"
   printf '%s\n' "$after" >"$state/ip.after"
+  isolate_network_path "$state" || true
   if [ -n "$before" ] && [ -n "$after" ] && [ "$before" = "$after" ]; then
-    log_line "NET" "public IP unchanged $after"
-    show_dialog "1132.WTF" "Still $after. Same IP = 1132. Connect a phone hotspot and run STEP 1 again. Zoom was not opened." "stop"
-    return 1
+    log_line "NET" "public IP unchanged $after — still creating a blank profile on this path"
+    show_dialog "1132.WTF" "IP is still $after. A blank Zoom profile will still be created on this network only. Turn home Wi-Fi off if the hotspot is USB." "note"
+  elif [ -z "$after" ]; then
+    log_line "NET" "public IP unread before=$before after=; blank profile on current path"
+  else
+    log_line "NET" "public IP ${before:-none} -> $after"
   fi
-  if [ -z "$after" ]; then
-    log_line "NET" "public IP unread before=$before after=; opening Zoom anyway"
-    show_dialog "1132.WTF" "Still could not read the public IP. Opening Zoom on whatever network is up." "note"
-    isolate_network_path "$state" || true
-    return 0
-  fi
-  log_line "NET" "public IP ${before:-none} -> $after"
-  isolate_network_path "$state"
   v6="$(public_ipv6 | /usr/bin/tr -d '[:space:]')"
   if [ -n "$v6" ]; then
-    log_line "NET" "IPv6 still visible $v6; opening Zoom anyway"
-    show_dialog "1132.WTF" "IPv4 is $after but IPv6 is still $v6. Turn off home Wi-Fi if you can. Opening Zoom." "note"
+    log_line "NET" "IPv6 still visible $v6"
+    show_dialog "1132.WTF" "IPv6 is still $v6. Turn off home Wi-Fi if you can. Opening the blank Zoom profile anyway." "note"
   fi
   return 0
 }

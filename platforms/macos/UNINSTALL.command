@@ -5,7 +5,7 @@
 set -u
 
 APP_NAME="1132.WTF"
-BUNDLE_ID="wtf.fix1132.mac.27"
+BUNDLE_ID="wtf.fix1132.mac.28"
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
 LOG_DIR="$HOME/Library/Logs/$APP_NAME"
 PLIST="$HOME/Library/LaunchAgents/$BUNDLE_ID.plist"
@@ -25,11 +25,12 @@ OLD23_PLIST="$HOME/Library/LaunchAgents/wtf.fix1132.mac.23.plist"
 OLD24_PLIST="$HOME/Library/LaunchAgents/wtf.fix1132.mac.24.plist"
 OLD25_PLIST="$HOME/Library/LaunchAgents/wtf.fix1132.mac.25.plist"
 OLD26_PLIST="$HOME/Library/LaunchAgents/wtf.fix1132.mac.26.plist"
+OLD27_PLIST="$HOME/Library/LaunchAgents/wtf.fix1132.mac.27.plist"
 
 printf '%s\n' "=== Uninstall $APP_NAME ==="
 printf '%s\n' ""
 
-for item in "$PLIST" "$OLD_PLIST" "$OLD12_PLIST" "$OLD13_PLIST" "$OLD14_PLIST" "$OLD15_PLIST" "$OLD16_PLIST" "$OLD17_PLIST" "$OLD18_PLIST" "$OLD19_PLIST" "$OLD20_PLIST" "$OLD21_PLIST" "$OLD22_PLIST" "$OLD23_PLIST" "$OLD24_PLIST" "$OLD25_PLIST" "$OLD26_PLIST"; do
+for item in "$PLIST" "$OLD_PLIST" "$OLD12_PLIST" "$OLD13_PLIST" "$OLD14_PLIST" "$OLD15_PLIST" "$OLD16_PLIST" "$OLD17_PLIST" "$OLD18_PLIST" "$OLD19_PLIST" "$OLD20_PLIST" "$OLD21_PLIST" "$OLD22_PLIST" "$OLD23_PLIST" "$OLD24_PLIST" "$OLD25_PLIST" "$OLD26_PLIST" "$OLD27_PLIST"; do
   /bin/launchctl bootout "gui/$(id -u)" "$item" >/dev/null 2>&1 ||
     /bin/launchctl unload "$item" >/dev/null 2>&1 || true
   rm -f "$item"

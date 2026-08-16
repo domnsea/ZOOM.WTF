@@ -490,7 +490,9 @@ if ! prepare_temp_keychain; then
   fail_throwaway_launch "throwaway keychain was not created"
 fi
 seed_zoom_prefs
-save_and_rotate_network "$ACTIVE_STATE"
+# Do not rotate the Wi-Fi MAC or hostname. That is tampering Zoom can
+# see. This profile is born on the hotspot and is deleted on quit, so
+# Zoom only ever registers the new address on a throwaway identity.
 
 # Aqua session of the logged-in desktop, process uid of the throwaway user.
 # Always pass the throwaway HOME. Never launch with the login account home.
@@ -547,15 +549,13 @@ log_line "LAUNCH" "OK Zoom is running as throwaway uid=$TEMP_UID stable=$stable 
 printf '%s\n' "$!" >"$ACTIVE_STATE/monitor.pid"
 printf '%s' "$DISPLAY_NAME" | /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/pbcopy >/dev/null 2>&1 || true
 notify_user "1132.WTF" "Fresh Zoom is opening as $DISPLAY_NAME"
-show_dialog "1132.WTF" "Zoom 6.3.11 is open as:
+show_dialog "1132.WTF" "Blank Zoom profile is open as:
 
 $DISPLAY_NAME
 
-A new login keychain was created for this Zoom. This Mac's Zoom machine token is gone for this session. Public IP changed. IPv6 is off.
+This profile did not exist until you were on the hotspot. It has no old Zoom addresses. Extra home networks are off. The Wi-Fi MAC was not spoofed.
 
-Join in THIS window. Do not open the Zoom in Applications.
+Join in THIS window only.
 
-If Join still says 1132, Zoom is reading the logic-board serial. This app cannot change that.
-
-When you quit Zoom, Applications Zoom, daemon, MAC, IPv6, and name are put back." "note"
+When you quit Zoom, this profile is deleted. Regular Zoom never receives the hotspot address." "note"
 exit 0
