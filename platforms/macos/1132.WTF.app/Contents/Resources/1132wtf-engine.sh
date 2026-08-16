@@ -14,7 +14,7 @@ set -u
 set -o pipefail
 
 APP_NAME="1132.WTF"
-APP_VERSION="1.0.34"
+APP_VERSION="1.0.35"
 BUNDLE_ID="wtf.fix1132.mac.31"
 
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"

@@ -217,11 +217,11 @@ check_grep "macos v9 launch uses a disposable runtime home" "runtime-home" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos v9 restores the regular Zoom profile" "restore_profile.sh" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos app shows version 1.0.34 so an old copy is obvious" "1.0.34" \
+check_grep "macos app shows version 1.0.35 so an old copy is obvious" "1.0.35" \
   platforms/macos/1132.WTF.app/Contents/MacOS/1132.WTF
 check_grep "macos zip filename includes the app version so Safari cannot reuse the old download" '1132-FRESH-${mac_ver}-macos' \
   tools/build_all.sh
-check_grep "macos START_HERE downloads a versioned zip" "1132-FRESH-1.0.34-macos.zip" \
+check_grep "macos START_HERE downloads a versioned zip" "1132-FRESH-1.0.35-macos.zip" \
   platforms/macos/START_HERE.txt
 check_grep "macos uses sudo in Terminal to become root" "sudo -p" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
@@ -251,7 +251,11 @@ check_grep "macos leftover recovery uses read_state_line so missing net files ar
   platforms/macos/1132.WTF.app/Contents/Resources/common.sh
 check_grep "macos leftover recovery kills the previous Zoom watcher" "stop_leftover_watchers" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
-check_grep "macos leftover recovery continues into a new Zoom" "Opening a new Zoom" \
+check_grep "macos STEP 1 moves hidden .zoomus device id" ".zoomus" \
+  platforms/macos/1132.WTF.app/Contents/Resources/common.sh
+check_grep "macos STEP 1 sweeps leftover Zoom.tbd files" "Zoom.tbd" \
+  platforms/macos/1132.WTF.app/Contents/Resources/common.sh
+check_grep "macos STEP 1 sweeps stray Zoom identity" "sweep_stray_zoom_identity" \
   platforms/macos/1132.WTF.app/Contents/Resources/launch_fresh_zoom.sh
 check_grep "macos leftover restore is quiet so STEP 1 does not look finished" "startup-recovery" \
   platforms/macos/1132.WTF.app/Contents/Resources/restore_profile.sh
@@ -356,6 +360,8 @@ if ' <"$state/net.computer"' in common:
     raise SystemExit("restore_network must not redirect a missing net.computer")
 if "RUNTIME_HOME" not in helper or "blank HOME" not in helper:
     raise SystemExit("launch must open Zoom on an empty runtime home")
+if "sweep_stray_zoom_identity" not in helper or ".zoomus" not in common:
+    raise SystemExit("launch must move ~/.zoomus and stray Zoom.tbd device-id files")
 if "stash_system_zoom" not in helper:
     raise SystemExit("launch must stash machine Zoom tokens")
 stash = common[common.find("stash_system_zoom"):common.find("relink_zoom_helpers")]

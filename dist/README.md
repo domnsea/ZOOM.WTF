@@ -6,7 +6,7 @@ compiling.
 | File | Platform | Then run |
 |---|---|---|
 | `1132.WTF-windows-1.0.0.zip` | Windows 10 and 11 | `1132.WTF.vbs` |
-| `1132-FRESH-1.0.34-macos.zip` | macOS 10.13+, Intel and Apple Silicon | `STEP 1 - OPEN FRESH ZOOM.command` |
+| `1132-FRESH-1.0.35-macos.zip` | macOS 10.13+, Intel and Apple Silicon | `STEP 1 - OPEN FRESH ZOOM.command` |
 | `1132.WTF-linux-1.0.0.tar.gz` | any distribution | `./install.sh` |
 | `1132.WTF-linux-1.0.0.zip` | same, for people who prefer zip | `./install.sh` |
 | `1132.WTF-android-1.0.0.zip` | Android 5.0+ | the `.apk` inside |

@@ -313,6 +313,7 @@ log_line "LAUNCH" "PROFILE_READY protected_items=$MOVED"
 # we are about to open.
 stash_system_zoom "$ACTIVE_STATE"
 wipe_user_zoom_keychain
+sweep_stray_zoom_identity "$ACTIVE_STATE/stray-zoom"
 
 /bin/mkdir -p \
   "$RUNTIME_HOME/tmp" \

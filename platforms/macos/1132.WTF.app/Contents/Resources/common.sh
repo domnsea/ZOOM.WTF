@@ -98,28 +98,41 @@ stop_zoom_processes() {
 }
 
 # Collect exact and discovered Zoom-owned profile locations under the current user.
+# ~/.zoomus and us.zoom.config.plist hold the client device id 1132 keys off.
 collect_zoom_targets() {
   local output="$1"
   : > "$output"
 
   cat >> "$output" <<'TARGETS'
+.zoomus
 Library/Application Support/zoom.us
 Library/Application Support/Zoom
+Library/Application Support/us.zoom.xos
+Library/Application Support/ZoomChat
+Library/Application Support/ZoomAutoUpdater
 Library/Caches/us.zoom.xos
 Library/Caches/zoom.us
+Library/Caches/com.zoom.us
 Library/Caches/us.zoom.ZoomAutoUpdater
+Library/Caches/us.zoom.updater
+Library/Caches/Zoom
 Library/Preferences/us.zoom.xos.plist
+Library/Preferences/us.zoom.config.plist
 Library/Preferences/zoom.us.plist
 Library/Preferences/ZoomChat.plist
 Library/Preferences/us.zoom.ZoomAutoUpdater.plist
+Library/Preferences/us.zoom.updater.plist
 Library/Preferences/us.zoom.airhost.plist
 Library/Logs/zoom.us
+Library/Logs/Zoom
 Library/Saved Application State/us.zoom.xos.savedState
 Library/WebKit/us.zoom.xos
+Library/WebKit/com.zoom.us
 Library/HTTPStorages/us.zoom.xos
 Library/HTTPStorages/us.zoom.xos.binarycookies
 Library/Cookies/us.zoom.xos.binarycookies
 Library/Containers/us.zoom.xos
+Library/Containers/com.zoom.us
 Library/Containers/us.zoom.ZoomAutoUpdater
 Library/Group Containers/BJ4HAAB9B3.ZoomClient3rd
 TARGETS
@@ -129,13 +142,15 @@ TARGETS
     "$HOME/Library/Application Support" \
     "$HOME/Library/Caches" \
     "$HOME/Library/Preferences" \
+    "$HOME/Library/Preferences/ByHost" \
     "$HOME/Library/Logs" \
     "$HOME/Library/Saved Application State" \
     "$HOME/Library/WebKit" \
     "$HOME/Library/HTTPStorages" \
     "$HOME/Library/Cookies" \
     "$HOME/Library/Containers" \
-    "$HOME/Library/Group Containers"; do
+    "$HOME/Library/Group Containers" \
+    "$HOME/Library/LaunchAgents"; do
     [[ -d "$parent" ]] || continue
     while IFS= read -r base; do
       [[ -n "$base" ]] || continue
@@ -146,6 +161,49 @@ TARGETS
 
   /usr/bin/awk 'NF && !seen[$0]++' "$output" > "$output.tmp"
   /bin/mv "$output.tmp" "$output"
+}
+
+# Anything collect_zoom_targets missed: Zoom.tbd, stray .zoomus, /var/folders
+# caches. 1132 survives when these stay in the real home while Zoom ignores HOME=.
+sweep_stray_zoom_identity() {
+  local dest="$1"
+  local path tag uid
+  uid="${CONSOLE_UID:-$(/usr/bin/id -u)}"
+  /bin/mkdir -p "$dest"
+  : >>"$dest/stray.list"
+  while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+    case "$path" in
+      *"/1132.WTF"*|*"/wtf.fix1132"*) continue ;;
+    esac
+    [[ -e "$path" || -L "$path" ]] || continue
+    tag="$(printf '%s' "$path" | /usr/bin/tr '/ ' '__')"
+    if /bin/mv "$path" "$dest/$tag" 2>/dev/null; then
+      printf '%s\t%s\n' "$path" "$tag" >> "$dest/stray.list"
+      log_line "SWEEP" "moved stray $path"
+    else
+      /bin/rm -rf "$path" 2>/dev/null || true
+      log_line "SWEEP" "removed stray $path"
+    fi
+  done < <(
+    /usr/bin/find "$HOME" -maxdepth 2 \( -name '.zoomus' -o -name 'Zoom.tbd' -o -iname 'zoom.tbd' \) 2>/dev/null
+    /usr/bin/find "$HOME/Library" -iname 'Zoom.tbd' 2>/dev/null
+    /usr/bin/find /var/folders -user "$uid" \( -iname '*zoom*' -o -iname 'us.zoom*' \) -maxdepth 6 2>/dev/null
+  )
+}
+
+restore_stray_zoom_identity() {
+  local dest="$1/stray-zoom"
+  local orig tag
+  [ -f "$dest/stray.list" ] || return 0
+  while IFS="$(printf '\t')" read -r orig tag; do
+    [ -n "$orig" ] && [ -n "$tag" ] || continue
+    if [ -e "$dest/$tag" ] || [ -L "$dest/$tag" ]; then
+      /bin/mkdir -p "$(/usr/bin/dirname "$orig")"
+      /bin/mv "$dest/$tag" "$orig" 2>/dev/null || true
+      log_line "SWEEP" "restored stray $orig"
+    fi
+  done <"$dest/stray.list"
 }
 
 kill_preferences_cache() {

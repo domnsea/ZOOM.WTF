@@ -1,17 +1,17 @@
-1132 FRESH 1.0.34 — Mac only
+1132 FRESH 1.0.35 — Mac only
 ============================
 
-The zip file must be named 1132-FRESH-1.0.34-macos.zip.
-If Downloads has 1132-FRESH-macos.zip or 1.0.33, that is the old file. Trash it.
+The zip file must be named 1132-FRESH-1.0.35-macos.zip.
+If Downloads has 1132-FRESH-macos.zip or 1.0.34, that is the old file. Trash it.
 
 Type your Mac password in Terminal.
-Zoom opens on THIS desktop with no saved settings.
+Zoom opens on THIS desktop with no saved device id.
 Quit Zoom and your regular Zoom is put back.
 
-https://github.com/domnsea/ZOOM.WTF/raw/cursor/build-1132-wtf-all-platforms-c565/dist/1132-FRESH-1.0.34-macos.zip
+https://github.com/domnsea/ZOOM.WTF/raw/cursor/build-1132-wtf-all-platforms-c565/dist/1132-FRESH-1.0.35-macos.zip
 
 STEP 1 - Right-click "STEP 1 - OPEN FRESH ZOOM.command" → Open → Open
 STEP 2 - Join only in the window it opened.
 LAUNCH - Quit Zoom when done.
 
-sudo rm -rf /Applications/1132.WTF.app && sudo cp -R "$HOME/Downloads/1132-FRESH-1.0.34-macos/1132.WTF.app" /Applications/1132.WTF.app && sudo chown -R "$(whoami):staff" /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app
+sudo rm -rf /Applications/1132.WTF.app && sudo cp -R "$HOME/Downloads/1132-FRESH-1.0.35-macos/1132.WTF.app" /Applications/1132.WTF.app && sudo chown -R "$(whoami):staff" /Applications/1132.WTF.app && xattr -cr /Applications/1132.WTF.app && open /Applications/1132.WTF.app

@@ -45,6 +45,7 @@ esac
 
 restore_network "$STATE_DIR"
 restore_stashed_apps "$STATE_DIR"
+restore_stray_zoom_identity "$STATE_DIR"
 
 kill_preferences_cache
 mkdir -p "$QUARANTINE"
