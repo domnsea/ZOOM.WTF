@@ -1,0 +1,86 @@
+name: Build BallR+ Android APK
+on:
+  push:
+    branches:
+      - build/ballrplus-android-20261023
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate BallR+ branded launcher icon
+        shell: bash
+        run: |
+          cd android-ballr
+          mkdir -p assets
+          python3 - <<'PY'
+          from pathlib import Path
+          import zlib,struct
+          W=512
+          raw=bytearray()
+          for y in range(W):
+              raw.append(0)
+              for x in range(W):
+                  dx=x-256;dy=y-256
+                  color=(5,11,7)
+                  if dx*dx+dy*dy<226*226:
+                      color=(209,251,5)
+                      if ((155<x<190 and 130<y<365) or
+                          (180<x<306 and (130<y<168 or 234<y<262 or 328<y<366)) or
+                          (292<x<332 and (152<y<240 or 253<y<346)) or
+                          (170<x<205 and 145<y<352)):
+                          color=(5,11,7)
+                      if 308<x<408 and 305<y<345:
+                          color=(253,0,147)
+                      if 338<x<376 and 274<y<377:
+                          color=(253,0,147)
+                  raw.extend(color)
+          def chunk(t,data):
+              return struct.pack('>I',len(data))+t+data+struct.pack('>I',zlib.crc32(t+data)&0xffffffff)
+          png=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>2I5B',W,W,8,2,0,0,0))+chunk(b'IDAT',zlib.compress(bytes(raw),9))+chunk(b'IEND',b'')
+          Path('assets/ballr-logo.png').write_bytes(png)
+          print('BallR+ icon generated:',len(png),'bytes')
+          PY
+      - name: Generate native Android platform and fetch dependencies
+        shell: bash
+        run: |
+          cd android-ballr
+          flutter --version
+          flutter create --project-name ballr_plus --org wtf.ballroom --platforms=android .
+          flutter pub get
+          dart run flutter_launcher_icons
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('android/app/src/main/AndroidManifest.xml')
+          s=p.read_text()
+          s=s.replace('<application', '<uses-permission android:name="android.permission.INTERNET" />\n    <application', 1)
+          s=s.replace('android:label="ballr_plus"', 'android:label="BallR+"')
+          p.write_text(s)
+          print('Android INTERNET permission and name verified')
+          PY
+      - name: Build release-mode sideload APK
+        shell: bash
+        run: |
+          cd android-ballr
+          flutter analyze
+          flutter build apk --release
+          mkdir -p ../deliverables
+          cp build/app/outputs/flutter-apk/app-release.apk ../deliverables/BallRPlus-Android-v1.0.1-sideload.apk
+          sha256sum ../deliverables/*.apk | tee ../deliverables/SHA256SUMS.txt
+          ls -lh ../deliverables/*.apk
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BallRPlus-Android-v1.0.1-APK
+          path: deliverables/
+          if-no-files-found: error
+          retention-days: 14
