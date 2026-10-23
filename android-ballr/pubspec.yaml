@@ -1,0 +1,26 @@
+name: ballr_plus
+description: BallR+ Android companion for Zoom and BallRoom
+publish_to: none
+version: 1.0.1+2
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  path_provider: ^2.1.5
+  url_launcher: ^6.3.2
+
+dev_dependencies:
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/ballr-logo.png
+  adaptive_icon_background: "#050B07"
+  adaptive_icon_foreground: assets/ballr-logo.png
+
+flutter:
+  uses-material-design: true
