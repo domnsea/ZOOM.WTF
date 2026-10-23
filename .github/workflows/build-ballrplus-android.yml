@@ -71,7 +71,11 @@ jobs:
         shell: bash
         run: |
           cd android-ballr
-          flutter analyze
+          # Flutter create adds a sample widget test for the default MyApp class.
+          # Remove only that generated test and its generated lint configuration.
+          rm -rf test
+          rm -f analysis_options.yaml
+          flutter analyze lib/main.dart
           flutter build apk --release
           mkdir -p ../deliverables
           cp build/app/outputs/flutter-apk/app-release.apk ../deliverables/BallRPlus-Android-v1.0.1-sideload.apk
