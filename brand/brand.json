@@ -29,6 +29,7 @@
     "muted": "#8A94A6",
     "accent": "#C8FF00",
     "accent2": "#FF6A00",
+    "card_stroke": "#3C6E18",
     "ok": "#22C55E",
     "warn": "#FFB020",
     "err": "#FF4D4D"

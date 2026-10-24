@@ -13,19 +13,21 @@ import android.widget.TextView;
 /**
  * Palette and view builders for the 1132.WTF look.
  *
- * The whole interface is built in code rather than in layout XML, so the app
- * needs no AndroidX or Material dependency and stays a handful of small
- * framework-only classes.
+ * Colours are the lime set in brand/brand.json. The previous navy/cyan values
+ * were the old interface. The whole interface is built in code rather than in
+ * layout XML, so the app needs no AndroidX or Material dependency and stays a
+ * handful of small framework-only classes.
  */
 final class Brand {
 
-    static final int BG = Color.parseColor("#0B0E14");
-    static final int BG_TOP = Color.parseColor("#141A26");
-    static final int BG_BOTTOM = Color.parseColor("#06080D");
+    static final int BG = Color.parseColor("#071400");
+    static final int BG_TOP = Color.parseColor("#163000");
+    static final int BG_BOTTOM = Color.parseColor("#030800");
     static final int INK = Color.parseColor("#F5F7FA");
     static final int MUTED = Color.parseColor("#8A94A6");
-    static final int ACCENT = Color.parseColor("#00E5FF");
-    static final int ACCENT2 = Color.parseColor("#FF2E88");
+    static final int ACCENT = Color.parseColor("#C8FF00");
+    static final int ACCENT2 = Color.parseColor("#FF6A00");
+    static final int CARD_STROKE = Color.parseColor("#3C6E18");
     static final int OK = Color.parseColor("#22C55E");
     static final int WARN = Color.parseColor("#FFB020");
     static final int ERR = Color.parseColor("#FF4D4D");
@@ -46,7 +48,7 @@ final class Brand {
         GradientDrawable background = new GradientDrawable();
         background.setColor(BG_TOP);
         background.setCornerRadius(dp(context, 16));
-        background.setStroke(dp(context, 1), Color.parseColor("#22304A"));
+        background.setStroke(dp(context, 1), CARD_STROKE);
         card.setBackground(background);
 
         int pad = dp(context, 18);

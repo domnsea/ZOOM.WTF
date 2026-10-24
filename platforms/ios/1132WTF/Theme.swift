@@ -1,19 +1,20 @@
 import SwiftUI
 
 /// Palette and reusable pieces for the 1132.WTF look.
+/// Colours match brand/brand.json. Navy/cyan was the old interface.
 enum Theme {
-    static let bg = Color(hex: 0x0B0E14)
-    static let bgTop = Color(hex: 0x141A26)
-    static let bgBottom = Color(hex: 0x06080D)
+    static let bg = Color(hex: 0x071400)
+    static let bgTop = Color(hex: 0x163000)
+    static let bgBottom = Color(hex: 0x030800)
     static let ink = Color(hex: 0xF5F7FA)
     static let muted = Color(hex: 0x8A94A6)
-    static let accent = Color(hex: 0x00E5FF)
-    static let accent2 = Color(hex: 0xFF2E88)
+    static let accent = Color(hex: 0xC8FF00)
+    static let accent2 = Color(hex: 0xFF6A00)
     static let ok = Color(hex: 0x22C55E)
     static let warn = Color(hex: 0xFFB020)
     static let err = Color(hex: 0xFF4D4D)
 
-    static let cardStroke = Color(hex: 0x22304A)
+    static let cardStroke = Color(hex: 0x3C6E18)
 }
 
 extension Color {

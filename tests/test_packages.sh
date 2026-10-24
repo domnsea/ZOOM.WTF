@@ -82,6 +82,28 @@ else
   fail "no ZOOM.WTF branding left in any platform package" "found in: $leftovers"
 fi
 
+# The lime palette in brand.json replaced navy/cyan. A screen that still
+# hardcodes the old values is the old interface.
+old_palette=""
+while IFS= read -r hit; do
+  old_palette="${old_palette:+$old_palette }$hit"
+done < <(grep -n -E '#0B0E14|#141A26|#06080D|#00E5FF|#FF2E88|#22304A' \
+  platforms/windows/1132WTF_APP.ps1 \
+  platforms/android/app/src/main/java/wtf/fix1132/android/Brand.java \
+  platforms/android/app/src/main/res/values/colors.xml \
+  platforms/ios/1132WTF/Theme.swift \
+  platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa \
+  2>/dev/null || true)
+if [ -z "$old_palette" ]; then
+  pass "app screens no longer use the navy/cyan palette"
+else
+  fail "app screens no longer use the navy/cyan palette" "$old_palette"
+fi
+check_grep "windows screen uses the lime accent" "#C8FF00" platforms/windows/1132WTF_APP.ps1
+check_grep "android screen uses the lime accent" "#C8FF00" platforms/android/app/src/main/java/wtf/fix1132/android/Brand.java
+check_grep "ios screen uses the lime accent" "0xC8FF00" platforms/ios/1132WTF/Theme.swift
+check_grep "macos banner uses the lime accent" "0.7843137255" platforms/macos/1132.WTF.app/Contents/Resources/1132wtf-gui.jxa
+
 for platform in windows macos linux android ios; do
   check "platforms/$platform has a README" test -f "platforms/$platform/README.md"
 done

@@ -28,7 +28,8 @@ function run(argv) {
   banner.setStringValue('1132 FRESH 1.0.35')
   banner.setFont($.NSFont.boldSystemFontOfSize(16))
   banner.setDrawsBackground(true)
-  banner.setBackgroundColor($.NSColor.colorWithCalibratedRedGreenBlueAlpha(0.78, 1.0, 0.0, 1.0))
+  // brand.json accent #C8FF00. 0.78 was a close stand-in for the same lime.
+  banner.setBackgroundColor($.NSColor.colorWithCalibratedRedGreenBlueAlpha(0.7843137255, 1.0, 0.0, 1.0))
   banner.setTextColor($.NSColor.blackColor)
   banner.setBezeled(false)
   banner.setEditable(false)
@@ -38,10 +39,12 @@ function run(argv) {
   var nameField = $.NSTextField.alloc.initWithFrame($.NSMakeRect(118, 252, 330, 24))
   nameField.setStringValue(randomDisplayName())
   nameField.setFont($.NSFont.systemFontOfSize(13))
+  paintEntry(nameField)
 
   var meetField = $.NSTextField.alloc.initWithFrame($.NSMakeRect(118, 220, 330, 24))
   meetField.setStringValue('')
   meetField.setFont($.NSFont.systemFontOfSize(13))
+  paintEntry(meetField)
 
   var nameLabel = labelAt(0, 254, 'Name to show')
   var meetLabel = labelAt(0, 222, 'Meeting #')
@@ -114,6 +117,15 @@ function run(argv) {
   var meeting = unwrap(meetField.stringValue) || ''
 
   return 'CHOICE=' + choice + '\nNAME=' + name + '\nMEETING=' + meeting
+}
+
+// Name and meeting fields use the same dark entry colours as the other apps.
+// The action list stays an AppKit table: its cells draw black text, and a dark
+// row background would hide the labels.
+function paintEntry(field) {
+  field.setDrawsBackground(true)
+  field.setBackgroundColor($.NSColor.colorWithCalibratedRedGreenBlueAlpha(0.0117647059, 0.0313725490, 0.0, 1.0))
+  field.setTextColor($.NSColor.colorWithCalibratedRedGreenBlueAlpha(0.9607843137, 0.9686274510, 0.9803921569, 1.0))
 }
 
 function labelAt(x, y, text) {
