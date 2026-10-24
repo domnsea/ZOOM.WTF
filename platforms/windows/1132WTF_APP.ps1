@@ -14,7 +14,6 @@ $ErrorActionPreference = 'Stop'
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-Add-Type -AssemblyName Microsoft.VisualBasic
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $AppName    = '1132.WTF'
@@ -24,22 +23,16 @@ $Engine     = Join-Path $Root '1132WTF_ENGINE.ps1'
 $IconPath   = Join-Path $Root 'assets\1132.WTF.ico'
 $LogDir     = Join-Path (Join-Path $env:ProgramData '1132.WTF') 'logs'
 
-if (-not (Test-Path -LiteralPath $Engine)) {
-    [void][System.Windows.Forms.MessageBox]::Show(
-        "1132WTF_ENGINE.ps1 is missing from:`n$Root`n`nKeep the package files together.",
-        $AppName, 'OK', 'Error')
-    exit 1
-}
-
 # ------------------------------------------------------------------ palette
+# Keep in sync with brand/brand.json. Navy/cyan was the old interface.
 
 $Palette = @{
-    Bg      = [System.Drawing.ColorTranslator]::FromHtml('#0B0E14')
-    Panel   = [System.Drawing.ColorTranslator]::FromHtml('#141A26')
+    Bg      = [System.Drawing.ColorTranslator]::FromHtml('#071400')
+    Panel   = [System.Drawing.ColorTranslator]::FromHtml('#163000')
     Ink     = [System.Drawing.ColorTranslator]::FromHtml('#F5F7FA')
     Muted   = [System.Drawing.ColorTranslator]::FromHtml('#8A94A6')
-    Accent  = [System.Drawing.ColorTranslator]::FromHtml('#00E5FF')
-    Accent2 = [System.Drawing.ColorTranslator]::FromHtml('#FF2E88')
+    Accent  = [System.Drawing.ColorTranslator]::FromHtml('#C8FF00')
+    Accent2 = [System.Drawing.ColorTranslator]::FromHtml('#FF6A00')
     Ok      = [System.Drawing.ColorTranslator]::FromHtml('#22C55E')
     Warn    = [System.Drawing.ColorTranslator]::FromHtml('#FFB020')
 }
@@ -49,6 +42,131 @@ $FontTitle = [System.Drawing.Font]::new('Segoe UI', 20, [System.Drawing.FontStyl
 $FontSub   = [System.Drawing.Font]::new('Segoe UI', 8.5)
 $FontBtn   = [System.Drawing.Font]::new('Segoe UI', 10, [System.Drawing.FontStyle]::Bold)
 $FontMono  = [System.Drawing.Font]::new('Consolas', 8.75)
+
+function Show-BrandPrompt {
+    param(
+        [Parameter(Mandatory = $true)][string]$Message,
+        [ValidateSet('Ok', 'YesNo', 'Input')][string]$Kind = 'Ok'
+    )
+
+    $dialog = [System.Windows.Forms.Form]::new()
+    $dialog.Text = $AppName
+    $dialog.FormBorderStyle = 'FixedDialog'
+    $dialog.MaximizeBox = $false
+    $dialog.MinimizeBox = $false
+    $dialog.ShowInTaskbar = $false
+    $dialog.StartPosition = 'CenterParent'
+    $dialog.BackColor = $Palette.Bg
+    $dialog.ForeColor = $Palette.Ink
+    $dialog.Font = $FontUi
+    if (Test-Path -LiteralPath $IconPath) {
+        try { $dialog.Icon = [System.Drawing.Icon]::new($IconPath) } catch {}
+    }
+
+    $measured = [System.Windows.Forms.TextRenderer]::MeasureText(
+        $Message,
+        $FontUi,
+        [System.Drawing.Size]::new(424, [int]::MaxValue),
+        ([System.Windows.Forms.TextFormatFlags]::WordBreak -bor [System.Windows.Forms.TextFormatFlags]::TextBoxControl))
+    $label = [System.Windows.Forms.Label]::new()
+    $label.Text = $Message
+    $label.ForeColor = $Palette.Ink
+    $label.BackColor = $Palette.Bg
+    $label.AutoSize = $false
+    $label.Location = [System.Drawing.Point]::new(18, 16)
+    $label.Size = [System.Drawing.Size]::new(424, [Math]::Max(24, $measured.Height + 4))
+    $dialog.Controls.Add($label)
+
+    $y = $label.Bottom + 14
+    $entry = $null
+    if ($Kind -eq 'Input') {
+        $entry = [System.Windows.Forms.TextBox]::new()
+        $entry.Location = [System.Drawing.Point]::new(18, $y)
+        $entry.Size = [System.Drawing.Size]::new(424, 24)
+        $entry.BackColor = [System.Drawing.ColorTranslator]::FromHtml('#030800')
+        $entry.ForeColor = $Palette.Ink
+        $entry.BorderStyle = 'FixedSingle'
+        $dialog.Controls.Add($entry)
+        $y = $entry.Bottom + 14
+    }
+
+    $dialog.ClientSize = [System.Drawing.Size]::new(460, ($y + 46))
+
+    $script:BrandPromptText = ''
+    if ($Kind -eq 'YesNo') {
+        $no = New-PromptButton -Text 'No' -Border $Palette.Muted -X 248 -Y $y
+        $yes = New-PromptButton -Text 'Yes' -Border $Palette.Accent -X 352 -Y $y
+        $no.DialogResult = [System.Windows.Forms.DialogResult]::No
+        $yes.DialogResult = [System.Windows.Forms.DialogResult]::Yes
+        $dialog.CancelButton = $no
+        $dialog.AcceptButton = $yes
+        $dialog.Controls.Add($no)
+        $dialog.Controls.Add($yes)
+    } elseif ($Kind -eq 'Input') {
+        $cancel = New-PromptButton -Text 'Cancel' -Border $Palette.Muted -X 248 -Y $y
+        $ok = New-PromptButton -Text 'OK' -Border $Palette.Ok -X 352 -Y $y
+        $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+        $ok.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $ok.Add_Click({ $script:BrandPromptText = $entry.Text }.GetNewClosure())
+        $dialog.CancelButton = $cancel
+        $dialog.AcceptButton = $ok
+        $dialog.Controls.Add($cancel)
+        $dialog.Controls.Add($ok)
+    } else {
+        $ok = New-PromptButton -Text 'OK' -Border $Palette.Accent -X 352 -Y $y
+        $ok.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $dialog.CancelButton = $ok
+        $dialog.AcceptButton = $ok
+        $dialog.Controls.Add($ok)
+    }
+
+    $owner = $null
+    $formVariable = Get-Variable -Name form -Scope Script -ErrorAction SilentlyContinue
+    if ($formVariable -and $form.Visible) { $owner = $form }
+    if ($null -ne $owner) {
+        [void]$dialog.ShowDialog($owner)
+    } else {
+        $dialog.StartPosition = 'CenterScreen'
+        [void]$dialog.ShowDialog()
+    }
+
+    $answeredYes = $dialog.DialogResult -eq [System.Windows.Forms.DialogResult]::Yes
+    $acceptedInput = $dialog.DialogResult -eq [System.Windows.Forms.DialogResult]::OK
+    $typed = [string]$script:BrandPromptText
+    $dialog.Dispose()
+
+    if ($Kind -eq 'YesNo') { return $answeredYes }
+    if ($Kind -eq 'Input') {
+        if ($acceptedInput) { return $typed }
+        return ''
+    }
+    return $true
+}
+
+function New-PromptButton {
+    param(
+        [string]$Text,
+        [System.Drawing.Color]$Border,
+        [int]$X,
+        [int]$Y
+    )
+    $b = [System.Windows.Forms.Button]::new()
+    $b.Text = $Text
+    $b.Size = [System.Drawing.Size]::new(96, 32)
+    $b.Location = [System.Drawing.Point]::new($X, $Y)
+    $b.FlatStyle = 'Flat'
+    $b.FlatAppearance.BorderSize = 1
+    $b.FlatAppearance.BorderColor = $Border
+    $b.BackColor = $Palette.Bg
+    $b.ForeColor = $Border
+    $b.Cursor = 'Hand'
+    return $b
+}
+
+if (-not (Test-Path -LiteralPath $Engine)) {
+    [void](Show-BrandPrompt -Message "1132WTF_ENGINE.ps1 is missing from:`n$Root`n`nKeep the package files together." -Kind Ok)
+    exit 1
+}
 
 # --------------------------------------------------------------------- form
 
@@ -143,7 +261,7 @@ $outputBox.Multiline = $true
 $outputBox.ReadOnly = $true
 $outputBox.ScrollBars = 'Vertical'
 $outputBox.Font = $FontMono
-$outputBox.BackColor = [System.Drawing.ColorTranslator]::FromHtml('#06080D')
+$outputBox.BackColor = [System.Drawing.ColorTranslator]::FromHtml('#030800')
 $outputBox.ForeColor = $Palette.Muted
 $outputBox.BorderStyle = 'FixedSingle'
 $outputBox.WordWrap = $false
@@ -324,20 +442,18 @@ $fix = New-ActionButton -Text 'STEP 1 - Fix Zoom' -Detail 'Wipe the old name and
 
 $deep = New-ActionButton -Text 'STEP 2 - Deep fix' -Detail 'Only if STEP 1 still fails. Asks for admin.' `
     -Accent $Palette.Accent2 -OnClick {
-        $answer = [System.Windows.Forms.MessageBox]::Show(
+        $answer = Show-BrandPrompt -Kind YesNo -Message (
             "STEP 1 - Click Yes. Allow admin when Windows asks.`n`n" +
             "STEP 2 - Wait. A temporary Windows user is created.`n`n" +
-            "LAUNCH - Zoom opens as that user. Join. Do not sign in as the old account.",
-            $AppName, 'YesNo', 'Question')
-        if ($answer -eq 'Yes') {
+            "LAUNCH - Zoom opens as that user. Join. Do not sign in as the old account.")
+        if ($answer) {
             Start-EngineAction -EngineAction 'deep-fix' -Header 'STEP 2 - Deep fix'
         }
     }
 
 $browser = New-ActionButton -Text 'STEP 3 - Join in browser' -Detail 'Only if STEP 1 and STEP 2 still fail' `
     -Accent $Palette.Ok -OnClick {
-        $url = [Microsoft.VisualBasic.Interaction]::InputBox(
-            "STEP 1 - Paste the meeting link`r`nSTEP 2 - Or leave blank`r`nLAUNCH", $AppName, '')
+        $url = Show-BrandPrompt -Kind Input -Message "STEP 1 - Paste the meeting link`r`nSTEP 2 - Or leave blank`r`nLAUNCH"
         $extra = @()
         if ($url) { $extra = @('-Url', ('"{0}"' -f $url)) }
         Start-EngineAction -EngineAction 'browser' -Header 'STEP 3 - Join in browser' -Extra $extra
@@ -381,9 +497,8 @@ $statusButton = New-SmallButton -Text 'Status' -OnClick {
     Start-EngineAction -EngineAction 'status' -Header 'Status report'
 }
 $restoreButton = New-SmallButton -Text 'Undo last fix' -OnClick {
-    $answer = [System.Windows.Forms.MessageBox]::Show(
-        "Put back the Zoom identity saved by the most recent fix?", $AppName, 'YesNo', 'Question')
-    if ($answer -eq 'Yes') {
+    $answer = Show-BrandPrompt -Kind YesNo -Message "Put back the Zoom identity saved by the most recent fix?"
+    if ($answer) {
         Start-EngineAction -EngineAction 'restore' -Header 'Restore previous Zoom identity'
     }
 }

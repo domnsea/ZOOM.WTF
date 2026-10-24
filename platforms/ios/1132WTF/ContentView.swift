@@ -51,6 +51,7 @@ struct ContentView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .tint(Theme.accent)
         .fullScreenCover(isPresented: $showCleanRoom) {
             CleanRoomView(url: MeetingLink.webClientURL(from: meetingInput))
         }

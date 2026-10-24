@@ -342,9 +342,11 @@ public class MainActivity extends Activity {
     private void askForEmailBase() {
         final EditText input = new EditText(this);
         input.setHint("you@gmail.com");
+        input.setHintTextColor(Brand.MUTED);
+        input.setTextColor(Brand.INK);
         input.setSingleLine(true);
 
-        new AlertDialog.Builder(this)
+        AlertDialog emailDialog = new AlertDialog.Builder(this)
                 .setTitle("New account email")
                 .setMessage("Zoom treats a plus-address as a different account, while your "
                         + "mail provider still delivers it to the same inbox. Enter your "
@@ -357,16 +359,18 @@ public class MainActivity extends Activity {
                     }
                     String alias = Identity.emailAlias(base);
                     copyToClipboard("Email alias", alias);
-                    new AlertDialog.Builder(MainActivity.this)
+                    AlertDialog copied = new AlertDialog.Builder(MainActivity.this)
                             .setTitle("Copied")
                             .setMessage(alias
                                     + "\n\nSign up for a new Zoom account with this, then join "
                                     + "the meeting with it.")
                             .setPositiveButton("Done", null)
-                            .show();
+                            .create();
+                    showBranded(copied);
                 })
                 .setNegativeButton("Cancel", null)
-                .show();
+                .create();
+        showBranded(emailDialog);
     }
 
     // -------------------------------------------------------- troubleshooting
@@ -402,6 +406,27 @@ public class MainActivity extends Activity {
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /** Shows a prompt and paints its buttons with the lime accent. */
+    private void showBranded(AlertDialog dialog) {
+        dialog.show();
+        tintDialogButtons(dialog);
+    }
+
+    /** Alert buttons pick up the lime accent instead of the framework default. */
+    private void tintDialogButtons(AlertDialog dialog) {
+        int[] which = new int[] {
+                AlertDialog.BUTTON_POSITIVE,
+                AlertDialog.BUTTON_NEGATIVE,
+                AlertDialog.BUTTON_NEUTRAL
+        };
+        for (int id : which) {
+            Button button = dialog.getButton(id);
+            if (button != null) {
+                button.setTextColor(Brand.ACCENT);
+            }
+        }
+    }
 
     private void copyToClipboard(String label, String value) {
         ClipboardManager clipboard =
